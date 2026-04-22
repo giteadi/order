@@ -10,7 +10,8 @@ import { CustomCursor } from './components/CustomCursor'
 import { FloatingCartButton } from './components/FloatingCartButton'
 import { HeroSection } from './components/HeroSection'
 import { FeatureSection } from './components/FeatureSection'
-import { EmojiSequence } from './components/ImageSequence'
+import { ImageCarousel } from './components/ImageCarousel'
+import { HighlightsStrip } from './components/HighlightsStrip'
 import { MultiLayerParallax } from './components/ParallaxSection'
 import { BottomNav } from './components/BottomNav'
 import { EmptyStateScreen } from './components/EmptyStateScreen'
@@ -134,7 +135,6 @@ function App() {
 
       {activeTab === 'home' && (
         <>
-          <HeroSection />
           <Header 
             tableNumber={tableNumber}
             showSearch={false}
@@ -144,18 +144,29 @@ function App() {
             onSearchChange={setSearchQuery}
             onGroupOrderClick={() => setIsGroupOrderOpen(true)}
             onCursorHover={setHovering}
+            variant="overlay"
           />
+          <HeroSection />
+          <HighlightsStrip />
           <FeatureSection 
             title="Premium Quality"
             description="Every cup is crafted with precision and passion"
-            icon="☕"
+            images={[
+              'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80',
+              'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&q=80',
+              'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&q=80'
+            ]}
             direction="left"
           />
-          <EmojiSequence emojis={['☕', '🫖', '🥛', '🍶', '☕']} />
+          <ImageCarousel />
           <FeatureSection 
             title="Artisan Craft"
             description="Traditional methods meet modern innovation"
-            icon="🎨"
+            images={[
+              'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800&q=80',
+              'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=800&q=80',
+              'https://images.unsplash.com/photo-1493857671505-72967e2cf276?w=800&q=80'
+            ]}
             direction="right"
           />
           <MultiLayerParallax />

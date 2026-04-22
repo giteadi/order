@@ -9,23 +9,31 @@ export const Header = ({
   searchQuery, 
   onSearchChange,
   onGroupOrderClick,
-  onCursorHover 
+  onCursorHover,
+  variant = 'sticky'
 }) => {
   return (
     <motion.header 
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-      className="sticky top-0 z-40 bg-white border-b border-gray-200"
+      className={`${variant === 'overlay' ? 'fixed' : 'sticky'} top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur border-b border-gray-200`}
     >
       <div className="max-w-7xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <motion.div
               whileHover={{ scale: 1.05 }}
-              className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent"
+              className="flex items-center gap-3"
             >
-              ArtHaus Café
+              <img 
+                src="https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=100&q=80" 
+                alt="ArtHaus Logo" 
+                className="w-10 h-10 rounded-full object-cover shadow-md"
+              />
+              <span className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent hidden sm:block">
+                ArtHaus Café
+              </span>
             </motion.div>
             <span className="text-sm text-gray-500">Table {tableNumber}</span>
           </div>
