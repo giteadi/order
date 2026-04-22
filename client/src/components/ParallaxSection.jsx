@@ -95,30 +95,46 @@ export const MultiLayerParallax = () => {
   return (
     <section 
       ref={sectionRef}
-      className="min-h-screen relative overflow-hidden bg-gradient-to-br from-gray-50 to-white dark:from-gray-950 dark:to-gray-900"
+      className="min-h-screen relative overflow-hidden bg-gradient-to-br from-gray-950 to-black"
     >
       {/* Background layer */}
       <div 
         ref={bgRef}
-        className="absolute inset-0 flex items-center justify-center text-[300px] opacity-5"
+        className="absolute inset-0 opacity-60 pointer-events-none"
       >
-        ☕
+        <img
+          src="https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1920&q=80"
+          alt="Cafe"
+          className="w-full h-full object-cover"
+          loading="lazy"
+        />
+        <div className="absolute inset-0 bg-black/60" />
       </div>
 
       {/* Middle layer */}
       <div 
         ref={midRef}
-        className="absolute inset-0 flex items-center justify-center text-[200px] opacity-10"
+        className="absolute inset-0 flex items-center justify-center opacity-35 pointer-events-none"
       >
-        🫖
+        <img
+          src="https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=1200&q=80"
+          alt="Coffee"
+          className="w-[85%] max-w-5xl h-[60%] object-cover rounded-[48px] blur-[1px]"
+          loading="lazy"
+        />
       </div>
 
       {/* Foreground layer */}
       <div 
         ref={fgRef}
-        className="absolute inset-0 flex items-center justify-center text-[100px] opacity-20"
+        className="absolute inset-0 flex items-end justify-center pb-16 opacity-70 pointer-events-none"
       >
-        🥛
+        <img
+          src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1200&q=80"
+          alt="Latte"
+          className="w-[520px] max-w-[92%] h-[320px] object-cover rounded-[42px] shadow-2xl"
+          loading="lazy"
+        />
       </div>
 
       {/* Content */}
@@ -127,10 +143,10 @@ export const MultiLayerParallax = () => {
         className="relative z-10 h-full flex items-center justify-center px-4"
       >
         <div className="text-center">
-          <h2 className="text-5xl md:text-7xl font-bold text-gray-900 dark:text-white mb-6">
+          <h2 className="text-5xl md:text-7xl font-bold text-white mb-6 drop-shadow-lg">
             Depth in Motion
           </h2>
-          <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-400">
+          <p className="text-xl md:text-2xl text-white/80 drop-shadow">
             Experience multi-layer parallax
           </p>
         </div>

@@ -78,7 +78,7 @@ export const ImageCarousel = ({
   return (
     <section 
       ref={containerRef}
-      className="min-h-screen flex items-center justify-center px-4 py-20 bg-gradient-to-br from-gray-900 to-gray-800"
+      className="relative z-10 min-h-screen flex items-center justify-center px-4 py-20 bg-gradient-to-br from-gray-900 to-gray-800"
     >
       <div className="max-w-6xl mx-auto w-full">
         <h2 className="text-4xl md:text-6xl font-bold text-white mb-12 text-center">

@@ -27,7 +27,6 @@ export const FeatureSection = ({ title, description, icon, images = [], directio
         start: 'top top',
         end: '+=120%',
         pin: true,
-        pinSpacing: false,
         scrub: 1,
       })
 
@@ -79,7 +78,7 @@ export const FeatureSection = ({ title, description, icon, images = [], directio
   return (
     <section 
       ref={sectionRef}
-      className="min-h-screen flex items-center justify-center px-4 py-20 bg-gradient-to-br from-gray-50 to-white dark:from-gray-950 dark:to-gray-900"
+      className="relative min-h-screen flex items-center justify-center px-4 py-20 bg-gradient-to-br from-gray-50 to-white dark:from-gray-950 dark:to-gray-900"
     >
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-8 md:gap-12">
         <div 

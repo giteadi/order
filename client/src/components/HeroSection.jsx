@@ -5,10 +5,10 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 gsap.registerPlugin(ScrollTrigger)
 
 const heroImages = [
-  'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1920&q=80',
-  'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=1920&q=80',
-  'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=1920&q=80',
-  'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=1920&q=80'
+  'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1920&q=80&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=1920&q=80&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=1920&q=80&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=1920&q=80&auto=format&fit=crop'
 ]
 
 export const HeroSection = () => {
@@ -18,9 +18,16 @@ export const HeroSection = () => {
   const subtitleRef = useRef(null)
   const [currentImage, setCurrentImage] = useState(0)
 
+  // Preload images to prevent render delay
+  useEffect(() => {
+    heroImages.forEach(src => {
+      const img = new Image()
+      img.src = src
+    })
+  }, [])
+
   useEffect(() => {
     const ctx = gsap.context(() => {
-      // Text reveal animation on load
       gsap.from(textRef.current, {
         y: 100,
         opacity: 0,
@@ -39,7 +46,7 @@ export const HeroSection = () => {
       const tl = gsap.timeline({
         scrollTrigger: {
           trigger: heroRef.current,
-          start: 'top top',
+          start: 'top+=1 top',
           end: '+=120%',
           scrub: true,
           pin: true,
@@ -83,9 +90,16 @@ export const HeroSection = () => {
   }, [])
 
   return (
-    <section ref={heroRef} className="relative h-screen overflow-hidden">
+    <section 
+      ref={heroRef} 
+      className="relative h-screen overflow-hidden"
+      style={{
+        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)'
+      }}
+    >
+
       {/* Background Image Carousel */}
-      <div ref={imageRef} className="absolute inset-0 w-full h-full">
+      <div ref={imageRef} className="absolute inset-0 w-full h-full z-0 will-change-transform">
         {heroImages.map((img, idx) => (
           <div
             key={idx}
@@ -97,8 +111,10 @@ export const HeroSection = () => {
               src={img}
               alt={`Hero ${idx + 1}`}
               className="w-full h-full object-cover"
+              loading="eager"
+              decoding="async"
             />
-            <div className="absolute inset-0 bg-black/40" />
+            <div className="absolute inset-0 bg-black/20" />
           </div>
         ))}
       </div>
@@ -117,13 +133,18 @@ export const HeroSection = () => {
       </div>
 
       <div className="relative z-10 h-full flex flex-col items-center justify-center px-4">
-        <h1 
+        <h1
           ref={textRef}
-          className="text-6xl sm:text-7xl md:text-9xl font-bold text-center text-white tracking-tight leading-[0.95] drop-shadow-lg will-change-transform"
+          className="text-6xl sm:text-7xl md:text-9xl font-bold text-center tracking-tight leading-[0.95] will-change-transform"
+          style={{
+            color: 'transparent',
+            WebkitTextStroke: '3px rgba(255,255,255,0.95)',
+            textShadow: '0 0 60px rgba(255,255,255,0.4), 0 0 100px rgba(255,255,255,0.2)'
+          }}
         >
           ArtHaus Café
         </h1>
-        <p 
+        <p
           ref={subtitleRef}
           className="mt-5 sm:mt-6 text-lg sm:text-xl md:text-2xl text-white/90 text-center max-w-2xl drop-shadow-md"
         >
@@ -136,6 +157,7 @@ export const HeroSection = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
         </svg>
       </div>
+
     </section>
   )
 }
