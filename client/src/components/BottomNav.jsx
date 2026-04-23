@@ -3,10 +3,10 @@ import { Link, useLocation } from 'react-router-dom'
 import { Home, Menu, ClipboardList, Receipt } from 'lucide-react'
 
 const tabs = [
-  { id: 'home', label: 'Home', icon: Home },
-  { id: 'menu', label: 'Menu', icon: Menu },
-  { id: 'orders', label: 'Orders', icon: ClipboardList },
-  { id: 'pay', label: 'Pay Bill', icon: Receipt },
+  { id: 'home', label: 'Home', icon: Home, path: '/' },
+  { id: 'menu', label: 'Menu', icon: Menu, path: '/menu' },
+  { id: 'orders', label: 'Orders', icon: ClipboardList, path: '/orders' },
+  { id: 'pay', label: 'Pay Bill', icon: Receipt, path: '/pay' },
 ]
 
 export const BottomNav = () => {
@@ -24,7 +24,7 @@ export const BottomNav = () => {
             return (
               <Link
                 key={tab.id}
-                to={`/${tab.id}`}
+                to={tab.path}
                 className="relative flex flex-col items-center justify-center py-2"
               >
                 <motion.div

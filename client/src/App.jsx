@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom'
 import Lenis from 'lenis'
+import { gsap } from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { Header } from './components/Header'
+
+gsap.registerPlugin(ScrollTrigger)
 import { CategoryTabs } from './components/CategoryTabs'
 import { SubcategorySidebar } from './components/SubcategorySidebar'
 import { ProductGrid } from './components/ProductGrid'
@@ -71,6 +75,16 @@ function App() {
 
   const activeTab = location.pathname.replace('/', '') || 'home'
 
+  // Kill all ScrollTriggers and reset body on route change
+  useEffect(() => {
+    console.log("Route changed:", location.pathname)
+    const triggers = ScrollTrigger.getAll()
+    triggers.forEach(trigger => trigger.kill())
+    ScrollTrigger.clearMatchMedia()
+    gsap.set(document.body, { clearProps: "all" })
+    window.scrollTo(0, 0)
+  }, [location.pathname])
+
   useEffect(() => {
     const lenis = new Lenis({
       duration: 1.2,
@@ -83,16 +97,18 @@ function App() {
       touchMultiplier: 2,
     })
 
+    let rafId
     function raf(time) {
       lenis.raf(time)
-      requestAnimationFrame(raf)
+      rafId = requestAnimationFrame(raf)
     }
-    requestAnimationFrame(raf)
+    rafId = requestAnimationFrame(raf)
 
     return () => {
+      cancelAnimationFrame(rafId)
       lenis.destroy()
     }
-  }, [])
+  }, [location.pathname])
 
 
   const handleAddToCart = (product, qty = 1) => {

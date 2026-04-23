@@ -11,13 +11,10 @@ const heroImages = [
   'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=1920&q=80&auto=format&fit=crop'
 ]
 
-// Shimmer component — har image ke liye alag loaded state
 const CarouselImage = ({ src, isActive }) => {
   const [loaded, setLoaded] = useState(false)
-
   return (
     <div className={`absolute inset-0 transition-opacity duration-1000 ${isActive ? 'opacity-100' : 'opacity-0'}`}>
-      {/* Shimmer placeholder — image load hone tak dikhega */}
       {!loaded && (
         <div className="absolute inset-0 bg-gradient-to-r from-stone-900 via-stone-700 to-stone-900 animate-pulse" />
       )}
@@ -41,17 +38,20 @@ export const HeroSection = () => {
   const subtitleRef = useRef(null)
   const [currentImage, setCurrentImage] = useState(0)
 
-  // Auto-rotate
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024
+
+  // Auto-rotate — sirf desktop pe
   useEffect(() => {
+    if (isMobile) return
     const timer = setInterval(() => {
       setCurrentImage(prev => (prev + 1) % heroImages.length)
     }, 5000)
     return () => clearInterval(timer)
   }, [])
 
-  // GSAP
+  // GSAP — sirf desktop pe
   useEffect(() => {
-    const isMobile = window.innerWidth < 1024
+    if (isMobile) return
 
     const ctx = gsap.context(() => {
       gsap.fromTo(textRef.current,
@@ -63,55 +63,86 @@ export const HeroSection = () => {
         { y: 0, opacity: 1, duration: 1.2, delay: 0.2, ease: 'power3.out' }
       )
 
-      if (!isMobile) {
-        const tl = gsap.timeline({
-          scrollTrigger: {
-            trigger: heroRef.current,
-            start: 'top top',
-            end: '+=120%',
-            scrub: 0.8,
-            pin: true,
-            anticipatePin: 1,
-            invalidateOnRefresh: true,
-            onLeaveBack: () => {
-              gsap.set(textRef.current, { clearProps: 'all' })
-              gsap.set(subtitleRef.current, { clearProps: 'all' })
-              gsap.set(imageRef.current, { clearProps: 'all' })
-            }
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: heroRef.current,
+          start: 'top top',
+          end: '+=120%',
+          scrub: 0.8,
+          pin: true,
+          pinType: 'transform',
+          anticipatePin: 1,
+          invalidateOnRefresh: true,
+          onLeaveBack: () => {
+            gsap.set(textRef.current, { clearProps: 'all' })
+            gsap.set(subtitleRef.current, { clearProps: 'all' })
+            gsap.set(imageRef.current, { clearProps: 'all' })
           }
-        })
+        }
+      })
 
-        tl.to(imageRef.current, {
-          scale: 1.2,
-          filter: 'brightness(0.6) blur(8px)',
-          ease: 'none'
-        }, 0)
+      tl.to(imageRef.current, {
+        scale: 1.2,
+        filter: 'brightness(0.6) blur(8px)',
+        ease: 'none'
+      }, 0)
 
-        tl.to(subtitleRef.current, {
-          opacity: 0,
-          y: -40,
-          ease: 'none'
-        }, 0)
+      tl.to(subtitleRef.current, {
+        opacity: 0,
+        y: -40,
+        ease: 'none'
+      }, 0)
 
-        tl.to(textRef.current, {
-          scale: 1.5,
-          opacity: 0,
-          transformOrigin: 'center center',
-          ease: 'none'
-        }, 0.6)
-      }
+      tl.to(textRef.current, {
+        scale: 1.5,
+        opacity: 0,
+        transformOrigin: 'center center',
+        ease: 'none'
+      }, 0.6)
     }, heroRef)
 
     return () => ctx.revert()
   }, [])
 
+  // ✅ Mobile — alag static render
+  if (isMobile) {
+    return (
+      <section
+        className="relative h-screen"
+        style={{ background: '#1a0a00' }}
+      >
+        {/* Sirf pehli image — static */}
+        <div className="absolute inset-0 w-full h-full z-0">
+          <CarouselImage src={heroImages[0]} isActive={true} />
+        </div>
+
+        {/* Text — no animation, direct visible */}
+        <div className="relative z-10 h-full flex flex-col items-center justify-center px-4">
+          <h1
+            className="text-6xl sm:text-7xl font-bold text-center tracking-tight leading-none"
+            style={{
+              color: 'transparent',
+              WebkitTextStroke: '3px rgba(255,255,255,0.95)',
+              textShadow: '0 0 60px rgba(255,255,255,0.4)'
+            }}
+          >
+            ArtHaus Café
+          </h1>
+          <p className="mt-5 text-lg sm:text-xl text-white/90 text-center max-w-2xl drop-shadow-md">
+            Experience coffee like never before
+          </p>
+        </div>
+      </section>
+    )
+  }
+
+  // ✅ Desktop — full animation
   return (
     <section
       ref={heroRef}
-      className="relative h-screen"    // overflow-hidden nahi
-      style={{ background: '#1a0a00' }} // fallback color jab tak image load ho
+      className="relative h-screen"
+      style={{ background: '#1a0a00' }}
     >
-      {/* Image Carousel */}
       <div ref={imageRef} className="absolute inset-0 w-full h-full z-0 will-change-transform">
         {heroImages.map((src, idx) => (
           <CarouselImage key={idx} src={src} isActive={idx === currentImage} />
@@ -131,7 +162,6 @@ export const HeroSection = () => {
         ))}
       </div>
 
-      {/* Content */}
       <div className="relative z-10 h-full flex flex-col items-center justify-center px-4">
         <h1
           ref={textRef}
@@ -152,7 +182,6 @@ export const HeroSection = () => {
         </p>
       </div>
 
-      {/* Scroll Arrow */}
       <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce z-20">
         <svg className="w-8 h-8 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
