@@ -364,40 +364,42 @@ function App() {
               selectedCategory={selectedCategory}
               onSelectCategory={setSelectedCategory}
             />
-            <div className="max-w-7xl mx-auto px-4 py-6 flex gap-6">
-              <SubcategorySidebar 
-                subcategories={menuData.subcategories[selectedCategory]}
-                selectedSubcategory={selectedSubcategory}
-                onSelectSubcategory={setSelectedSubcategory}
-              />
-              <div className="flex-1">
-                {/* Mobile Subcategory Selector */}
-                <div className="lg:hidden mb-4 overflow-x-auto pb-2 -mx-4 px-4">
-                  <div className="flex gap-2">
-                    {menuData.subcategories[selectedCategory]?.map((sub) => (
-                      <button
-                        key={sub.id}
-                        onClick={() => setSelectedSubcategory(sub.id)}
-                        className={`px-4 py-2 rounded-full whitespace-nowrap text-sm transition-all ${
-                          selectedSubcategory === sub.id
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {sub.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <h2 className="text-2xl font-bold mb-6 text-gray-900">
-                  {menuData.subcategories[selectedCategory]?.find(s => s.id === selectedSubcategory)?.name}
-                </h2>
-                <ProductGrid 
-                  products={filteredProducts}
-                  onAddToCart={addToCart}
-                  onProductClick={handleProductClick}
-                  onCursorHover={setHovering}
+            <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6">
+              <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] xl:grid-cols-[280px_1fr] gap-4 lg:gap-6">
+                <SubcategorySidebar 
+                  subcategories={menuData.subcategories[selectedCategory]}
+                  selectedSubcategory={selectedSubcategory}
+                  onSelectSubcategory={setSelectedSubcategory}
                 />
+                <div className="flex-1 min-w-0">
+                  {/* Mobile Subcategory Selector */}
+                  <div className="lg:hidden mb-4 overflow-x-auto pb-2 -mx-3 px-3 sm:-mx-4 sm:px-4">
+                    <div className="flex gap-2">
+                      {menuData.subcategories[selectedCategory]?.map((sub) => (
+                        <button
+                          key={sub.id}
+                          onClick={() => setSelectedSubcategory(sub.id)}
+                          className={`px-4 py-2 rounded-full whitespace-nowrap text-sm transition-all ${
+                            selectedSubcategory === sub.id
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {sub.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">
+                    {menuData.subcategories[selectedCategory]?.find(s => s.id === selectedSubcategory)?.name}
+                  </h2>
+                  <ProductGrid 
+                    products={filteredProducts}
+                    onAddToCart={addToCart}
+                    onProductClick={handleProductClick}
+                    onCursorHover={setHovering}
+                  />
+                </div>
               </div>
             </div>
           </>

@@ -71,17 +71,17 @@ export const HighlightsStrip = ({
 
   return (
     <section ref={sectionRef} className="py-10 md:py-14 bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex items-end justify-between gap-4 mb-6">
-          <h2 className="text-3xl md:text-5xl font-bold text-gray-900 tracking-tight">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4">
+        <div className="grid grid-cols-[1fr_auto] items-end gap-4 mb-6">
+          <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-gray-900 tracking-tight">
             {title}
           </h2>
-          <div className="text-sm text-gray-500 hidden md:block">Scroll</div>
+          <div className="text-xs sm:text-sm text-gray-500 hidden md:block">Scroll</div>
         </div>
 
         <div
           ref={trackRef}
-          className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory"
+          className="grid grid-flow-col auto-cols-[280px] sm:auto-cols-[360px] md:auto-cols-[420px] gap-4 overflow-x-auto pb-4 snap-x snap-mandatory"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {highlights.map((h, idx) => (

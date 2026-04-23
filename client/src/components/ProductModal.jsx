@@ -23,12 +23,12 @@ export const ProductModal = ({ isOpen, onClose, product, quantity, onQuantityCha
               className="glass-card rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto pointer-events-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-6xl sm:text-8xl">
+              <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 grid place-items-center text-6xl sm:text-8xl">
                 {product.image}
               </div>
               <div className="p-4 sm:p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1 pr-2">
+                <div className="grid grid-cols-[1fr_auto] items-start gap-2 mb-4">
+                  <div className="min-w-0">
                     <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">{product.name}</h2>
                     <p className="text-sm sm:text-base text-gray-500">{product.description}</p>
                   </div>
@@ -44,26 +44,27 @@ export const ProductModal = ({ isOpen, onClose, product, quantity, onQuantityCha
 
                 <div className="mb-6">
                   <label className="text-xs sm:text-sm text-gray-500 mb-2 block">Quantity</label>
-                  <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:gap-4">
                     <motion.button
                       whileTap={{ scale: 0.9 }}
                       onClick={() => onQuantityChange(Math.max(1, quantity - 1))}
-                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-full glass-card flex items-center justify-center"
+                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-full glass-card grid place-items-center"
                     >
                       <Minus size={18} className="sm:w-5 sm:h-5 text-gray-900" />
                     </motion.button>
-                    <span className="text-xl sm:text-2xl font-bold text-gray-900 min-w-[40px] text-center">{quantity}</span>
+                    <span className="text-xl sm:text-2xl font-bold text-gray-900 text-center">{quantity}</span>
                     <motion.button
                       whileTap={{ scale: 0.9 }}
                       onClick={() => onQuantityChange(quantity + 1)}
-                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-full glass-card flex items-center justify-center"
+                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-full glass-card grid place-items-center"
                     >
                       <Plus size={18} className="sm:w-5 sm:h-5 text-gray-900" />
                     </motion.button>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between mb-4">
+                <div className="grid grid-cols-[1fr_auto] items-center mb-4">
+                  <span className="text-xs sm:text-sm text-gray-500">Total</span>
                   <span className="text-2xl sm:text-3xl font-bold text-gray-900">₹{product.price * quantity}</span>
                 </div>
 

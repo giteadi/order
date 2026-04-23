@@ -10,7 +10,7 @@ export const ProductGrid = ({ products, onAddToCart, onProductClick, onCursorHov
       transition={{ delay: 0.5 }}
       className="flex-1"
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
         <AnimatePresence>
           {products.map((product, index) => (
             <ProductCard

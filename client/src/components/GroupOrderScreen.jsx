@@ -49,9 +49,9 @@ export const GroupOrderScreen = ({
           >
             {/* Header */}
             <div className="p-4 sm:p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center">
+              <div className="grid grid-cols-[1fr_auto] items-center gap-3 mb-4">
+                <div className="grid grid-flow-col auto-cols-max items-center gap-3">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 grid place-items-center">
                     <Users size={20} className="text-white" />
                   </div>
                   <div>
@@ -72,12 +72,12 @@ export const GroupOrderScreen = ({
               {/* Group Code */}
               <div className="glass rounded-xl sm:rounded-2xl p-3 sm:p-4">
                 <p className="text-xs text-gray-500 mb-1">Share this code with friends</p>
-                <div className="flex items-center justify-between">
+                <div className="grid grid-cols-[1fr_auto] items-center gap-3">
                   <span className="text-xl sm:text-2xl font-bold text-gray-900 tracking-wider">{groupCode}</span>
                   <motion.button
                     whileTap={{ scale: 0.9 }}
                     onClick={handleCopyCode}
-                    className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-gray-900 text-white text-xs sm:text-sm font-medium"
+                    className="grid grid-flow-col auto-cols-max items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-gray-900 text-white text-xs sm:text-sm font-medium"
                   >
                     {copied ? (
                       <>
@@ -97,7 +97,7 @@ export const GroupOrderScreen = ({
 
             {/* Members & Orders */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              <div className="space-y-4 sm:space-y-6">
+              <div className="grid gap-4 sm:gap-6">
                 {members.map((member) => {
                   const memberOrders = orders[member.id] || []
                   const memberTotal = memberOrders.reduce((sum, item) => sum + (item.price * item.quantity), 0)
@@ -110,20 +110,18 @@ export const GroupOrderScreen = ({
                       className={`glass-card rounded-2xl p-4 sm:p-5 ${isCurrentUser ? 'ring-2 ring-orange-500' : ''}`}
                     >
                       {/* Member Header */}
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
-                            {member.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900 text-sm sm:text-base">
-                              {member.name}
-                              {isCurrentUser && <span className="ml-2 text-xs text-orange-500">(You)</span>}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {memberOrders.length} {memberOrders.length === 1 ? 'item' : 'items'}
-                            </p>
-                          </div>
+                      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 grid place-items-center text-white font-bold text-sm">
+                          {member.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900 text-sm sm:text-base">
+                            {member.name}
+                            {isCurrentUser && <span className="ml-2 text-xs text-orange-500">(You)</span>}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {memberOrders.length} {memberOrders.length === 1 ? 'item' : 'items'}
+                          </p>
                         </div>
                         {memberTotal > 0 && (
                           <span className="text-base sm:text-lg font-bold text-gray-900">₹{memberTotal}</span>
@@ -132,21 +130,19 @@ export const GroupOrderScreen = ({
 
                       {/* Member's Orders */}
                       {memberOrders.length > 0 ? (
-                        <div className="space-y-2">
+                        <div className="grid gap-2">
                           {memberOrders.map((item, idx) => (
                             <motion.div
                               key={idx}
                               layout
-                              className="flex items-center justify-between p-2 sm:p-3 rounded-xl bg-white/50"
+                              className="grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl bg-white/50"
                             >
-                              <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                                <span className="text-xl sm:text-2xl">{item.image}</span>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{item.name}</p>
-                                  <p className="text-xs text-gray-500">₹{item.price} × {item.quantity}</p>
-                                </div>
+                              <span className="text-xl sm:text-2xl">{item.image}</span>
+                              <div className="min-w-0">
+                                <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{item.name}</p>
+                                <p className="text-xs text-gray-500">₹{item.price} × {item.quantity}</p>
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="grid grid-flow-col auto-cols-max items-center gap-2">
                                 <span className="text-sm font-semibold text-gray-900">₹{item.price * item.quantity}</span>
                                 {isCurrentUser && (
                                   <motion.button
@@ -172,7 +168,7 @@ export const GroupOrderScreen = ({
                         <motion.button
                           whileTap={{ scale: 0.98 }}
                           onClick={() => onAddItem(member.id)}
-                          className="w-full mt-3 py-2 sm:py-2.5 rounded-lg border-2 border-dashed border-gray-300 text-gray-600 hover:border-orange-500 hover:text-orange-500 transition-colors flex items-center justify-center gap-2 text-xs sm:text-sm font-medium"
+                          className="w-full mt-3 py-2 sm:py-2.5 rounded-lg border-2 border-dashed border-gray-300 text-gray-600 hover:border-orange-500 hover:text-orange-500 transition-colors grid grid-flow-col auto-cols-max place-items-center justify-center gap-2 text-xs sm:text-sm font-medium"
                         >
                           <Plus size={16} />
                           Add Item
@@ -187,9 +183,9 @@ export const GroupOrderScreen = ({
             {/* Footer - Checkout */}
             {totalItems > 0 && (
               <div className="border-t border-gray-200 p-4 sm:p-6 bg-white/95 backdrop-blur safe-area-bottom">
-                <div className="space-y-3 sm:space-y-4">
+                <div className="grid gap-3 sm:gap-4">
                   {/* Summary */}
-                  <div className="flex items-center justify-between">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs sm:text-sm text-gray-500">Total Items</p>
                       <p className="text-base sm:text-lg font-semibold text-gray-900">{totalItems} items</p>
@@ -205,7 +201,7 @@ export const GroupOrderScreen = ({
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.99 }}
                     onClick={onCheckout}
-                    className="w-full py-3 sm:py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl sm:rounded-2xl font-semibold text-sm sm:text-base shadow-lg flex items-center justify-center gap-2"
+                    className="w-full py-3 sm:py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl sm:rounded-2xl font-semibold text-sm sm:text-base shadow-lg grid grid-flow-col auto-cols-max place-items-center justify-center gap-2"
                   >
                     <ShoppingBag size={18} />
                     Place Group Order

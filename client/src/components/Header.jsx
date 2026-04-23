@@ -20,11 +20,11 @@ export const Header = ({
       className={`${variant === 'overlay' ? 'fixed' : 'sticky'} top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur border-b border-gray-200`}
     >
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-4">
+        <div className="grid grid-cols-[1fr_auto] items-center gap-2 sm:gap-4">
+          <div className="grid grid-flow-col auto-cols-max items-center gap-2 sm:gap-4">
             <motion.div
               whileHover={{ scale: 1.05 }}
-              className="flex items-center gap-2 sm:gap-3"
+              className="grid grid-flow-col auto-cols-max items-center gap-2 sm:gap-3"
             >
               <img 
                 src="https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=100&q=80" 
@@ -38,13 +38,13 @@ export const Header = ({
             <span className="text-xs sm:text-sm text-gray-500">Table {tableNumber}</span>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="grid grid-flow-col auto-cols-max items-center gap-2 sm:gap-3">
             {onGroupOrderClick && (
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={onGroupOrderClick}
-                className="hidden md:flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full glass-card text-xs sm:text-sm font-medium"
+                className="hidden md:grid grid-flow-col auto-cols-max items-center gap-2 px-3 sm:px-4 py-2 rounded-full glass-card text-xs sm:text-sm font-medium"
               >
                 <Users size={16} className="sm:w-[18px] sm:h-[18px]" />
                 <span className="hidden lg:inline">Group Order</span>
@@ -55,7 +55,7 @@ export const Header = ({
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
               onClick={onCartClick}
-              className="relative p-2 rounded-full glass-card hidden lg:flex"
+              className="relative p-2 rounded-full glass-card hidden lg:grid place-items-center"
               onMouseEnter={() => onCursorHover(true)}
               onMouseLeave={() => onCursorHover(false)}
             >
@@ -64,7 +64,7 @@ export const Header = ({
                 <motion.span
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-blue-500 rounded-full text-white text-xs font-bold flex items-center justify-center"
+                  className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-blue-500 rounded-full text-white text-xs font-bold grid place-items-center"
                 >
                   {cartCount}
                 </motion.span>

@@ -124,7 +124,7 @@ export const MultiLayerParallax = () => {
   return (
     <section 
       ref={sectionRef}
-      className="min-h-screen relative overflow-hidden bg-gradient-to-br from-gray-950 to-black"
+      className="min-h-screen relative overflow-hidden bg-gradient-to-br from-gray-950 to-black grid place-items-center"
     >
       {/* Background layer */}
       <div 
@@ -143,7 +143,7 @@ export const MultiLayerParallax = () => {
       {/* Middle layer */}
       <div 
         ref={midRef}
-        className="absolute inset-0 flex items-center justify-center opacity-35 pointer-events-none"
+        className="absolute inset-0 grid place-items-center opacity-35 pointer-events-none"
       >
         <img
           src="https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=1200&q=80"
@@ -156,7 +156,7 @@ export const MultiLayerParallax = () => {
       {/* Foreground layer */}
       <div 
         ref={fgRef}
-        className="absolute inset-0 flex items-end justify-center pb-16 opacity-70 pointer-events-none"
+        className="absolute inset-0 grid items-end justify-center pb-16 opacity-70 pointer-events-none"
       >
         <img
           src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1200&q=80"
@@ -169,13 +169,13 @@ export const MultiLayerParallax = () => {
       {/* Content */}
       <div 
         ref={textRef}
-        className="relative z-10 h-full flex items-center justify-center px-4"
+        className="relative z-10 h-full grid place-items-center px-4"
       >
-        <div className="text-center">
-          <h2 className="text-5xl md:text-7xl font-bold text-white mb-6 drop-shadow-lg">
+        <div className="grid gap-4 sm:gap-6 text-center">
+          <h2 className="text-4xl sm:text-5xl md:text-7xl font-bold text-white drop-shadow-lg">
             Depth in Motion
           </h2>
-          <p className="text-xl md:text-2xl text-white/80 drop-shadow">
+          <p className="text-lg sm:text-xl md:text-2xl text-white/80 drop-shadow">
             Experience multi-layer parallax
           </p>
         </div>

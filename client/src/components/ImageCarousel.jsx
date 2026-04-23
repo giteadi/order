@@ -95,16 +95,16 @@ export const ImageCarousel = ({
   return (
     <section 
       ref={containerRef}
-      className="relative z-10 min-h-screen flex items-center justify-center px-4 py-20 bg-gradient-to-br from-gray-900 to-gray-800"
+      className="relative z-10 min-h-screen grid place-items-center px-4 py-20 bg-gradient-to-br from-gray-900 to-gray-800"
     >
       <div className="max-w-6xl mx-auto w-full">
-        <h2 className="text-4xl md:text-6xl font-bold text-white mb-12 text-center">
+        <h2 className="text-3xl sm:text-4xl md:text-6xl font-bold text-white mb-8 sm:mb-12 text-center">
           {title}
         </h2>
         
         <div 
           ref={carouselRef}
-          className="relative w-full aspect-[16/9] md:aspect-[21/9] rounded-3xl overflow-hidden shadow-2xl bg-gray-800"
+          className="relative w-full aspect-[16/9] md:aspect-[21/9] rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl bg-gray-800"
         >
           {!imagesLoaded && (
             <div className="absolute inset-0 flex items-center justify-center">
@@ -138,22 +138,22 @@ export const ImageCarousel = ({
                   prevSlide()
                   setIsAutoPlaying(false)
                 }}
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+                className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 backdrop-blur-sm grid place-items-center text-white hover:bg-white/30 transition-colors"
               >
-                <ChevronLeft className="w-6 h-6" />
+                <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
               <button
                 onClick={() => {
                   nextSlide()
                   setIsAutoPlaying(false)
                 }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+                className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 backdrop-blur-sm grid place-items-center text-white hover:bg-white/30 transition-colors"
               >
-                <ChevronRight className="w-6 h-6" />
+                <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
 
               {/* Dots */}
-              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3">
+              <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 grid grid-flow-col auto-cols-max gap-2 sm:gap-3">
                 {images.map((_, idx) => (
                   <button
                     key={idx}

@@ -15,8 +15,8 @@ export const BottomNav = () => {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10 safe-area-bottom shadow-lg">
-      <div className="max-w-7xl mx-auto px-2">
-        <div className="grid grid-cols-4 py-2.5">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4">
+        <div className="grid grid-cols-4 gap-1 py-2.5">
           {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = tab.id === activeTab

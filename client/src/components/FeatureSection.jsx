@@ -86,52 +86,54 @@ export const FeatureSection = ({ title, description, icon, images = [], directio
   return (
     <section 
       ref={sectionRef}
-      className="relative min-h-screen flex items-center justify-center px-4 py-20 bg-gradient-to-br from-gray-50 to-white dark:from-gray-950 dark:to-gray-900"
+      className="relative min-h-screen grid place-items-center px-4 py-20 bg-gradient-to-br from-gray-50 to-white dark:from-gray-950 dark:to-gray-900"
     >
-      <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-8 md:gap-12">
-        <div 
-          ref={iconRef}
-          className="w-64 h-64 md:w-96 md:h-96 flex-shrink-0 rounded-3xl overflow-hidden shadow-2xl"
-        >
-          {images.length > 0 ? (
-            <div className="relative w-full h-full">
-              {images.map((img, idx) => (
-                <img
-                  key={idx}
-                  src={img}
-                  alt={title}
-                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
-                    idx === currentImage ? 'opacity-100' : 'opacity-0'
-                  }`}
-                />
-              ))}
-              {images.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                  {images.map((_, idx) => (
-                    <div
-                      key={idx}
-                      className={`w-2 h-2 rounded-full transition-colors ${
-                        idx === currentImage ? 'bg-white' : 'bg-white/50'
-                      }`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <span className="text-9xl md:text-[150px]">{icon}</span>
-          )}
-        </div>
-        <div 
-          ref={contentRef}
-          className="flex-1"
-        >
-          <h2 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-            {title}
-          </h2>
-          <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-400">
-            {description}
-          </p>
+      <div className="max-w-6xl mx-auto w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-8 md:gap-12">
+          <div 
+            ref={iconRef}
+            className="w-64 h-64 md:w-96 md:h-96 mx-auto rounded-3xl overflow-hidden shadow-2xl"
+          >
+            {images.length > 0 ? (
+              <div className="relative w-full h-full">
+                {images.map((img, idx) => (
+                  <img
+                    key={idx}
+                    src={img}
+                    alt={title}
+                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
+                      idx === currentImage ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  />
+                ))}
+                {images.length > 1 && (
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                    {images.map((_, idx) => (
+                      <div
+                        key={idx}
+                        className={`w-2 h-2 rounded-full transition-colors ${
+                          idx === currentImage ? 'bg-white' : 'bg-white/50'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <span className="text-9xl md:text-[150px]">{icon}</span>
+            )}
+          </div>
+          <div 
+            ref={contentRef}
+            className="grid gap-4 sm:gap-6 text-center md:text-left"
+          >
+            <h2 className="text-3xl sm:text-4xl md:text-6xl font-bold text-gray-900 dark:text-white">
+              {title}
+            </h2>
+            <p className="text-lg sm:text-xl md:text-2xl text-gray-600 dark:text-gray-400">
+              {description}
+            </p>
+          </div>
         </div>
       </div>
     </section>
