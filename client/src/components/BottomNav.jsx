@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { Link, useLocation } from 'react-router-dom'
 import { Home, Menu, ClipboardList, Receipt } from 'lucide-react'
 
 const tabs = [
@@ -8,7 +9,10 @@ const tabs = [
   { id: 'pay', label: 'Pay Bill', icon: Receipt },
 ]
 
-export const BottomNav = ({ activeTab, onTabChange }) => {
+export const BottomNav = () => {
+  const location = useLocation()
+  const activeTab = location.pathname.replace('/', '') || 'home'
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 glass border-t border-white/10">
       <div className="max-w-7xl mx-auto px-4">
@@ -18,9 +22,9 @@ export const BottomNav = ({ activeTab, onTabChange }) => {
             const isActive = tab.id === activeTab
 
             return (
-              <button
+              <Link
                 key={tab.id}
-                onClick={() => onTabChange(tab.id)}
+                to={`/${tab.id}`}
                 className="relative flex flex-col items-center justify-center py-2"
               >
                 <motion.div
@@ -39,7 +43,7 @@ export const BottomNav = ({ activeTab, onTabChange }) => {
                     className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-orange-500"
                   />
                 )}
-              </button>
+              </Link>
             )
           })}
         </div>

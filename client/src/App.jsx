@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom'
 import Lenis from 'lenis'
 import { Header } from './components/Header'
 import { CategoryTabs } from './components/CategoryTabs'
@@ -54,7 +55,8 @@ const menuData = {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState('menu')
+  const navigate = useNavigate()
+  const location = useLocation()
   const [selectedCategory, setSelectedCategory] = useState(2)
   const [selectedSubcategory, setSelectedSubcategory] = useState('espresso')
   const [isCartOpen, setIsCartOpen] = useState(false)
@@ -66,6 +68,8 @@ function App() {
   const tableNumber = useTableNumber()
   const { cursorPosition, isCursorHovering, setHovering } = useCursor()
   const { cart, addToCart, removeFromCart, updateQuantity, cartTotal } = useCart()
+
+  const activeTab = location.pathname.replace('/', '') || 'home'
 
   useEffect(() => {
     const lenis = new Lenis({
@@ -90,18 +94,6 @@ function App() {
     }
   }, [])
 
-  useEffect(() => {
-    const hash = window.location.hash.replace('#', '')
-    if (hash === 'home' || hash === 'menu' || hash === 'orders' || hash === 'pay') {
-      setActiveTab(hash)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (activeTab) {
-      window.history.replaceState(null, '', `${window.location.pathname}#${activeTab}`)
-    }
-  }, [activeTab])
 
   const handleAddToCart = (product, qty = 1) => {
     addToCart(product, qty)
@@ -123,7 +115,7 @@ function App() {
   }
 
   const startOrdering = () => {
-    setActiveTab('menu')
+    navigate('/menu')
   }
 
   return (
@@ -133,127 +125,144 @@ function App() {
         isCursorHovering={isCursorHovering} 
       />
 
-      {activeTab === 'home' && (
-        <>
-          <Header 
-            tableNumber={tableNumber}
-            showSearch={false}
-            onCartClick={() => setIsCartOpen(true)}
-            cartCount={cart.length}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onGroupOrderClick={() => setIsGroupOrderOpen(true)}
-            onCursorHover={setHovering}
-            variant="overlay"
-          />
-          <HeroSection />
-          <HighlightsStrip />
-          <FeatureSection 
-            title="Premium Quality"
-            description="Every cup is crafted with precision and passion"
-            images={[
-              'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80',
-              'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&q=80',
-              'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&q=80'
-            ]}
-            direction="left"
-          />
-          <ImageCarousel />
-          <FeatureSection 
-            title="Artisan Craft"
-            description="Traditional methods meet modern innovation"
-            images={[
-              'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800&q=80',
-              'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=800&q=80',
-              'https://images.unsplash.com/photo-1493857671505-72967e2cf276?w=800&q=80'
-            ]}
-            direction="right"
-          />
-          <MultiLayerParallax />
-        </>
-      )}
-
-      {activeTab === 'menu' && (
-        <>
-          <Header 
-            tableNumber={tableNumber}
-            showSearch={true}
-            onCartClick={() => setIsCartOpen(true)}
-            cartCount={cart.length}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onGroupOrderClick={() => setIsGroupOrderOpen(true)}
-            onCursorHover={setHovering}
-          />
-          <CategoryTabs 
-            categories={menuData.categories}
-            selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
-          />
-          <div className="max-w-7xl mx-auto px-4 py-6 flex gap-6">
-            <SubcategorySidebar 
-              subcategories={menuData.subcategories[selectedCategory]}
-              selectedSubcategory={selectedSubcategory}
-              onSelectSubcategory={setSelectedSubcategory}
+      <Routes>
+        <Route path="/" element={
+          <>
+            <Header 
+              tableNumber={tableNumber}
+              showSearch={false}
+              onCartClick={() => setIsCartOpen(true)}
+              cartCount={cart.length}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onGroupOrderClick={() => setIsGroupOrderOpen(true)}
+              onCursorHover={setHovering}
+              variant="overlay"
             />
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold mb-6 text-gray-900">
-                {menuData.subcategories[selectedCategory]?.find(s => s.id === selectedSubcategory)?.name}
-              </h2>
-              <ProductGrid 
-                products={filteredProducts}
-                onAddToCart={addToCart}
-                onProductClick={handleProductClick}
-                onCursorHover={setHovering}
+            <HeroSection />
+            <HighlightsStrip />
+            <FeatureSection 
+              title="Premium Quality"
+              description="Every cup is crafted with precision and passion"
+              images={[
+                'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80',
+                'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&q=80',
+                'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&q=80'
+              ]}
+              direction="left"
+            />
+            <ImageCarousel />
+            <FeatureSection 
+              title="Artisan Craft"
+              description="Traditional methods meet modern innovation"
+              images={[
+                'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800&q=80',
+                'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=800&q=80',
+                'https://images.unsplash.com/photo-1493857671505-72967e2cf276?w=800&q=80'
+              ]}
+              direction="right"
+            />
+            <MultiLayerParallax />
+          </>
+        } />
+        <Route path="/menu" element={
+          <>
+            <Header 
+              tableNumber={tableNumber}
+              showSearch={true}
+              onCartClick={() => setIsCartOpen(true)}
+              cartCount={cart.length}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onGroupOrderClick={() => setIsGroupOrderOpen(true)}
+              onCursorHover={setHovering}
+            />
+            <CategoryTabs 
+              categories={menuData.categories}
+              selectedCategory={selectedCategory}
+              onSelectCategory={setSelectedCategory}
+            />
+            <div className="max-w-7xl mx-auto px-4 py-6 flex gap-6">
+              <SubcategorySidebar 
+                subcategories={menuData.subcategories[selectedCategory]}
+                selectedSubcategory={selectedSubcategory}
+                onSelectSubcategory={setSelectedSubcategory}
               />
+              <div className="flex-1">
+                {/* Mobile Subcategory Selector */}
+                <div className="lg:hidden mb-4 overflow-x-auto pb-2 -mx-4 px-4">
+                  <div className="flex gap-2">
+                    {menuData.subcategories[selectedCategory]?.map((sub) => (
+                      <button
+                        key={sub.id}
+                        onClick={() => setSelectedSubcategory(sub.id)}
+                        className={`px-4 py-2 rounded-full whitespace-nowrap text-sm transition-all ${
+                          selectedSubcategory === sub.id
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {sub.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <h2 className="text-2xl font-bold mb-6 text-gray-900">
+                  {menuData.subcategories[selectedCategory]?.find(s => s.id === selectedSubcategory)?.name}
+                </h2>
+                <ProductGrid 
+                  products={filteredProducts}
+                  onAddToCart={addToCart}
+                  onProductClick={handleProductClick}
+                  onCursorHover={setHovering}
+                />
+              </div>
             </div>
-          </div>
-        </>
-      )}
-
-      {activeTab === 'orders' && (
-        <>
-          <Header 
-            tableNumber={tableNumber}
-            showSearch={false}
-            onCartClick={() => setIsCartOpen(true)}
-            cartCount={cart.length}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onGroupOrderClick={() => setIsGroupOrderOpen(true)}
-            onCursorHover={setHovering}
-          />
-          <EmptyStateScreen
-            icon="🍽️"
-            title="No Orders Yet"
-            subtitle="You haven't ordered anything yet. Place your first order."
-            ctaLabel="Start Ordering"
-            onCta={startOrdering}
-          />
-        </>
-      )}
-
-      {activeTab === 'pay' && (
-        <>
-          <Header 
-            tableNumber={tableNumber}
-            showSearch={false}
-            onCartClick={() => setIsCartOpen(true)}
-            cartCount={cart.length}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onGroupOrderClick={() => setIsGroupOrderOpen(true)}
-            onCursorHover={setHovering}
-          />
-          <EmptyStateScreen
-            icon="🧾"
-            title="No Bill Generated Yet"
-            subtitle="Your bill will appear here once you place your order."
-            ctaLabel="Start Ordering"
-            onCta={startOrdering}
-          />
-        </>
-      )}
+          </>
+        } />
+        <Route path="/orders" element={
+          <>
+            <Header 
+              tableNumber={tableNumber}
+              showSearch={false}
+              onCartClick={() => setIsCartOpen(true)}
+              cartCount={cart.length}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onGroupOrderClick={() => setIsGroupOrderOpen(true)}
+              onCursorHover={setHovering}
+            />
+            <EmptyStateScreen
+              icon="🍽️"
+              title="No Orders Yet"
+              subtitle="You haven't ordered anything yet. Place your first order."
+              ctaLabel="Start Ordering"
+              onCta={startOrdering}
+            />
+          </>
+        } />
+        <Route path="/pay" element={
+          <>
+            <Header 
+              tableNumber={tableNumber}
+              showSearch={false}
+              onCartClick={() => setIsCartOpen(true)}
+              cartCount={cart.length}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onGroupOrderClick={() => setIsGroupOrderOpen(true)}
+              onCursorHover={setHovering}
+            />
+            <EmptyStateScreen
+              icon="🧾"
+              title="No Bill Generated Yet"
+              subtitle="Your bill will appear here once you place your order."
+              ctaLabel="Start Ordering"
+              onCta={startOrdering}
+            />
+          </>
+        } />
+      </Routes>
 
       <CartSidebar 
         isOpen={isCartOpen}
@@ -289,10 +298,7 @@ function App() {
         }}
       />
 
-      <BottomNav
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      />
+      <BottomNav />
     </div>
   )
 }

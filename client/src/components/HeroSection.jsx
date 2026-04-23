@@ -11,6 +11,29 @@ const heroImages = [
   'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=1920&q=80&auto=format&fit=crop'
 ]
 
+// Shimmer component — har image ke liye alag loaded state
+const CarouselImage = ({ src, isActive }) => {
+  const [loaded, setLoaded] = useState(false)
+
+  return (
+    <div className={`absolute inset-0 transition-opacity duration-1000 ${isActive ? 'opacity-100' : 'opacity-0'}`}>
+      {/* Shimmer placeholder — image load hone tak dikhega */}
+      {!loaded && (
+        <div className="absolute inset-0 bg-gradient-to-r from-stone-900 via-stone-700 to-stone-900 animate-pulse" />
+      )}
+      <img
+        src={src}
+        alt=""
+        loading="eager"
+        decoding="async"
+        onLoad={() => setLoaded(true)}
+        className={`w-full h-full object-cover transition-opacity duration-700 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+      />
+      <div className="absolute inset-0 bg-black/30" />
+    </div>
+  )
+}
+
 export const HeroSection = () => {
   const heroRef = useRef(null)
   const textRef = useRef(null)
@@ -18,124 +41,101 @@ export const HeroSection = () => {
   const subtitleRef = useRef(null)
   const [currentImage, setCurrentImage] = useState(0)
 
-  // Preload images to prevent render delay
+  // Auto-rotate
   useEffect(() => {
-    heroImages.forEach(src => {
-      const img = new Image()
-      img.src = src
-    })
+    const timer = setInterval(() => {
+      setCurrentImage(prev => (prev + 1) % heroImages.length)
+    }, 5000)
+    return () => clearInterval(timer)
   }, [])
 
+  // GSAP
   useEffect(() => {
+    const isMobile = window.innerWidth < 1024
+
     const ctx = gsap.context(() => {
-      gsap.from(textRef.current, {
-        y: 100,
-        opacity: 0,
-        duration: 1.5,
-        ease: 'power4.out'
-      })
+      gsap.fromTo(textRef.current,
+        { y: 80, opacity: 0 },
+        { y: 0, opacity: 1, duration: 1.2, ease: 'power3.out' }
+      )
+      gsap.fromTo(subtitleRef.current,
+        { y: 40, opacity: 0 },
+        { y: 0, opacity: 1, duration: 1.2, delay: 0.2, ease: 'power3.out' }
+      )
 
-      gsap.from(subtitleRef.current, {
-        y: 50,
-        opacity: 0,
-        duration: 1.5,
-        delay: 0.3,
-        ease: 'power4.out'
-      })
+      if (!isMobile) {
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: heroRef.current,
+            start: 'top top',
+            end: '+=120%',
+            scrub: 0.8,
+            pin: true,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
+            onLeaveBack: () => {
+              gsap.set(textRef.current, { clearProps: 'all' })
+              gsap.set(subtitleRef.current, { clearProps: 'all' })
+              gsap.set(imageRef.current, { clearProps: 'all' })
+            }
+          }
+        })
 
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: heroRef.current,
-          start: 'top+=1 top',
-          end: '+=120%',
-          scrub: true,
-          pin: true,
-          anticipatePin: 1,
-        }
-      })
+        tl.to(imageRef.current, {
+          scale: 1.2,
+          filter: 'brightness(0.6) blur(8px)',
+          ease: 'none'
+        }, 0)
 
-      tl.to(imageRef.current, {
-        scale: 1.2,
-        filter: 'brightness(0.6) blur(8px)',
-        ease: 'none'
-      }, 0)
+        tl.to(subtitleRef.current, {
+          opacity: 0,
+          y: -40,
+          ease: 'none'
+        }, 0)
 
-      tl.to(subtitleRef.current, {
-        opacity: 0,
-        y: -50,
-        ease: 'none'
-      }, 0)
-
-      tl.to(textRef.current, {
-        scale: 10,
-        transformOrigin: 'center center',
-        ease: 'none'
-      }, 0)
-
-      tl.to(textRef.current, {
-        opacity: 0,
-        ease: 'none'
-      }, 0.85)
+        tl.to(textRef.current, {
+          scale: 1.5,
+          opacity: 0,
+          transformOrigin: 'center center',
+          ease: 'none'
+        }, 0.6)
+      }
     }, heroRef)
 
     return () => ctx.revert()
   }, [])
 
-  // Auto-rotate images
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentImage((prev) => (prev + 1) % heroImages.length)
-    }, 5000)
-    return () => clearInterval(timer)
-  }, [])
-
   return (
-    <section 
-      ref={heroRef} 
-      className="relative h-screen overflow-hidden"
-      style={{
-        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)'
-      }}
+    <section
+      ref={heroRef}
+      className="relative h-screen"    // overflow-hidden nahi
+      style={{ background: '#1a0a00' }} // fallback color jab tak image load ho
     >
-
-      {/* Background Image Carousel */}
+      {/* Image Carousel */}
       <div ref={imageRef} className="absolute inset-0 w-full h-full z-0 will-change-transform">
-        {heroImages.map((img, idx) => (
-          <div
-            key={idx}
-            className={`absolute inset-0 transition-opacity duration-1000 ${
-              idx === currentImage ? 'opacity-100' : 'opacity-0'
-            }`}
-          >
-            <img
-              src={img}
-              alt={`Hero ${idx + 1}`}
-              className="w-full h-full object-cover"
-              loading="eager"
-              decoding="async"
-            />
-            <div className="absolute inset-0 bg-black/20" />
-          </div>
+        {heroImages.map((src, idx) => (
+          <CarouselImage key={idx} src={src} isActive={idx === currentImage} />
         ))}
       </div>
 
-      {/* Image Indicators */}
+      {/* Dot Indicators */}
       <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 flex gap-2">
         {heroImages.map((_, idx) => (
           <button
             key={idx}
             onClick={() => setCurrentImage(idx)}
-            className={`w-2 h-2 rounded-full transition-all duration-300 ${
-              idx === currentImage ? 'w-8 bg-white' : 'bg-white/50'
+            className={`h-2 rounded-full transition-all duration-300 ${
+              idx === currentImage ? 'w-8 bg-white' : 'w-2 bg-white/50'
             }`}
           />
         ))}
       </div>
 
+      {/* Content */}
       <div className="relative z-10 h-full flex flex-col items-center justify-center px-4">
         <h1
           ref={textRef}
-          className="text-6xl sm:text-7xl md:text-9xl font-bold text-center tracking-tight leading-[0.95] will-change-transform"
+          className="text-6xl sm:text-7xl md:text-9xl font-bold text-center tracking-tight leading-none will-change-transform"
           style={{
             color: 'transparent',
             WebkitTextStroke: '3px rgba(255,255,255,0.95)',
@@ -146,18 +146,18 @@ export const HeroSection = () => {
         </h1>
         <p
           ref={subtitleRef}
-          className="mt-5 sm:mt-6 text-lg sm:text-xl md:text-2xl text-white/90 text-center max-w-2xl drop-shadow-md"
+          className="mt-5 sm:mt-6 text-lg sm:text-xl md:text-2xl text-white/90 text-center max-w-2xl drop-shadow-md will-change-transform"
         >
           Experience coffee like never before
         </p>
       </div>
 
+      {/* Scroll Arrow */}
       <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce z-20">
         <svg className="w-8 h-8 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
         </svg>
       </div>
-
     </section>
   )
 }
