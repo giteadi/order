@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
@@ -33,8 +33,22 @@ export const HighlightsStrip = ({
 }) => {
   const sectionRef = useRef(null)
   const trackRef = useRef(null)
+  const [mounted, setMounted] = useState(false)
+  const [isMobile, setIsMobile] = useState(true)
 
   useEffect(() => {
+    setMounted(true)
+    setIsMobile(window.innerWidth < 768)
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted || isMobile || !sectionRef.current) return
+
+    console.log('🎬 HighlightsStrip: Initializing GSAP')
+
     const ctx = gsap.context(() => {
       gsap.from(trackRef.current, {
         y: 30,
@@ -49,8 +63,11 @@ export const HighlightsStrip = ({
       })
     }, sectionRef)
 
-    return () => ctx.revert()
-  }, [])
+    return () => {
+      console.log('🧹 HighlightsStrip: Cleaning up')
+      ctx.revert()
+    }
+  }, [mounted, isMobile])
 
   return (
     <section ref={sectionRef} className="py-10 md:py-14 bg-gray-50">

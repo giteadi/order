@@ -23,6 +23,16 @@ export const ImageCarousel = ({
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isAutoPlaying, setIsAutoPlaying] = useState(autoPlay)
   const [imagesLoaded, setImagesLoaded] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [isMobile, setIsMobile] = useState(true)
+
+  useEffect(() => {
+    setMounted(true)
+    setIsMobile(window.innerWidth < 768)
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const nextSlide = () => {
     setCurrentIndex((prev) => (prev + 1) % images.length)
@@ -56,6 +66,10 @@ export const ImageCarousel = ({
   }, [images])
 
   useEffect(() => {
+    if (!mounted || isMobile || !containerRef.current) return
+
+    console.log('🎬 ImageCarousel: Initializing GSAP')
+
     const ctx = gsap.context(() => {
       gsap.from(carouselRef.current, {
         scale: 0.9,
@@ -70,8 +84,11 @@ export const ImageCarousel = ({
       })
     }, containerRef)
 
-    return () => ctx.revert()
-  }, [])
+    return () => {
+      console.log('🧹 ImageCarousel: Cleaning up')
+      ctx.revert()
+    }
+  }, [mounted, isMobile])
 
   if (images.length === 0) return null
 

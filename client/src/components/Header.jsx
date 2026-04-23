@@ -19,35 +19,35 @@ export const Header = ({
       transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
       className={`${variant === 'overlay' ? 'fixed' : 'sticky'} top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur border-b border-gray-200`}
     >
-      <div className="max-w-7xl mx-auto px-4 py-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <motion.div
               whileHover={{ scale: 1.05 }}
-              className="flex items-center gap-3"
+              className="flex items-center gap-2 sm:gap-3"
             >
               <img 
                 src="https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=100&q=80" 
                 alt="ArtHaus Logo" 
-                className="w-10 h-10 rounded-full object-cover shadow-md"
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shadow-md"
               />
-              <span className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent hidden sm:block">
+              <span className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent hidden sm:block">
                 ArtHaus Café
               </span>
             </motion.div>
-            <span className="text-sm text-gray-500">Table {tableNumber}</span>
+            <span className="text-xs sm:text-sm text-gray-500">Table {tableNumber}</span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {onGroupOrderClick && (
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={onGroupOrderClick}
-                className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full glass-card text-sm font-medium"
+                className="hidden md:flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full glass-card text-xs sm:text-sm font-medium"
               >
-                <Users size={18} />
-                Group Order
+                <Users size={16} className="sm:w-[18px] sm:h-[18px]" />
+                <span className="hidden lg:inline">Group Order</span>
               </motion.button>
             )}
 
@@ -55,7 +55,7 @@ export const Header = ({
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
               onClick={onCartClick}
-              className="relative p-2 rounded-full glass-card"
+              className="relative p-2 rounded-full glass-card hidden lg:flex"
               onMouseEnter={() => onCursorHover(true)}
               onMouseLeave={() => onCursorHover(false)}
             >
@@ -64,7 +64,7 @@ export const Header = ({
                 <motion.span
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full text-white text-xs flex items-center justify-center"
+                  className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-blue-500 rounded-full text-white text-xs font-bold flex items-center justify-center"
                 >
                   {cartCount}
                 </motion.span>
@@ -78,15 +78,15 @@ export const Header = ({
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="mt-4 relative"
+            className="mt-3 sm:mt-4 relative"
           >
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input
               type="text"
               placeholder="Search menu..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-2xl glass-card outline-none transition-all duration-300 focus:ring-2 focus:ring-blue-500/50"
+              className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 text-sm sm:text-base rounded-xl sm:rounded-2xl glass-card outline-none transition-all duration-300 focus:ring-2 focus:ring-blue-500/50"
             />
           </motion.div>
         )}

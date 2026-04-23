@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect } from 'react'
 import { Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom'
 import Lenis from 'lenis'
 import { gsap } from 'gsap'
@@ -6,6 +6,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { Header } from './components/Header'
 
 gsap.registerPlugin(ScrollTrigger)
+
 import { CategoryTabs } from './components/CategoryTabs'
 import { SubcategorySidebar } from './components/SubcategorySidebar'
 import { ProductGrid } from './components/ProductGrid'
@@ -21,13 +22,13 @@ import { MultiLayerParallax } from './components/ParallaxSection'
 import { BottomNav } from './components/BottomNav'
 import { EmptyStateScreen } from './components/EmptyStateScreen'
 import { GroupOrderSheet } from './components/GroupOrderSheet'
+import { GroupOrderScreen } from './components/GroupOrderScreen'
 import { useTableNumber } from './hooks/useTableNumber'
 import { useCart } from './hooks/useCart'
 import { useCursor } from './hooks/useCursor'
 
 const menuData = {
   categories: [
-    { id: 1, name: 'Art Supplies', icon: '🎨' },
     { id: 2, name: 'Coffee/Beverage Menu', icon: '☕' },
     { id: 3, name: 'Food Menu', icon: '🍽️' }
   ],
@@ -46,6 +47,15 @@ const menuData = {
       { id: 'milkshake', name: 'Milkshakes', count: 7 },
       { id: 'coolers', name: 'Coolers & Refreshers', count: 5 },
       { id: 'extras', name: 'Extras & Add-Ons', count: 15 }
+    ],
+    3: [
+      { id: 'breakfast', name: 'Breakfast', count: 8 },
+      { id: 'sandwiches', name: 'Sandwiches', count: 12 },
+      { id: 'pasta', name: 'Pasta', count: 10 },
+      { id: 'pizza', name: 'Pizza', count: 8 },
+      { id: 'burgers', name: 'Burgers', count: 6 },
+      { id: 'salads', name: 'Salads', count: 7 },
+      { id: 'desserts', name: 'Desserts', count: 10 }
     ]
   },
   products: {
@@ -53,7 +63,72 @@ const menuData = {
       { id: 1, name: 'Espresso', price: 120, image: '☕', description: 'Pure, bold, intense' },
       { id: 2, name: 'Americano', price: 140, image: '🫖', description: 'Smooth, diluted perfection' },
       { id: 3, name: 'Macchiato', price: 150, image: '🥛', description: 'Espresso marked with foam' },
-      { id: 4, name: 'Cortado', price: 160, image: '🍶', description: 'Balanced espresso with milk' }
+      { id: 4, name: 'Cortado', price: 160, image: '🍶', description: 'Balanced espresso with milk' },
+      { id: 5, name: 'Doppio', price: 180, image: '☕', description: 'Double espresso shot' },
+      { id: 6, name: 'Lungo', price: 150, image: '🫖', description: 'Long-pulled espresso' },
+      { id: 7, name: 'Ristretto', price: 170, image: '☕', description: 'Short, concentrated shot' },
+      { id: 8, name: 'Flat White', price: 190, image: '🥛', description: 'Velvety microfoam' },
+      { id: 9, name: 'Piccolo', price: 160, image: '🥛', description: 'Small latte' },
+      { id: 10, name: 'Affogato', price: 220, image: '🍨', description: 'Espresso over ice cream' },
+      { id: 11, name: 'Red Eye', price: 200, image: '☕', description: 'Espresso with drip coffee' }
+    ],
+    breakfast: [
+      { id: 101, name: 'Pancakes', price: 180, image: '🥞', description: 'Fluffy with maple syrup' },
+      { id: 102, name: 'French Toast', price: 200, image: '🍞', description: 'Classic breakfast favorite' },
+      { id: 103, name: 'Omelette', price: 150, image: '🍳', description: 'Three eggs, your choice' },
+      { id: 104, name: 'Avocado Toast', price: 220, image: '🥑', description: 'Fresh avocado on sourdough' },
+      { id: 105, name: 'Waffles', price: 190, image: '🧇', description: 'Crispy golden waffles' },
+      { id: 106, name: 'Breakfast Burrito', price: 210, image: '🌯', description: 'Eggs, cheese, beans' },
+      { id: 107, name: 'Bagel & Cream Cheese', price: 140, image: '🥯', description: 'Toasted bagel' },
+      { id: 108, name: 'Eggs Benedict', price: 250, image: '🍳', description: 'Poached eggs, hollandaise' }
+    ],
+    sandwiches: [
+      { id: 201, name: 'Club Sandwich', price: 250, image: '🥪', description: 'Triple decker classic' },
+      { id: 202, name: 'Grilled Cheese', price: 180, image: '🧀', description: 'Melted cheese perfection' },
+      { id: 203, name: 'BLT', price: 220, image: '🥓', description: 'Bacon, lettuce, tomato' },
+      { id: 204, name: 'Veggie Delight', price: 200, image: '🥗', description: 'Fresh vegetables & hummus' },
+      { id: 205, name: 'Turkey Club', price: 260, image: '🥪', description: 'Turkey, bacon, cheese' },
+      { id: 206, name: 'Reuben', price: 240, image: '🥪', description: 'Corned beef, sauerkraut' },
+      { id: 207, name: 'Caprese', price: 210, image: '🥪', description: 'Mozzarella, tomato, basil' },
+      { id: 208, name: 'Tuna Melt', price: 195, image: '🥪', description: 'Tuna salad, melted cheese' }
+    ],
+    pasta: [
+      { id: 301, name: 'Spaghetti Carbonara', price: 320, image: '🍝', description: 'Creamy Italian classic' },
+      { id: 302, name: 'Penne Arrabbiata', price: 280, image: '🍝', description: 'Spicy tomato sauce' },
+      { id: 303, name: 'Fettuccine Alfredo', price: 340, image: '🍝', description: 'Rich cream sauce' },
+      { id: 304, name: 'Pesto Pasta', price: 300, image: '🍝', description: 'Fresh basil pesto' },
+      { id: 305, name: 'Lasagna', price: 350, image: '🍝', description: 'Layered meat & cheese' },
+      { id: 306, name: 'Ravioli', price: 330, image: '🍝', description: 'Stuffed pasta pillows' },
+      { id: 307, name: 'Mac & Cheese', price: 260, image: '🍝', description: 'Creamy comfort food' },
+      { id: 308, name: 'Bolognese', price: 310, image: '🍝', description: 'Meat tomato sauce' }
+    ],
+    pizza: [
+      { id: 401, name: 'Margherita', price: 350, image: '🍕', description: 'Classic tomato & mozzarella' },
+      { id: 402, name: 'Pepperoni', price: 400, image: '🍕', description: 'Loaded with pepperoni' },
+      { id: 403, name: 'Veggie Supreme', price: 380, image: '🍕', description: 'Garden fresh vegetables' },
+      { id: 404, name: 'BBQ Chicken', price: 420, image: '🍕', description: 'Smoky BBQ sauce & chicken' },
+      { id: 405, name: 'Hawaiian', price: 390, image: '🍕', description: 'Ham & pineapple' },
+      { id: 406, name: 'Meat Lovers', price: 450, image: '🍕', description: 'All the meats' },
+      { id: 407, name: 'Four Cheese', price: 410, image: '🍕', description: 'Cheese blend delight' },
+      { id: 408, name: 'Mushroom', price: 370, image: '🍕', description: 'Fresh mushroom topping' }
+    ],
+    burgers: [
+      { id: 501, name: 'Classic Burger', price: 280, image: '🍔', description: 'Beef patty with all fixings' },
+      { id: 502, name: 'Cheese Burger', price: 320, image: '🍔', description: 'Double cheese delight' },
+      { id: 503, name: 'Veggie Burger', price: 260, image: '🍔', description: 'Plant-based patty' },
+      { id: 504, name: 'Chicken Burger', price: 300, image: '🍔', description: 'Grilled chicken breast' }
+    ],
+    salads: [
+      { id: 601, name: 'Caesar Salad', price: 220, image: '🥗', description: 'Romaine, parmesan, croutons' },
+      { id: 602, name: 'Greek Salad', price: 240, image: '🥗', description: 'Feta, olives, cucumber' },
+      { id: 603, name: 'Garden Salad', price: 200, image: '🥗', description: 'Fresh mixed greens' },
+      { id: 604, name: 'Quinoa Bowl', price: 280, image: '🥗', description: 'Protein-packed quinoa' }
+    ],
+    desserts: [
+      { id: 701, name: 'Chocolate Cake', price: 180, image: '🍰', description: 'Rich chocolate layers' },
+      { id: 702, name: 'Cheesecake', price: 200, image: '🍰', description: 'Creamy New York style' },
+      { id: 703, name: 'Brownie', price: 150, image: '🍫', description: 'Fudgy chocolate brownie' },
+      { id: 704, name: 'Ice Cream', price: 120, image: '🍨', description: 'Three scoops, your choice' }
     ]
   }
 }
@@ -65,6 +140,12 @@ function App() {
   const [selectedSubcategory, setSelectedSubcategory] = useState('espresso')
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [isGroupOrderOpen, setIsGroupOrderOpen] = useState(false)
+  const [isGroupOrderScreenOpen, setIsGroupOrderScreenOpen] = useState(false)
+  const [groupOrderData, setGroupOrderData] = useState({
+    code: '',
+    members: [],
+    orders: {}
+  })
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [quantity, setQuantity] = useState(1)
@@ -75,16 +156,7 @@ function App() {
 
   const activeTab = location.pathname.replace('/', '') || 'home'
 
-  // Kill all ScrollTriggers and reset body on route change
-  useEffect(() => {
-    console.log("Route changed:", location.pathname)
-    const triggers = ScrollTrigger.getAll()
-    triggers.forEach(trigger => trigger.kill())
-    ScrollTrigger.clearMatchMedia()
-    gsap.set(document.body, { clearProps: "all" })
-    window.scrollTo(0, 0)
-  }, [location.pathname])
-
+  // Initialize Lenis once on mount
   useEffect(() => {
     const lenis = new Lenis({
       duration: 1.2,
@@ -108,11 +180,52 @@ function App() {
       cancelAnimationFrame(rafId)
       lenis.destroy()
     }
+  }, [])
+
+  // Handle route changes separately
+  useEffect(() => {
+    console.log('🔄 Route changing to:', location.pathname)
+    
+    // Kill all ScrollTriggers before route change to prevent DOM manipulation issues
+    const triggers = ScrollTrigger.getAll()
+    console.log('🎯 Killing ScrollTriggers:', triggers.length)
+    triggers.forEach((trigger, index) => {
+      console.log(`  Trigger ${index}:`, trigger.vars?.trigger?.className || 'unknown')
+      trigger.kill(true) // true = immediately kill without animation
+    })
+    
+    // Scroll to top on route change
+    window.scrollTo(0, 0)
+    
+    // Refresh ScrollTrigger after route change
+    const timer = setTimeout(() => {
+      console.log('✅ ScrollTrigger refresh complete')
+      ScrollTrigger.refresh()
+    }, 100)
+
+    return () => {
+      console.log('🧹 Cleanup route effect for:', location.pathname)
+      clearTimeout(timer)
+    }
   }, [location.pathname])
 
 
   const handleAddToCart = (product, qty = 1) => {
-    addToCart(product, qty)
+    // If group order is active, add to group order
+    if (groupOrderData.code && groupOrderData.members.length > 0) {
+      setGroupOrderData(prev => ({
+        ...prev,
+        orders: {
+          ...prev.orders,
+          user1: [...(prev.orders.user1 || []), { ...product, quantity: qty }]
+        }
+      }))
+      setIsGroupOrderScreenOpen(true)
+    } else {
+      // Normal cart add
+      addToCart(product, qty)
+    }
+    
     setSelectedProduct(null)
     setQuantity(1)
   }
@@ -130,12 +243,65 @@ function App() {
     alert(`Order placed for Table ${tableNumber}! Total: ₹${cartTotal}`)
   }
 
+  const handleCreateGroupOrder = () => {
+    // Generate random group code
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase()
+    
+    // Initialize group with current user and demo data
+    setGroupOrderData({
+      code: code,
+      members: [
+        { id: 'user1', name: 'You' },
+        { id: 'user2', name: 'Rahul' },
+        { id: 'user3', name: 'Priya' }
+      ],
+      orders: {
+        user1: [
+          { id: 1, name: 'Espresso', price: 120, image: '☕', quantity: 2 }
+        ],
+        user2: [
+          { id: 2, name: 'Americano', price: 140, image: '🫖', quantity: 1 }
+        ],
+        user3: []
+      }
+    })
+    
+    setIsGroupOrderOpen(false)
+    setIsGroupOrderScreenOpen(true)
+  }
+
+  const handleAddItemToGroupOrder = (memberId) => {
+    // Close group order screen and open menu
+    setIsGroupOrderScreenOpen(false)
+    navigate('/menu')
+  }
+
+  const handleRemoveItemFromGroupOrder = (memberId, itemIndex) => {
+    setGroupOrderData(prev => ({
+      ...prev,
+      orders: {
+        ...prev.orders,
+        [memberId]: prev.orders[memberId].filter((_, idx) => idx !== itemIndex)
+      }
+    }))
+  }
+
+  const handleGroupOrderCheckout = () => {
+    const totalAmount = Object.values(groupOrderData.orders).reduce((sum, userOrders) => {
+      return sum + userOrders.reduce((userSum, item) => userSum + (item.price * item.quantity), 0)
+    }, 0)
+    
+    alert(`Group order placed for Table ${tableNumber}! Total: ₹${totalAmount}`)
+    setIsGroupOrderScreenOpen(false)
+    setGroupOrderData({ code: '', members: [], orders: {} })
+  }
+
   const startOrdering = () => {
     navigate('/menu')
   }
 
   return (
-    <div className="min-h-screen transition-colors duration-500 pb-20 bg-gray-50">
+    <div className="min-h-screen transition-colors duration-500 pb-24 md:pb-20 bg-gray-50">
       <CustomCursor 
         cursorPosition={cursorPosition} 
         isCursorHovering={isCursorHovering} 
@@ -308,10 +474,19 @@ function App() {
       <GroupOrderSheet
         isOpen={isGroupOrderOpen}
         onClose={() => setIsGroupOrderOpen(false)}
-        onCreate={() => {
-          setIsGroupOrderOpen(false)
-          alert('Group order created!')
-        }}
+        onCreate={handleCreateGroupOrder}
+      />
+
+      <GroupOrderScreen
+        isOpen={isGroupOrderScreenOpen}
+        onClose={() => setIsGroupOrderScreenOpen(false)}
+        groupCode={groupOrderData.code}
+        members={groupOrderData.members}
+        orders={groupOrderData.orders}
+        currentUser="user1"
+        onAddItem={handleAddItemToGroupOrder}
+        onRemoveItem={handleRemoveItemFromGroupOrder}
+        onCheckout={handleGroupOrderCheckout}
       />
 
       <BottomNav />

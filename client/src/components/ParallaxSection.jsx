@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
@@ -7,8 +7,20 @@ gsap.registerPlugin(ScrollTrigger)
 export const ParallaxSection = ({ children, speed = 0.5 }) => {
   const sectionRef = useRef(null)
   const contentRef = useRef(null)
+  const [mounted, setMounted] = useState(false)
+  const [isMobile, setIsMobile] = useState(true)
 
   useEffect(() => {
+    setMounted(true)
+    setIsMobile(window.innerWidth < 768)
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted || isMobile || !sectionRef.current) return
+
     const ctx = gsap.context(() => {
       // Parallax effect - background moves slower than foreground
       gsap.to(contentRef.current, {
@@ -24,7 +36,7 @@ export const ParallaxSection = ({ children, speed = 0.5 }) => {
     }, sectionRef)
 
     return () => ctx.revert()
-  }, [speed])
+  }, [speed, mounted, isMobile])
 
   return (
     <section ref={sectionRef} className="relative overflow-hidden">
@@ -41,8 +53,22 @@ export const MultiLayerParallax = () => {
   const midRef = useRef(null)
   const fgRef = useRef(null)
   const textRef = useRef(null)
+  const [mounted, setMounted] = useState(false)
+  const [isMobile, setIsMobile] = useState(true)
 
   useEffect(() => {
+    setMounted(true)
+    setIsMobile(window.innerWidth < 768)
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted || isMobile || !sectionRef.current) return
+
+    console.log('🎬 MultiLayerParallax: Initializing GSAP')
+
     const ctx = gsap.context(() => {
       // Background layer - slowest
       gsap.to(bgRef.current, {
@@ -89,8 +115,11 @@ export const MultiLayerParallax = () => {
       })
     }, sectionRef)
 
-    return () => ctx.revert()
-  }, [])
+    return () => {
+      console.log('🧹 MultiLayerParallax: Cleaning up')
+      ctx.revert()
+    }
+  }, [mounted, isMobile])
 
   return (
     <section 

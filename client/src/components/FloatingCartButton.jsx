@@ -9,13 +9,17 @@ export const FloatingCartButton = ({ cartCount, onClick }) => {
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
       onClick={onClick}
-      className="lg:hidden fixed bottom-6 right-6 w-16 h-16 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full shadow-2xl z-40 flex items-center justify-center"
+      className="lg:hidden fixed bottom-24 right-4 w-14 h-14 bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-full shadow-lg z-50 flex items-center justify-center"
     >
-      <ShoppingCart size={24} />
+      <ShoppingCart size={22} />
       {cartCount > 0 && (
-        <span className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 rounded-full text-white text-sm flex items-center justify-center">
+        <motion.span
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1 bg-blue-600 rounded-full text-white text-xs font-bold flex items-center justify-center shadow-md"
+        >
           {cartCount}
-        </span>
+        </motion.span>
       )}
     </motion.button>
   )

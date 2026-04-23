@@ -9,6 +9,16 @@ export const FeatureSection = ({ title, description, icon, images = [], directio
   const contentRef = useRef(null)
   const iconRef = useRef(null)
   const [currentImage, setCurrentImage] = useState(0)
+  const [isMobile, setIsMobile] = useState(true)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    setIsMobile(window.innerWidth < 1024)
+    const handleResize = () => setIsMobile(window.innerWidth < 1024)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   useEffect(() => {
     if (images.length > 1) {
@@ -20,18 +30,13 @@ export const FeatureSection = ({ title, description, icon, images = [], directio
   }, [images])
 
   useEffect(() => {
-    const ctx = gsap.context(() => {
-      // Pin section for scroll animation
-      ScrollTrigger.create({
-        trigger: sectionRef.current,
-        start: 'top top',
-        end: '+=120%',
-        pin: true,
-        scrub: 1,
-      })
+    if (!mounted || isMobile || !sectionRef.current) return
 
+    console.log('🎬 FeatureSection: Initializing GSAP')
+
+    const ctx = gsap.context(() => {
       // Image zoom animation
-      gsap.fromTo(iconRef.current, 
+      gsap.fromTo(iconRef.current,
         { scale: 0.8, rotation: -5 },
         {
           scale: 1,
@@ -72,8 +77,11 @@ export const FeatureSection = ({ title, description, icon, images = [], directio
       })
     }, sectionRef)
 
-    return () => ctx.revert()
-  }, [direction])
+    return () => {
+      console.log('🧹 FeatureSection: Cleaning up')
+      ctx.revert()
+    }
+  }, [direction, isMobile, mounted])
 
   return (
     <section 

@@ -41,31 +41,33 @@ export const ImageSequence = ({ images, containerRef }) => {
 
     const totalFrames = images.length
 
-    // ScrollTrigger for frame-by-frame animation
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: containerRef.current,
-        start: 'top top',
-        end: 'bottom bottom',
-        scrub: 1,
-      }
-    })
-
-    // Animate through frames
-    for (let i = 0; i < totalFrames; i++) {
-      tl.to({}, {
-        onStart: () => {
-          setCurrentFrame(i)
-          if (imagesRef.current[i]) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height)
-            ctx.drawImage(imagesRef.current[i], 0, 0, canvas.width, canvas.height)
-          }
+    const gsapCtx = gsap.context(() => {
+      // ScrollTrigger for frame-by-frame animation
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: containerRef.current,
+          start: 'top top',
+          end: 'bottom bottom',
+          scrub: 1,
         }
       })
-    }
+
+      // Animate through frames
+      for (let i = 0; i < totalFrames; i++) {
+        tl.to({}, {
+          onStart: () => {
+            setCurrentFrame(i)
+            if (imagesRef.current[i]) {
+              ctx.clearRect(0, 0, canvas.width, canvas.height)
+              ctx.drawImage(imagesRef.current[i], 0, 0, canvas.width, canvas.height)
+            }
+          }
+        })
+      }
+    }, containerRef)
 
     return () => {
-      ScrollTrigger.getAll().forEach(trigger => trigger.kill())
+      gsapCtx.revert()
     }
   }, [containerRef, images])
 
@@ -82,8 +84,20 @@ export const EmojiSequence = ({ emojis = ['☕', '🫖', '🥛', '🍶', '☕'] 
   const containerRef = useRef(null)
   const emojiRef = useRef(null)
   const textRef = useRef(null)
+  const [mounted, setMounted] = useState(false)
+  const [isMobile, setIsMobile] = useState(true)
 
   useEffect(() => {
+    setMounted(true)
+    setIsMobile(window.innerWidth < 768)
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted || isMobile || !containerRef.current) return
+
     const ctx = gsap.context(() => {
       // Frame-by-frame emoji animation
       const tl = gsap.timeline({
@@ -128,7 +142,7 @@ export const EmojiSequence = ({ emojis = ['☕', '🫖', '🥛', '🍶', '☕'] 
     }, containerRef)
 
     return () => ctx.revert()
-  }, [emojis])
+  }, [emojis, mounted, isMobile])
 
   return (
     <section 

@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
@@ -10,8 +10,20 @@ export const ScrollProductCard = ({ product, onAddToCart, onClick, index }) => {
   const cardRef = useRef(null)
   const imageRef = useRef(null)
   const textRef = useRef(null)
+  const [mounted, setMounted] = useState(false)
+  const [isMobile, setIsMobile] = useState(true)
 
   useEffect(() => {
+    setMounted(true)
+    setIsMobile(window.innerWidth < 768)
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted || isMobile) return
+
     const ctx = gsap.context(() => {
       // Staggered reveal on scroll
       gsap.from(cardRef.current, {
@@ -50,7 +62,7 @@ export const ScrollProductCard = ({ product, onAddToCart, onClick, index }) => {
     }, cardRef)
 
     return () => ctx.revert()
-  }, [])
+  }, [mounted, isMobile])
 
   return (
     <motion.div

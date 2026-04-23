@@ -37,21 +37,31 @@ export const HeroSection = () => {
   const imageRef = useRef(null)
   const subtitleRef = useRef(null)
   const [currentImage, setCurrentImage] = useState(0)
+  const [isMobile, setIsMobile] = useState(true)
+  const [mounted, setMounted] = useState(false)
 
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024
+  useEffect(() => {
+    setMounted(true)
+    setIsMobile(window.innerWidth < 1024)
+    const handleResize = () => setIsMobile(window.innerWidth < 1024)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   // Auto-rotate — sirf desktop pe
   useEffect(() => {
-    if (isMobile) return
+    if (!mounted || isMobile) return
     const timer = setInterval(() => {
       setCurrentImage(prev => (prev + 1) % heroImages.length)
     }, 5000)
     return () => clearInterval(timer)
-  }, [])
+  }, [mounted, isMobile])
 
   // GSAP — sirf desktop pe
   useEffect(() => {
-    if (isMobile) return
+    if (!mounted || isMobile || !heroRef.current) return
+
+    console.log('🎬 HeroSection: Initializing GSAP animations')
 
     const ctx = gsap.context(() => {
       gsap.fromTo(textRef.current,
@@ -63,46 +73,51 @@ export const HeroSection = () => {
         { y: 0, opacity: 1, duration: 1.2, delay: 0.2, ease: 'power3.out' }
       )
 
-      const tl = gsap.timeline({
+      // Scroll-based animations without pin (pin causes DOM issues on unmount)
+      gsap.to(imageRef.current, {
+        scale: 1.2,
+        filter: 'brightness(0.6) blur(8px)',
+        ease: 'none',
         scrollTrigger: {
           trigger: heroRef.current,
           start: 'top top',
-          end: '+=120%',
+          end: 'bottom top',
           scrub: 0.8,
-          pin: true,
-          pinType: 'transform',
-          anticipatePin: 1,
-          invalidateOnRefresh: true,
-          onLeaveBack: () => {
-            gsap.set(textRef.current, { clearProps: 'all' })
-            gsap.set(subtitleRef.current, { clearProps: 'all' })
-            gsap.set(imageRef.current, { clearProps: 'all' })
-          }
         }
       })
 
-      tl.to(imageRef.current, {
-        scale: 1.2,
-        filter: 'brightness(0.6) blur(8px)',
-        ease: 'none'
-      }, 0)
-
-      tl.to(subtitleRef.current, {
+      gsap.to(subtitleRef.current, {
         opacity: 0,
         y: -40,
-        ease: 'none'
-      }, 0)
+        ease: 'none',
+        scrollTrigger: {
+          trigger: heroRef.current,
+          start: 'top top',
+          end: 'bottom top',
+          scrub: 0.8,
+        }
+      })
 
-      tl.to(textRef.current, {
+      gsap.to(textRef.current, {
         scale: 1.5,
         opacity: 0,
         transformOrigin: 'center center',
-        ease: 'none'
-      }, 0.6)
+        ease: 'none',
+        scrollTrigger: {
+          trigger: heroRef.current,
+          start: 'top top',
+          end: 'bottom top',
+          scrub: 0.8,
+        }
+      })
     }, heroRef)
 
-    return () => ctx.revert()
-  }, [])
+    return () => {
+      console.log('🧹 HeroSection: Cleaning up GSAP context')
+      ctx.revert()
+      console.log('✅ HeroSection: Cleanup complete')
+    }
+  }, [isMobile, mounted])
 
   // ✅ Mobile — alag static render
   if (isMobile) {
