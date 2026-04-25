@@ -51,6 +51,7 @@ import { LoginScreen } from './components/LoginScreen'
 import { RegisterScreen } from './components/RegisterScreen'
 import { ForgotPasswordScreen } from './components/ForgotPasswordScreen'
 import { ProfileScreen } from './components/ProfileScreen'
+import { AdminDashboard } from './components/AdminDashboard'
 import { useTableNumber } from './hooks/useTableNumber'
 import { useCursor } from './hooks/useCursor'
 
@@ -511,8 +512,17 @@ function App() {
                   token: data.token,
                   refreshToken: data.refreshToken,
                 }))
+                
+                // Auto-redirect for admin/super admin
+                const userRole = data.user.role
+                if (userRole === 'admin' || userRole === 'super_admin') {
+                  navigate('/admin')
+                } else {
+                  navigate('/menu')
+                }
+              } else {
+                navigate('/menu')
               }
-              navigate('/menu')
             }}
             onNavigateToRegister={() => navigate('/register')}
             onNavigateToForgot={() => navigate('/forgot-password')}
@@ -534,6 +544,7 @@ function App() {
           />
         } />
         <Route path="/profile" element={<ProfileScreen />} />
+        <Route path="/admin" element={<AdminDashboard />} />
       </Routes>
 
       <CartSidebar 

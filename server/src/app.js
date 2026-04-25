@@ -5,14 +5,16 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 
 import { CONFIG } from './config/index.js';
-import { dbManager } from './database/connection.js';
+import { dbManager, getDB } from './database/connection.js';
 import { initializeDatabase } from './database/init.js';
 import { Logger } from './utils/logger.js';
 import { 
   errorHandler, 
   notFoundHandler, 
-  timeoutHandler 
+  timeoutHandler,
+  asyncHandler 
 } from './middleware/errorHandler.js';
+import { tenantMiddleware, filterByTenant } from './middleware/tenant.js';
 import routes from './routes/index.js';
 
 const logger = Logger.getInstance();
@@ -69,6 +71,12 @@ app.use(timeoutHandler);
  * Request Logging
  */
 app.use(logger.requestLogger.bind(logger));
+
+/**
+ * Multi-tenant Middleware
+ * Identifies restaurant from subdomain
+ */
+app.use(tenantMiddleware);
 
 /**
  * API Routes

@@ -28,8 +28,13 @@ export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
-    await onLogin?.(formData)
+    const result = await onLogin?.(formData)
     setIsLoading(false)
+    
+    // Auto-redirect for admin/super admin
+    if (result?.user?.role === 'admin' || result?.user?.role === 'super_admin') {
+      navigate('/admin')
+    }
   }
 
   return (
@@ -144,6 +149,11 @@ export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot 
                         refreshToken,
                         isSocialLogin: true,
                       })
+                      
+                      // Auto-redirect for admin/super admin
+                      if (user.role === 'admin' || user.role === 'super_admin') {
+                        navigate('/admin')
+                      }
                     } catch (error) {
                       console.error('Google login error:', error)
                       alert('Google login failed. Please try again.')

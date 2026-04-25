@@ -9,30 +9,55 @@ const logger = Logger.getInstance();
  * Optimized for restaurant ordering system with proper indexing
  */
 const SCHEMA = {
+  // Restaurants/Cafes table for multi-tenant architecture
+  restaurants: `
+    CREATE TABLE IF NOT EXISTS restaurants (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      uuid TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      subdomain TEXT UNIQUE NOT NULL,
+      domain TEXT,
+      logo_url TEXT,
+      theme_config TEXT, -- JSON for theme customization
+      settings TEXT, -- JSON for cafe-specific settings
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_restaurants_uuid ON restaurants(uuid);
+    CREATE INDEX IF NOT EXISTS idx_restaurants_subdomain ON restaurants(subdomain);
+  `,
+
   // Users table with auth
   [TABLES.USERS]: `
     CREATE TABLE IF NOT EXISTS ${TABLES.USERS} (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       uuid TEXT UNIQUE NOT NULL,
-      email TEXT UNIQUE,
-      phone TEXT UNIQUE,
+      restaurant_id INTEGER,
+      email TEXT,
+      phone TEXT,
       password_hash TEXT NOT NULL,
       name TEXT NOT NULL,
-      role TEXT DEFAULT 'customer' CHECK(role IN ('customer', 'staff', 'admin')),
+      role TEXT DEFAULT 'customer' CHECK(role IN ('customer', 'staff', 'admin', 'super_admin')),
       avatar_url TEXT,
       avatar_base64 TEXT,
-      google_id TEXT UNIQUE,
+      google_id TEXT,
       facebook_id TEXT UNIQUE,
       is_active INTEGER DEFAULT 1,
       last_login_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
     );
     CREATE INDEX IF NOT EXISTS idx_users_uuid ON ${TABLES.USERS}(uuid);
     CREATE INDEX IF NOT EXISTS idx_users_email ON ${TABLES.USERS}(email);
     CREATE INDEX IF NOT EXISTS idx_users_phone ON ${TABLES.USERS}(phone);
+    CREATE INDEX IF NOT EXISTS idx_users_restaurant ON ${TABLES.USERS}(restaurant_id);
     CREATE INDEX IF NOT EXISTS idx_users_google_id ON ${TABLES.USERS}(google_id);
     CREATE INDEX IF NOT EXISTS idx_users_facebook_id ON ${TABLES.USERS}(facebook_id);
+    
+    -- Unique constraint: email + restaurant_id
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_restaurant ON ${TABLES.USERS}(email, restaurant_id) WHERE email IS NOT NULL;
   `,
 
   // Restaurant tables for QR ordering
@@ -278,8 +303,9 @@ export async function initializeDatabase() {
 
     // Migration: Add new columns if they don't exist
     const migrations = [
+      { table: TABLES.USERS, column: 'restaurant_id', type: 'INTEGER' },
       { table: TABLES.USERS, column: 'avatar_base64', type: 'TEXT' },
-      { table: TABLES.USERS, column: 'google_id', type: 'TEXT UNIQUE' },
+      { table: TABLES.USERS, column: 'google_id', type: 'TEXT' },
       { table: TABLES.USERS, column: 'facebook_id', type: 'TEXT UNIQUE' },
     ];
 
