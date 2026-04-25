@@ -12,6 +12,7 @@ export const AdminDashboard = () => {
 
   const [stats, setStats] = useState({
     totalCustomers: 0,
+    totalStaff: 0,
     activeOrders: 0,
     todayOrders: 0,
     todayRevenue: 0,
@@ -139,7 +140,9 @@ export const AdminDashboard = () => {
           {[
             { label: 'Today Orders', value: stats.todayOrders, icon: ShoppingCart, color: 'bg-blue-500' },
             { label: 'Active Orders', value: stats.activeOrders, icon: Clock, color: 'bg-orange-500' },
-            { label: 'Occupied Tables', value: `${stats.occupiedTables}/${stats.totalTables}`, icon: Table, color: 'bg-green-500' },
+            role === 'super_admin' 
+              ? { label: 'Total Customers', value: stats.totalCustomers, icon: Users, color: 'bg-indigo-500' }
+              : { label: 'Total Staff', value: stats.totalStaff || 0, icon: Users, color: 'bg-indigo-500' },
             { label: 'Today Revenue', value: `₹${stats.todayRevenue}`, icon: BarChart3, color: 'bg-purple-500' },
           ].map((stat, index) => {
             const Icon = stat.icon
@@ -181,11 +184,17 @@ export const AdminDashboard = () => {
                 </button>
               </div>
             </div>
-            <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+            <div className="divide-y divide-gray-100 h-80 max-h-96 overflow-y-auto">
               {loading ? (
-                <div className="p-8 text-center text-gray-500">Loading...</div>
+                <div className="p-12 text-center text-gray-500">Loading...</div>
               ) : orders.length === 0 ? (
-                <div className="p-8 text-center text-gray-500">No active orders</div>
+                <div className="p-12 text-center text-gray-500">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                    <ShoppingCart size={24} className="text-gray-400" />
+                  </div>
+                  <p className="text-lg font-medium">No active orders</p>
+                  <p className="text-sm text-gray-400 mt-1">New orders will appear here</p>
+                </div>
               ) : (
                 orders.map((order) => {
                   const StatusIcon = getStatusIcon(order.status)
@@ -232,11 +241,17 @@ export const AdminDashboard = () => {
                 </button>
               </div>
             </div>
-            <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+            <div className="divide-y divide-gray-100 h-80 max-h-96 overflow-y-auto">
               {loading ? (
-                <div className="p-8 text-center text-gray-500">Loading...</div>
+                <div className="p-12 text-center text-gray-500">Loading...</div>
               ) : tables.length === 0 ? (
-                <div className="p-8 text-center text-gray-500">No occupied tables</div>
+                <div className="p-12 text-center text-gray-500">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                    <Table size={24} className="text-gray-400" />
+                  </div>
+                  <p className="text-lg font-medium">No occupied tables</p>
+                  <p className="text-sm text-gray-400 mt-1">Occupied tables will appear here</p>
+                </div>
               ) : (
                 tables.map((table) => (
                   <div key={table.id} className="p-4 hover:bg-gray-50 transition-colors">
@@ -268,42 +283,87 @@ export const AdminDashboard = () => {
           </motion.div>
         </div>
 
-        {/* Quick Actions */}
+        {/* Management Links */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
+          className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        >
+          <button
+            onClick={() => navigate('/admin/menu')}
+            className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow text-left"
+          >
+            <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center mb-4">
+              <MenuIcon size={24} className="text-orange-600" />
+            </div>
+            <h3 className="font-semibold text-gray-900">Menu Management</h3>
+            <p className="text-sm text-gray-500 mt-1">Add, edit & manage products</p>
+          </button>
+
+          <button
+            onClick={() => navigate('/admin/users')}
+            className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow text-left"
+          >
+            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-4">
+              <Users size={24} className="text-blue-600" />
+            </div>
+            <h3 className="font-semibold text-gray-900">User Management</h3>
+            <p className="text-sm text-gray-500 mt-1">Manage users & roles</p>
+          </button>
+
+          <button
+            onClick={() => navigate('/admin/orders')}
+            className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow text-left"
+          >
+            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-4">
+              <ShoppingCart size={24} className="text-green-600" />
+            </div>
+            <h3 className="font-semibold text-gray-900">Order Management</h3>
+            <p className="text-sm text-gray-500 mt-1">View & manage all orders</p>
+          </button>
+
+          <button
+            onClick={() => navigate('/admin/settings')}
+            className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow text-left"
+          >
+            <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center mb-4">
+              <Settings size={24} className="text-purple-600" />
+            </div>
+            <h3 className="font-semibold text-gray-900">Settings</h3>
+            <p className="text-sm text-gray-500 mt-1">Restaurant configuration</p>
+          </button>
+        </motion.div>
+
+        {/* Quick Actions */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
           className="mt-8 bg-white rounded-xl p-6 shadow-sm"
         >
           <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={() => navigate('/menu')}
-              className="px-4 py-3 bg-gray-100 rounded-lg text-sm font-medium text-gray-900 hover:bg-gray-200 transition-colors text-left flex items-center gap-2"
-            >
-              <MenuIcon size={18} />
-              View Menu
-            </button>
-            <button
-              onClick={() => navigate('/orders')}
-              className="px-4 py-3 bg-gray-100 rounded-lg text-sm font-medium text-gray-900 hover:bg-gray-200 transition-colors text-left flex items-center gap-2"
+              className="px-4 py-3 bg-gray-100 rounded-lg text-sm font-medium text-gray-900 hover:bg-gray-200 transition-colors flex items-center gap-2"
             >
               <ShoppingCart size={18} />
-              View Orders
+              Customer Menu
             </button>
             <button
               onClick={() => window.location.reload()}
-              className="px-4 py-3 bg-gray-100 rounded-lg text-sm font-medium text-gray-900 hover:bg-gray-200 transition-colors text-left flex items-center gap-2"
+              className="px-4 py-3 bg-gray-100 rounded-lg text-sm font-medium text-gray-900 hover:bg-gray-200 transition-colors flex items-center gap-2"
             >
               <BarChart3 size={18} />
               Refresh Data
             </button>
             <button
               onClick={() => navigate('/')}
-              className="px-4 py-3 bg-gray-100 rounded-lg text-sm font-medium text-gray-900 hover:bg-gray-200 transition-colors text-left flex items-center gap-2"
+              className="px-4 py-3 bg-gray-100 rounded-lg text-sm font-medium text-gray-900 hover:bg-gray-200 transition-colors flex items-center gap-2"
             >
               <Home size={18} />
-              Back to App
+              Back to Home
             </button>
           </div>
         </motion.div>

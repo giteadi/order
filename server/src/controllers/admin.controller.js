@@ -17,6 +17,7 @@ export class AdminController {
     try {
       const db = getDB();
       const { restaurantId } = req.tenant || {};
+      const userRole = req.user?.role;
 
       // Get counts
       const stats = {
@@ -32,15 +33,28 @@ export class AdminController {
         menuItems: 0,
       };
 
-      // Total users (filtered by restaurant if applicable)
-      let userQuery = 'SELECT COUNT(*) as count FROM users WHERE role = ?';
-      let userParams = ['customer'];
-      if (restaurantId) {
-        userQuery += ' AND (restaurant_id = ? OR restaurant_id IS NULL)';
-        userParams.push(restaurantId);
+      // Total staff/customers (filtered by restaurant for cafe admins)
+      if (userRole !== 'super_admin') {
+        // Cafe admin: count staff (admin + staff roles)
+        let staffQuery = 'SELECT COUNT(*) as count FROM users WHERE role IN (?, ?)';
+        let staffParams = ['admin', 'staff'];
+        if (restaurantId) {
+          staffQuery += ' AND restaurant_id = ?';
+          staffParams.push(restaurantId);
+        } else {
+          staffQuery += ' AND restaurant_id IS NULL';
+        }
+        const staffResult = db.prepare(staffQuery).get(...staffParams);
+        stats.totalStaff = staffResult.count;
+        stats.totalCustomers = 0; // Cafe admin doesn't see customers here
+      } else {
+        // Super admin: count all customers
+        let userQuery = 'SELECT COUNT(*) as count FROM users WHERE role = ?';
+        let userParams = ['customer'];
+        const usersResult = db.prepare(userQuery).get(...userParams);
+        stats.totalCustomers = usersResult.count;
+        stats.totalStaff = 0;
       }
-      const usersResult = db.prepare(userQuery).get(...userParams);
-      stats.totalCustomers = usersResult.count;
 
       // Total orders
       let orderQuery = 'SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as revenue FROM orders';
@@ -267,6 +281,7 @@ export class AdminController {
     try {
       const db = getDB();
       const { restaurantId } = req.tenant || {};
+      const userRole = req.user?.role;
       const { role, limit = 50, offset = 0 } = req.query;
 
       let query = `
@@ -277,10 +292,21 @@ export class AdminController {
       `;
       let params = [];
 
-      if (restaurantId) {
-        query += ' AND (restaurant_id = ? OR restaurant_id IS NULL)';
-        params.push(restaurantId);
+      // Cafe admin filters (super admin sees all)
+      if (userRole !== 'super_admin') {
+        // Cafe admin: only see staff (admin + staff roles), exclude customers and super_admin
+        query += ' AND role IN (?, ?)';
+        params.push('admin', 'staff');
+        
+        // Also filter by restaurant
+        if (restaurantId) {
+          query += ' AND restaurant_id = ?';
+          params.push(restaurantId);
+        } else {
+          query += ' AND restaurant_id IS NULL';
+        }
       }
+      // Super admin sees all users including other super admins
 
       if (role) {
         query += ' AND role = ?';
@@ -305,6 +331,7 @@ export class AdminController {
     try {
       const db = getDB();
       const { restaurantId } = req.tenant || {};
+      const userRole = req.user?.role;
 
       let query = `
         SELECT id, uuid, email, phone, name, avatar_url, 
@@ -314,10 +341,14 @@ export class AdminController {
       `;
       let params = [];
 
-      if (restaurantId) {
-        query += ' AND (restaurant_id = ? OR restaurant_id IS NULL)';
+      // Cafe admin: filter by restaurant only
+      if (restaurantId && userRole !== 'super_admin') {
+        query += ' AND restaurant_id = ?';
         params.push(restaurantId);
+      } else if (!restaurantId && userRole !== 'super_admin') {
+        query += ' AND restaurant_id IS NULL';
       }
+      // Super admin sees all customers
 
       query += ' ORDER BY created_at DESC';
 
@@ -336,6 +367,7 @@ export class AdminController {
     try {
       const db = getDB();
       const { restaurantId } = req.tenant || {};
+      const userRole = req.user?.role;
 
       let query = `
         SELECT id, uuid, email, phone, name, role, avatar_url, 
@@ -345,10 +377,14 @@ export class AdminController {
       `;
       let params = [];
 
-      if (restaurantId) {
-        query += ' AND (restaurant_id = ? OR restaurant_id IS NULL)';
+      // Cafe admin: filter by restaurant only (super_admin already excluded by WHERE clause)
+      if (restaurantId && userRole !== 'super_admin') {
+        query += ' AND restaurant_id = ?';
         params.push(restaurantId);
+      } else if (!restaurantId && userRole !== 'super_admin') {
+        query += ' AND restaurant_id IS NULL';
       }
+      // Super admin sees all staff (excluding super_admin)
 
       query += ' ORDER BY role, created_at DESC';
 

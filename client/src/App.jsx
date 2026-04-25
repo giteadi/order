@@ -52,6 +52,10 @@ import { RegisterScreen } from './components/RegisterScreen'
 import { ForgotPasswordScreen } from './components/ForgotPasswordScreen'
 import { ProfileScreen } from './components/ProfileScreen'
 import { AdminDashboard } from './components/AdminDashboard'
+import { MenuManagement } from './components/MenuManagement'
+import { UserManagement } from './components/UserManagement'
+import { OrderManagement } from './components/OrderManagement'
+import { RestaurantSettings } from './components/RestaurantSettings'
 import { useTableNumber } from './hooks/useTableNumber'
 import { useCursor } from './hooks/useCursor'
 
@@ -550,6 +554,10 @@ function App() {
         } />
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/menu" element={<MenuManagement />} />
+        <Route path="/admin/users" element={<UserManagement />} />
+        <Route path="/admin/orders" element={<OrderManagement />} />
+        <Route path="/admin/settings" element={<RestaurantSettings />} />
       </Routes>
 
       <CartSidebar 

@@ -1,7 +1,5 @@
 import { motion } from 'framer-motion'
-import { Search, ShoppingCart, Users, User as UserIcon, LogOut } from 'lucide-react'
-import { useDispatch } from 'react-redux'
-import { logout } from '../store/slices/authSlice'
+import { Search, ShoppingCart, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 export const Header = ({ 
@@ -16,13 +14,8 @@ export const Header = ({
   variant = 'sticky',
   user = null
 }) => {
-  const dispatch = useDispatch()
   const navigate = useNavigate()
 
-  const handleLogout = () => {
-    dispatch(logout())
-    navigate('/')
-  }
   return (
     <motion.header 
       initial={{ y: -100 }}
@@ -46,35 +39,18 @@ export const Header = ({
             </div>
           </div>
 
-          {/* User Profile - Desktop */}
-          {user && (
-            <div className="hidden md:flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                {user.avatarBase64 || user.avatarUrl ? (
-                  <img 
-                    src={user.avatarBase64 || user.avatarUrl} 
-                    alt={user.name}
-                    className="w-8 h-8 rounded-full object-cover border-2 border-gray-200"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-gray-900 grid place-items-center">
-                    <UserIcon size={16} className="text-white" />
-                  </div>
-                )}
-                <span className="text-sm font-medium text-gray-900">{user.name}</span>
-              </div>
+          <div className="flex items-center gap-2">
+            {/* Admin Button - Mobile */}
+            {user && (user.role === 'admin' || user.role === 'super_admin') && (
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                onClick={handleLogout}
-                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                title="Logout"
+                onClick={() => navigate('/admin')}
+                className="md:hidden px-3 py-1.5 rounded-full bg-gray-900 text-white text-sm font-medium"
               >
-                <LogOut size={18} className="text-gray-600" />
+                Admin
               </motion.button>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2">
+            )}
+            
             {onGroupOrderClick && (
               <motion.button
                 whileTap={{ scale: 0.95 }}
@@ -83,6 +59,17 @@ export const Header = ({
               >
                 <Users size={16} />
                 <span className="hidden lg:inline">Group</span>
+              </motion.button>
+            )}
+
+            {/* Admin Button - Desktop */}
+            {user && (user.role === 'admin' || user.role === 'super_admin') && (
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => navigate('/admin')}
+                className="hidden md:flex px-4 py-2 rounded-full bg-gray-900 text-white hover:bg-gray-800 transition-colors font-medium text-sm"
+              >
+                Admin
               </motion.button>
             )}
 
