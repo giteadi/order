@@ -123,7 +123,7 @@ export const HeroSection = () => {
   if (isMobile) {
     return (
       <section
-        className="relative h-screen"
+        className="relative h-screen grid place-items-center"
         style={{ background: '#1a0a00' }}
       >
         {/* Sirf pehli image — static */}
@@ -132,20 +132,22 @@ export const HeroSection = () => {
         </div>
 
         {/* Text — no animation, direct visible */}
-        <div className="relative z-10 h-full flex flex-col items-center justify-center px-4">
-          <h1
-            className="text-6xl sm:text-7xl font-bold text-center tracking-tight leading-none"
-            style={{
-              color: 'transparent',
-              WebkitTextStroke: '3px rgba(255,255,255,0.95)',
-              textShadow: '0 0 60px rgba(255,255,255,0.4)'
-            }}
-          >
-            ArtHaus Café
-          </h1>
-          <p className="mt-5 text-lg sm:text-xl text-white/90 text-center max-w-2xl drop-shadow-md">
-            Experience coffee like never before
-          </p>
+        <div className="relative z-10 h-full grid place-items-center px-4">
+          <div className="grid gap-5 text-center">
+            <h1
+              className="text-6xl sm:text-7xl font-bold tracking-tight leading-none"
+              style={{
+                color: 'transparent',
+                WebkitTextStroke: '3px rgba(255,255,255,0.95)',
+                textShadow: '0 0 60px rgba(255,255,255,0.4)'
+              }}
+            >
+              ArtHaus Café
+            </h1>
+            <p className="text-lg sm:text-xl text-white/90 max-w-2xl drop-shadow-md">
+              Experience coffee like never before
+            </p>
+          </div>
         </div>
       </section>
     )
@@ -155,7 +157,7 @@ export const HeroSection = () => {
   return (
     <section
       ref={heroRef}
-      className="relative h-screen"
+      className="relative h-screen grid place-items-center"
       style={{ background: '#1a0a00' }}
     >
       <div ref={imageRef} className="absolute inset-0 w-full h-full z-0 will-change-transform">
@@ -165,7 +167,7 @@ export const HeroSection = () => {
       </div>
 
       {/* Dot Indicators */}
-      <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+      <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 grid grid-flow-col auto-cols-max gap-2">
         {heroImages.map((_, idx) => (
           <button
             key={idx}
@@ -177,24 +179,26 @@ export const HeroSection = () => {
         ))}
       </div>
 
-      <div className="relative z-10 h-full flex flex-col items-center justify-center px-4">
-        <h1
-          ref={textRef}
-          className="text-6xl sm:text-7xl md:text-9xl font-bold text-center tracking-tight leading-none will-change-transform"
-          style={{
-            color: 'transparent',
-            WebkitTextStroke: '3px rgba(255,255,255,0.95)',
-            textShadow: '0 0 60px rgba(255,255,255,0.4), 0 0 100px rgba(255,255,255,0.2)'
-          }}
-        >
-          ArtHaus Café
-        </h1>
-        <p
-          ref={subtitleRef}
-          className="mt-5 sm:mt-6 text-lg sm:text-xl md:text-2xl text-white/90 text-center max-w-2xl drop-shadow-md will-change-transform"
-        >
-          Experience coffee like never before
-        </p>
+      <div className="relative z-10 h-full grid place-items-center px-4">
+        <div className="grid gap-5 sm:gap-6 text-center">
+          <h1
+            ref={textRef}
+            className="text-6xl sm:text-7xl md:text-9xl font-bold tracking-tight leading-none will-change-transform"
+            style={{
+              color: 'transparent',
+              WebkitTextStroke: '3px rgba(255,255,255,0.95)',
+              textShadow: '0 0 60px rgba(255,255,255,0.4), 0 0 100px rgba(255,255,255,0.2)'
+            }}
+          >
+            ArtHaus Café
+          </h1>
+          <p
+            ref={subtitleRef}
+            className="text-lg sm:text-xl md:text-2xl text-white/90 max-w-2xl drop-shadow-md will-change-transform"
+          >
+            Experience coffee like never before
+          </p>
+        </div>
       </div>
 
       <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce z-20">

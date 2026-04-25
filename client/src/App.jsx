@@ -1,9 +1,32 @@
 import { useState, useEffect, useLayoutEffect } from 'react'
 import { Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
 import Lenis from 'lenis'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { Header } from './components/Header'
+
+// Redux actions and selectors
+import { 
+  addItem, 
+  removeItem, 
+  updateQuantity, 
+  clearCart,
+  selectCartItems,
+  selectCartTotal,
+  selectCartItemCount,
+  selectSessionId,
+} from './store/slices/cartSlice'
+import { 
+  openCart, 
+  closeCart, 
+  selectIsCartOpen,
+  openProductModal,
+  closeProductModal,
+  selectSelectedProduct,
+  selectIsProductModalOpen,
+} from './store/slices/uiSlice'
+import { logout, selectIsAuthenticated, selectUser, setUser } from './store/slices/authSlice'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -16,6 +39,7 @@ import { CustomCursor } from './components/CustomCursor'
 import { FloatingCartButton } from './components/FloatingCartButton'
 import { HeroSection } from './components/HeroSection'
 import { FeatureSection } from './components/FeatureSection'
+import { FeaturedItemsSection } from './components/FeaturedItemsSection'
 import { ImageCarousel } from './components/ImageCarousel'
 import { HighlightsStrip } from './components/HighlightsStrip'
 import { MultiLayerParallax } from './components/ParallaxSection'
@@ -23,8 +47,11 @@ import { BottomNav } from './components/BottomNav'
 import { EmptyStateScreen } from './components/EmptyStateScreen'
 import { GroupOrderSheet } from './components/GroupOrderSheet'
 import { GroupOrderScreen } from './components/GroupOrderScreen'
+import { LoginScreen } from './components/LoginScreen'
+import { RegisterScreen } from './components/RegisterScreen'
+import { ForgotPasswordScreen } from './components/ForgotPasswordScreen'
+import { ProfileScreen } from './components/ProfileScreen'
 import { useTableNumber } from './hooks/useTableNumber'
-import { useCart } from './hooks/useCart'
 import { useCursor } from './hooks/useCursor'
 
 const menuData = {
@@ -136,9 +163,19 @@ const menuData = {
 function App() {
   const navigate = useNavigate()
   const location = useLocation()
+  const dispatch = useDispatch()
+  
+  // Redux selectors
+  const cart = useSelector(selectCartItems)
+  const cartTotal = useSelector(selectCartTotal)
+  const cartCount = useSelector(selectCartItemCount)
+  const isCartOpen = useSelector(selectIsCartOpen)
+  const selectedProduct = useSelector(selectSelectedProduct)
+  const isAuthenticated = useSelector(selectIsAuthenticated)
+  const user = useSelector(selectUser)
+  
   const [selectedCategory, setSelectedCategory] = useState(2)
   const [selectedSubcategory, setSelectedSubcategory] = useState('espresso')
-  const [isCartOpen, setIsCartOpen] = useState(false)
   const [isGroupOrderOpen, setIsGroupOrderOpen] = useState(false)
   const [isGroupOrderScreenOpen, setIsGroupOrderScreenOpen] = useState(false)
   const [groupOrderData, setGroupOrderData] = useState({
@@ -147,14 +184,35 @@ function App() {
     orders: {}
   })
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedProduct, setSelectedProduct] = useState(null)
   const [quantity, setQuantity] = useState(1)
 
   const tableNumber = useTableNumber()
   const { cursorPosition, isCursorHovering, setHovering } = useCursor()
-  const { cart, addToCart, removeFromCart, updateQuantity, cartTotal } = useCart()
 
   const activeTab = location.pathname.replace('/', '') || 'home'
+  
+  // Redux action wrappers
+  const handleAddToCart = (product, qty = 1) => {
+    dispatch(addItem({ product, quantity: qty }))
+    dispatch(closeProductModal())
+    dispatch(openCart())
+  }
+  
+  const handleRemoveFromCart = (itemId) => {
+    dispatch(removeItem(itemId))
+  }
+  
+  const handleUpdateQuantity = (itemId, qty) => {
+    dispatch(updateQuantity({ itemId, quantity: qty }))
+  }
+  
+  const handleProductClick = (product) => {
+    dispatch(openProductModal(product))
+    setQuantity(1)
+  }
+  
+  const handleCloseCart = () => dispatch(closeCart())
+  const handleOpenCart = () => dispatch(openCart())
 
   // Initialize Lenis once on mount
   useEffect(() => {
@@ -210,8 +268,7 @@ function App() {
   }, [location.pathname])
 
 
-  const handleAddToCart = (product, qty = 1) => {
-    // If group order is active, add to group order
+  const handleGroupOrderAdd = (product, qty = 1) => {
     if (groupOrderData.code && groupOrderData.members.length > 0) {
       setGroupOrderData(prev => ({
         ...prev,
@@ -221,18 +278,7 @@ function App() {
         }
       }))
       setIsGroupOrderScreenOpen(true)
-    } else {
-      // Normal cart add
-      addToCart(product, qty)
     }
-    
-    setSelectedProduct(null)
-    setQuantity(1)
-  }
-
-  const handleProductClick = (product) => {
-    setSelectedProduct(product)
-    setQuantity(1)
   }
 
   const filteredProducts = menuData.products[selectedSubcategory]?.filter(p =>
@@ -313,15 +359,21 @@ function App() {
             <Header 
               tableNumber={tableNumber}
               showSearch={false}
-              onCartClick={() => setIsCartOpen(true)}
-              cartCount={cart.length}
+              onCartClick={handleOpenCart}
+              cartCount={cartCount}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onGroupOrderClick={() => setIsGroupOrderOpen(true)}
               onCursorHover={setHovering}
               variant="overlay"
+              user={user}
             />
             <HeroSection />
+            <FeaturedItemsSection 
+              onProductClick={handleProductClick}
+              onAddToCart={handleAddToCart}
+              onCursorHover={setHovering}
+            />
             <HighlightsStrip />
             <FeatureSection 
               title="Premium Quality"
@@ -352,12 +404,13 @@ function App() {
             <Header 
               tableNumber={tableNumber}
               showSearch={true}
-              onCartClick={() => setIsCartOpen(true)}
-              cartCount={cart.length}
+              onCartClick={handleOpenCart}
+              cartCount={cartCount}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onGroupOrderClick={() => setIsGroupOrderOpen(true)}
               onCursorHover={setHovering}
+              user={user}
             />
             <CategoryTabs 
               categories={menuData.categories}
@@ -372,30 +425,29 @@ function App() {
                   onSelectSubcategory={setSelectedSubcategory}
                 />
                 <div className="flex-1 min-w-0">
-                  {/* Mobile Subcategory Selector */}
-                  <div className="lg:hidden mb-4 overflow-x-auto pb-2 -mx-3 px-3 sm:-mx-4 sm:px-4">
-                    <div className="flex gap-2">
+                  {/* Mobile: Compact Subcategory Dropdown */}
+                  <div className="lg:hidden mb-4">
+                    <select
+                      value={selectedSubcategory}
+                      onChange={(e) => setSelectedSubcategory(e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-900 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+                    >
                       {menuData.subcategories[selectedCategory]?.map((sub) => (
-                        <button
-                          key={sub.id}
-                          onClick={() => setSelectedSubcategory(sub.id)}
-                          className={`px-4 py-2 rounded-full whitespace-nowrap text-sm transition-all ${
-                            selectedSubcategory === sub.id
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-gray-100 text-gray-700'
-                          }`}
-                        >
-                          {sub.name}
-                        </button>
+                        <option key={sub.id} value={sub.id}>
+                          {sub.name} ({sub.count} items)
+                        </option>
                       ))}
-                    </div>
+                    </select>
                   </div>
-                  <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">
+
+                  {/* Desktop: Show heading */}
+                  <h2 className="hidden lg:block text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">
                     {menuData.subcategories[selectedCategory]?.find(s => s.id === selectedSubcategory)?.name}
                   </h2>
                   <ProductGrid 
                     products={filteredProducts}
-                    onAddToCart={addToCart}
+                    onAddToCart={handleAddToCart}
                     onProductClick={handleProductClick}
                     onCursorHover={setHovering}
                   />
@@ -409,12 +461,13 @@ function App() {
             <Header 
               tableNumber={tableNumber}
               showSearch={false}
-              onCartClick={() => setIsCartOpen(true)}
-              cartCount={cart.length}
+              onCartClick={handleOpenCart}
+              cartCount={cartCount}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onGroupOrderClick={() => setIsGroupOrderOpen(true)}
               onCursorHover={setHovering}
+              user={user}
             />
             <EmptyStateScreen
               icon="🍽️"
@@ -430,12 +483,13 @@ function App() {
             <Header 
               tableNumber={tableNumber}
               showSearch={false}
-              onCartClick={() => setIsCartOpen(true)}
-              cartCount={cart.length}
+              onCartClick={handleOpenCart}
+              cartCount={cartCount}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onGroupOrderClick={() => setIsGroupOrderOpen(true)}
               onCursorHover={setHovering}
+              user={user}
             />
             <EmptyStateScreen
               icon="🧾"
@@ -446,22 +500,56 @@ function App() {
             />
           </>
         } />
+        <Route path="/login" element={
+          <LoginScreen 
+            onLogin={(data) => {
+              console.log('Login:', data)
+              // Save user data to Redux
+              if (data.user && data.token) {
+                dispatch(setUser({
+                  user: data.user,
+                  token: data.token,
+                  refreshToken: data.refreshToken,
+                }))
+              }
+              navigate('/menu')
+            }}
+            onNavigateToRegister={() => navigate('/register')}
+            onNavigateToForgot={() => navigate('/forgot-password')}
+          />
+        } />
+        <Route path="/register" element={
+          <RegisterScreen 
+            onRegister={(data) => {
+              console.log('Register:', data)
+              navigate('/menu')
+            }}
+            onNavigateToLogin={() => navigate('/login')}
+          />
+        } />
+        <Route path="/forgot-password" element={
+          <ForgotPasswordScreen 
+            onSendReset={(email) => console.log('Reset password for:', email)}
+            onNavigateToLogin={() => navigate('/login')}
+          />
+        } />
+        <Route path="/profile" element={<ProfileScreen />} />
       </Routes>
 
       <CartSidebar 
         isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
+        onClose={handleCloseCart}
         cart={cart}
         tableNumber={tableNumber}
-        onUpdateQuantity={updateQuantity}
-        onRemoveItem={removeFromCart}
+        onUpdateQuantity={handleUpdateQuantity}
+        onRemoveItem={handleRemoveFromCart}
         cartTotal={cartTotal}
         onPlaceOrder={handlePlaceOrder}
       />
 
       <ProductModal 
         isOpen={!!selectedProduct}
-        onClose={() => setSelectedProduct(null)}
+        onClose={() => dispatch(closeProductModal())}
         product={selectedProduct}
         quantity={quantity}
         onQuantityChange={setQuantity}
@@ -469,8 +557,8 @@ function App() {
       />
 
       <FloatingCartButton 
-        cartCount={cart.length}
-        onClick={() => setIsCartOpen(true)}
+        cartCount={cartCount}
+        onClick={handleOpenCart}
       />
 
       <GroupOrderSheet

@@ -20,6 +20,9 @@ const SCHEMA = {
       name TEXT NOT NULL,
       role TEXT DEFAULT 'customer' CHECK(role IN ('customer', 'staff', 'admin')),
       avatar_url TEXT,
+      avatar_base64 TEXT,
+      google_id TEXT UNIQUE,
+      facebook_id TEXT UNIQUE,
       is_active INTEGER DEFAULT 1,
       last_login_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -28,6 +31,8 @@ const SCHEMA = {
     CREATE INDEX IF NOT EXISTS idx_users_uuid ON ${TABLES.USERS}(uuid);
     CREATE INDEX IF NOT EXISTS idx_users_email ON ${TABLES.USERS}(email);
     CREATE INDEX IF NOT EXISTS idx_users_phone ON ${TABLES.USERS}(phone);
+    CREATE INDEX IF NOT EXISTS idx_users_google_id ON ${TABLES.USERS}(google_id);
+    CREATE INDEX IF NOT EXISTS idx_users_facebook_id ON ${TABLES.USERS}(facebook_id);
   `,
 
   // Restaurant tables for QR ordering
@@ -268,6 +273,27 @@ export async function initializeDatabase() {
         logger.debug(`Created trigger: ${name}`);
       } catch (err) {
         logger.warn(`Trigger ${name} may already exist`, { error: err.message });
+      }
+    }
+
+    // Migration: Add new columns if they don't exist
+    const migrations = [
+      { table: TABLES.USERS, column: 'avatar_base64', type: 'TEXT' },
+      { table: TABLES.USERS, column: 'google_id', type: 'TEXT UNIQUE' },
+      { table: TABLES.USERS, column: 'facebook_id', type: 'TEXT UNIQUE' },
+    ];
+
+    for (const migration of migrations) {
+      try {
+        const columns = db.pragma(`table_info(${migration.table})`);
+        const columnExists = columns.some(col => col.name === migration.column);
+        
+        if (!columnExists) {
+          db.exec(`ALTER TABLE ${migration.table} ADD COLUMN ${migration.column} ${migration.type}`);
+          logger.info(`Added column ${migration.column} to ${migration.table}`);
+        }
+      } catch (err) {
+        logger.warn(`Migration failed for ${migration.column}`, { error: err.message });
       }
     }
 
