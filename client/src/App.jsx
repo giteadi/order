@@ -52,6 +52,7 @@ import { RegisterScreen } from './components/RegisterScreen'
 import { ForgotPasswordScreen } from './components/ForgotPasswordScreen'
 import { ProfileScreen } from './components/ProfileScreen'
 import { AdminDashboard } from './components/AdminDashboard'
+import { SuperAdminDashboard } from './components/SuperAdminDashboard'
 import { MenuManagement } from './components/MenuManagement'
 import { UserManagement } from './components/UserManagement'
 import { OrderManagement } from './components/OrderManagement'
@@ -554,6 +555,7 @@ function App() {
         } />
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/super-admin" element={<SuperAdminDashboard />} />
         <Route path="/admin/menu" element={<MenuManagement />} />
         <Route path="/admin/users" element={<UserManagement />} />
         <Route path="/admin/orders" element={<OrderManagement />} />

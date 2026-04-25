@@ -318,6 +318,8 @@ export async function initializeDatabase() {
       { table: 'restaurants', column: 'currency_symbol', type: 'TEXT' },
       { table: 'restaurants', column: 'payment_methods', type: 'TEXT' },
       { table: 'restaurants', column: 'features', type: 'TEXT' },
+      { table: TABLES.ORDERS, column: 'restaurant_id', type: 'INTEGER' },
+      { table: TABLES.TABLES, column: 'restaurant_id', type: 'INTEGER' },
     ];
 
     for (const migration of migrations) {

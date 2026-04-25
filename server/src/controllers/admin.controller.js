@@ -601,4 +601,323 @@ export class AdminController {
       return error(res, 'Failed to get menu stats', HTTP_STATUS.INTERNAL_ERROR);
     }
   }
+
+  /**
+   * Get all restaurants (super admin only)
+   */
+  static async getAllRestaurants(req, res) {
+    try {
+      const db = getDB();
+      const userRole = req.user?.role;
+
+      if (userRole !== 'super_admin') {
+        return error(res, 'Unauthorized - Super admin only', HTTP_STATUS.FORBIDDEN);
+      }
+
+      // Get all restaurants with basic stats
+      const restaurants = db.prepare(`
+        SELECT 
+          r.id, r.uuid, r.name, r.subdomain, r.domain, r.logo_url, 
+          r.is_active, r.created_at, r.updated_at,
+          r.address, r.phone, r.email
+        FROM restaurants r
+        ORDER BY r.created_at DESC
+      `).all();
+
+      // Get stats for each restaurant
+      const today = new Date().toISOString().split('T')[0];
+      const restaurantsWithStats = restaurants.map(restaurant => {
+        // Count users linked to this restaurant
+        const userCounts = db.prepare(`
+          SELECT 
+            COUNT(CASE WHEN role = 'customer' THEN 1 END) as customers,
+            COUNT(CASE WHEN role IN ('admin', 'staff') THEN 1 END) as staff
+          FROM users 
+          WHERE restaurant_id = ?
+        `).get(restaurant.id);
+
+        // Count orders and revenue
+        const orderStats = db.prepare(`
+          SELECT 
+            COUNT(*) as total_orders,
+            COALESCE(SUM(total_amount), 0) as total_revenue,
+            COUNT(CASE WHEN DATE(created_at) = ? THEN 1 END) as today_orders,
+            COALESCE(SUM(CASE WHEN DATE(created_at) = ? THEN total_amount ELSE 0 END), 0) as today_revenue
+          FROM orders 
+          WHERE restaurant_id = ?
+        `).get(today, today, restaurant.id);
+
+        // Count active orders
+        const activeOrders = db.prepare(`
+          SELECT COUNT(*) as count 
+          FROM orders 
+          WHERE restaurant_id = ? AND status IN ('pending', 'preparing', 'ready')
+        `).get(restaurant.id);
+
+        // Count tables
+        const tableStats = db.prepare(`
+          SELECT 
+            COUNT(*) as total_tables,
+            SUM(CASE WHEN status = 'occupied' THEN 1 ELSE 0 END) as occupied_tables
+          FROM restaurant_tables 
+          WHERE restaurant_id = ?
+        `).get(restaurant.id);
+
+        return {
+          ...restaurant,
+          stats: {
+            customers: userCounts.customers || 0,
+            staff: userCounts.staff || 0,
+            totalOrders: orderStats.total_orders || 0,
+            totalRevenue: orderStats.total_revenue || 0,
+            todayOrders: orderStats.today_orders || 0,
+            todayRevenue: orderStats.today_revenue || 0,
+            activeOrders: activeOrders.count || 0,
+            totalTables: tableStats.total_tables || 0,
+            occupiedTables: tableStats.occupied_tables || 0,
+          }
+        };
+      });
+
+      return success(res, restaurantsWithStats, 'Restaurants retrieved');
+    } catch (err) {
+      logger.error('Get all restaurants error', { error: err.message });
+      return error(res, 'Failed to get restaurants', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
+   * Create new restaurant (super admin only)
+   */
+  static async createRestaurant(req, res) {
+    try {
+      const db = getDB();
+      const userRole = req.user?.role;
+
+      if (userRole !== 'super_admin') {
+        return error(res, 'Unauthorized - Super admin only', HTTP_STATUS.FORBIDDEN);
+      }
+
+      const { 
+        name, 
+        subdomain, 
+        domain, 
+        description, 
+        address, 
+        phone, 
+        email, 
+        website,
+        logo_url 
+      } = req.body;
+
+      if (!name || !subdomain) {
+        return error(res, 'Name and subdomain are required', HTTP_STATUS.BAD_REQUEST);
+      }
+
+      // Check if subdomain already exists
+      const existing = db.prepare('SELECT id FROM restaurants WHERE subdomain = ?').get(subdomain);
+      if (existing) {
+        return error(res, 'Subdomain already exists', HTTP_STATUS.BAD_REQUEST);
+      }
+
+      const uuid = `rest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const themeConfig = JSON.stringify({
+        primaryColor: '#f97316',
+        secondaryColor: '#1f2937',
+        accentColor: '#3b82f6'
+      });
+      const settings = JSON.stringify({
+        currency: 'INR',
+        currency_symbol: '₹',
+        tax_rate: 5
+      });
+
+      const result = db.prepare(`
+        INSERT INTO restaurants (
+          uuid, name, subdomain, domain, description, address, 
+          phone, email, website, logo_url, theme_config, settings, is_active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+      `).run(
+        uuid, name, subdomain, domain || null, description || null, 
+        address || null, phone || null, email || null, website || null, 
+        logo_url || null, themeConfig, settings
+      );
+
+      logger.info('Restaurant created', { 
+        restaurantId: result.lastInsertRowid, 
+        name, 
+        subdomain,
+        by: req.user?.id 
+      });
+
+      return success(res, { 
+        id: result.lastInsertRowid, 
+        uuid, 
+        name, 
+        subdomain 
+      }, 'Restaurant created successfully');
+    } catch (err) {
+      logger.error('Create restaurant error', { error: err.message });
+      return error(res, 'Failed to create restaurant', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
+   * Get super admin dashboard stats (cross-restaurant analytics)
+   */
+  static async getSuperAdminStats(req, res) {
+    try {
+      const db = getDB();
+      const userRole = req.user?.role;
+
+      if (userRole !== 'super_admin') {
+        return error(res, 'Unauthorized - Super admin only', HTTP_STATUS.FORBIDDEN);
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+
+      // Overall stats across all restaurants
+      const stats = {
+        totalRestaurants: 0,
+        activeRestaurants: 0,
+        totalCustomers: 0,
+        totalStaff: 0,
+        totalOrders: 0,
+        totalRevenue: 0,
+        todayOrders: 0,
+        todayRevenue: 0,
+        activeOrders: 0,
+        totalTables: 0,
+        occupiedTables: 0,
+      };
+
+      // Count restaurants
+      const restaurantCounts = db.prepare(`
+        SELECT 
+          COUNT(*) as total,
+          SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active
+        FROM restaurants
+      `).get();
+      stats.totalRestaurants = restaurantCounts.total || 0;
+      stats.activeRestaurants = restaurantCounts.active || 0;
+
+      // Count users by role
+      const userCounts = db.prepare(`
+        SELECT 
+          COUNT(CASE WHEN role = 'customer' THEN 1 END) as customers,
+          COUNT(CASE WHEN role IN ('admin', 'staff') THEN 1 END) as staff,
+          COUNT(CASE WHEN role = 'super_admin' THEN 1 END) as super_admins
+        FROM users
+      `).get();
+      stats.totalCustomers = userCounts.customers || 0;
+      stats.totalStaff = userCounts.staff || 0;
+      stats.totalSuperAdmins = userCounts.super_admins || 0;
+
+      // Order stats
+      const orderStats = db.prepare(`
+        SELECT 
+          COUNT(*) as total_orders,
+          COALESCE(SUM(total_amount), 0) as total_revenue,
+          COUNT(CASE WHEN DATE(created_at) = ? THEN 1 END) as today_orders,
+          COALESCE(SUM(CASE WHEN DATE(created_at) = ? THEN total_amount ELSE 0 END), 0) as today_revenue,
+          COUNT(CASE WHEN status IN ('pending', 'preparing', 'ready') THEN 1 END) as active_orders
+        FROM orders
+      `).get(today, today);
+      stats.totalOrders = orderStats.total_orders || 0;
+      stats.totalRevenue = orderStats.total_revenue || 0;
+      stats.todayOrders = orderStats.today_orders || 0;
+      stats.todayRevenue = orderStats.today_revenue || 0;
+      stats.activeOrders = orderStats.active_orders || 0;
+
+      // Table stats
+      const tableStats = db.prepare(`
+        SELECT 
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'occupied' THEN 1 ELSE 0 END) as occupied
+        FROM restaurant_tables
+      `).get();
+      stats.totalTables = tableStats.total || 0;
+      stats.occupiedTables = tableStats.occupied || 0;
+
+      // Recent activity (last 7 days orders per restaurant)
+      // Handle orders without restaurant_id by using LEFT JOIN and filtering NULL
+      const last7Days = db.prepare(`
+        SELECT 
+          r.name as restaurant_name,
+          r.id as restaurant_id,
+          DATE(o.created_at) as date,
+          COUNT(*) as order_count,
+          COALESCE(SUM(o.total_amount), 0) as revenue
+        FROM orders o
+        LEFT JOIN restaurants r ON o.restaurant_id = r.id
+        WHERE o.created_at >= datetime('now', '-7 days')
+          AND o.restaurant_id IS NOT NULL
+        GROUP BY r.id, DATE(o.created_at)
+        ORDER BY r.name, date DESC
+      `).all();
+
+      // Top performing restaurants
+      const topRestaurants = db.prepare(`
+        SELECT 
+          r.id, r.name, r.logo_url,
+          COUNT(o.id) as order_count,
+          COALESCE(SUM(o.total_amount), 0) as total_revenue
+        FROM restaurants r
+        LEFT JOIN orders o ON r.id = o.restaurant_id AND o.restaurant_id IS NOT NULL
+        WHERE r.is_active = 1
+        GROUP BY r.id
+        ORDER BY total_revenue DESC
+        LIMIT 5
+      `).all();
+
+      return success(res, {
+        ...stats,
+        recentActivity: last7Days,
+        topRestaurants
+      }, 'Super admin stats retrieved');
+    } catch (err) {
+      logger.error('Get super admin stats error', { error: err.message });
+      return error(res, 'Failed to get stats', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
+   * Get users by restaurant (super admin only)
+   */
+  static async getUsersByRestaurant(req, res) {
+    try {
+      const db = getDB();
+      const userRole = req.user?.role;
+      const { restaurantId } = req.params;
+      const { role } = req.query;
+
+      if (userRole !== 'super_admin') {
+        return error(res, 'Unauthorized - Super admin only', HTTP_STATUS.FORBIDDEN);
+      }
+
+      let query = `
+        SELECT 
+          u.id, u.uuid, u.email, u.phone, u.name, u.role, u.avatar_url,
+          u.is_active, u.last_login_at, u.created_at,
+          r.name as restaurant_name
+        FROM users u
+        LEFT JOIN restaurants r ON u.restaurant_id = r.id
+        WHERE u.restaurant_id = ?
+      `;
+      let params = [restaurantId];
+
+      if (role) {
+        query += ' AND u.role = ?';
+        params.push(role);
+      }
+
+      query += ' ORDER BY u.role, u.created_at DESC';
+
+      const users = db.prepare(query).all(...params);
+      return success(res, users, 'Users retrieved');
+    } catch (err) {
+      logger.error('Get users by restaurant error', { error: err.message });
+      return error(res, 'Failed to get users', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
 }

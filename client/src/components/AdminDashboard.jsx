@@ -1,7 +1,7 @@
 import { useSelector } from 'react-redux'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Users, ShoppingCart, Menu as MenuIcon, Settings, BarChart3, Home, Table, Clock, CheckCircle, ChefHat, Package, XCircle } from 'lucide-react'
+import { Users, ShoppingCart, Menu as MenuIcon, Settings, BarChart3, Home, Table, Clock, CheckCircle, ChefHat, Package, XCircle, Crown, Building2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import apiClient from '../services/api'
 
@@ -109,19 +109,34 @@ export const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Admin Header */}
-      <div className="bg-gray-900 text-white">
+      <div className={`${role === 'super_admin' ? 'bg-gradient-to-r from-purple-900 via-gray-900 to-gray-900' : 'bg-gray-900'} text-white`}>
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                <Settings size={20} />
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                role === 'super_admin' ? 'bg-gradient-to-br from-purple-500 to-pink-500' : 'bg-white/10'
+              }`}>
+                {role === 'super_admin' ? <Crown size={20} /> : <Settings size={20} />}
               </div>
               <div>
-                <h1 className="text-xl font-bold">Admin Dashboard</h1>
-                <p className="text-sm text-gray-400 capitalize">{role.replace('_', ' ')}</p>
+                <h1 className="text-xl font-bold">
+                  {role === 'super_admin' ? 'Super Admin Dashboard' : 'Admin Dashboard'}
+                </h1>
+                <p className="text-sm text-gray-400 capitalize">
+                  {role === 'super_admin' ? 'Full system access' : 'Restaurant management'}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {role === 'super_admin' && (
+                <button
+                  onClick={() => navigate('/super-admin')}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 rounded-lg transition-colors"
+                >
+                  <Building2 size={18} />
+                  <span className="hidden sm:inline">Multi-Restaurant View</span>
+                </button>
+              )}
               <button
                 onClick={() => navigate('/')}
                 className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
@@ -290,6 +305,19 @@ export const AdminDashboard = () => {
           transition={{ delay: 0.6 }}
           className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
         >
+          {role === 'super_admin' && (
+            <button
+              onClick={() => navigate('/super-admin')}
+              className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow text-left border-2 border-purple-100"
+            >
+              <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center mb-4">
+                <Building2 size={24} className="text-purple-600" />
+              </div>
+              <h3 className="font-semibold text-gray-900">Restaurant Network</h3>
+              <p className="text-sm text-gray-500 mt-1">Manage all restaurants & cafes</p>
+            </button>
+          )}
+
           <button
             onClick={() => navigate('/admin/menu')}
             className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow text-left"
@@ -323,16 +351,18 @@ export const AdminDashboard = () => {
             <p className="text-sm text-gray-500 mt-1">View & manage all orders</p>
           </button>
 
-          <button
-            onClick={() => navigate('/admin/settings')}
-            className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow text-left"
-          >
-            <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center mb-4">
-              <Settings size={24} className="text-purple-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900">Settings</h3>
-            <p className="text-sm text-gray-500 mt-1">Restaurant configuration</p>
-          </button>
+          {role !== 'super_admin' && (
+            <button
+              onClick={() => navigate('/admin/settings')}
+              className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow text-left"
+            >
+              <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center mb-4">
+                <Settings size={24} className="text-purple-600" />
+              </div>
+              <h3 className="font-semibold text-gray-900">Settings</h3>
+              <p className="text-sm text-gray-500 mt-1">Restaurant configuration</p>
+            </button>
+          )}
         </motion.div>
 
         {/* Quick Actions */}

@@ -34,4 +34,10 @@ router.patch('/tables/:id/status', asyncHandler(AdminController.updateTableStatu
 // Menu management
 router.get('/menu/stats', asyncHandler(AdminController.getMenuStats));
 
+// Super admin only routes
+router.get('/restaurants', asyncHandler(AdminController.getAllRestaurants));
+router.post('/restaurants', asyncHandler(AdminController.createRestaurant));
+router.get('/restaurants/:restaurantId/users', asyncHandler(AdminController.getUsersByRestaurant));
+router.get('/super-admin/stats', asyncHandler(AdminController.getSuperAdminStats));
+
 export default router;
