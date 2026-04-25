@@ -1,12 +1,62 @@
 import { useSelector } from 'react-redux'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Users, ShoppingCart, Menu as MenuIcon, Settings, BarChart3, LogOut, Home } from 'lucide-react'
+import { Users, ShoppingCart, Menu as MenuIcon, Settings, BarChart3, Home, Table, Clock, CheckCircle, ChefHat, Package, XCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import apiClient from '../services/api'
 
 export const AdminDashboard = () => {
   const navigate = useNavigate()
   const user = useSelector((state) => state.auth.user)
   const role = user?.role || 'customer'
+
+  const [stats, setStats] = useState({
+    totalCustomers: 0,
+    activeOrders: 0,
+    todayOrders: 0,
+    todayRevenue: 0,
+    occupiedTables: 0,
+    totalTables: 0,
+    menuItems: 0,
+  })
+  const [orders, setOrders] = useState([])
+  const [tables, setTables] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  // Fetch dashboard data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+
+        // Fetch stats
+        const statsRes = await apiClient.get('/admin/stats')
+        if (statsRes.data.success) {
+          setStats(statsRes.data.data)
+        }
+
+        // Fetch active orders
+        const ordersRes = await apiClient.get('/admin/orders/active')
+        if (ordersRes.data.success) {
+          setOrders(ordersRes.data.data)
+        }
+
+        // Fetch occupied tables
+        const tablesRes = await apiClient.get('/admin/tables/occupied')
+        if (tablesRes.data.success) {
+          setTables(tablesRes.data.data)
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (role === 'admin' || role === 'super_admin') {
+      fetchData()
+    }
+  }, [role])
 
   // Redirect if not admin or super admin
   if (role !== 'admin' && role !== 'super_admin') {
@@ -29,17 +79,30 @@ export const AdminDashboard = () => {
     )
   }
 
-  const menuItems = [
-    { id: 'overview', label: 'Overview', icon: BarChart3, path: '/admin/overview' },
-    { id: 'users', label: 'User Management', icon: Users, path: '/admin/users' },
-    { id: 'orders', label: 'Order Management', icon: ShoppingCart, path: '/admin/orders' },
-    { id: 'menu', label: 'Menu Management', icon: MenuIcon, path: '/admin/menu' },
-    { id: 'settings', label: 'Settings', icon: Settings, path: '/admin/settings' },
-  ]
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-700'
+      case 'confirmed': return 'bg-blue-100 text-blue-700'
+      case 'preparing': return 'bg-orange-100 text-orange-700'
+      case 'ready': return 'bg-green-100 text-green-700'
+      case 'served': return 'bg-purple-100 text-purple-700'
+      case 'completed': return 'bg-gray-100 text-gray-700'
+      case 'cancelled': return 'bg-red-100 text-red-700'
+      default: return 'bg-gray-100 text-gray-700'
+    }
+  }
 
-  // Super admin only items
-  if (role === 'super_admin') {
-    menuItems.push({ id: 'admins', label: 'Admin Management', icon: Users, path: '/admin/admins' })
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'pending': return Clock
+      case 'confirmed': return CheckCircle
+      case 'preparing': return ChefHat
+      case 'ready': return Package
+      case 'served': return CheckCircle
+      case 'completed': return CheckCircle
+      case 'cancelled': return XCircle
+      default: return Clock
+    }
   }
 
   return (
@@ -74,10 +137,10 @@ export const AdminDashboard = () => {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'Total Users', value: '1,234', icon: Users, color: 'bg-blue-500' },
-            { label: 'Active Orders', value: '45', icon: ShoppingCart, color: 'bg-green-500' },
-            { label: 'Menu Items', value: '89', icon: MenuIcon, color: 'bg-orange-500' },
-            { label: 'Revenue Today', value: '₹12,450', icon: BarChart3, color: 'bg-purple-500' },
+            { label: 'Today Orders', value: stats.todayOrders, icon: ShoppingCart, color: 'bg-blue-500' },
+            { label: 'Active Orders', value: stats.activeOrders, icon: Clock, color: 'bg-orange-500' },
+            { label: 'Occupied Tables', value: `${stats.occupiedTables}/${stats.totalTables}`, icon: Table, color: 'bg-green-500' },
+            { label: 'Today Revenue', value: `₹${stats.todayRevenue}`, icon: BarChart3, color: 'bg-purple-500' },
           ].map((stat, index) => {
             const Icon = stat.icon
             return (
@@ -102,54 +165,145 @@ export const AdminDashboard = () => {
           })}
         </div>
 
-        {/* Menu Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {menuItems.map((item, index) => {
-            const Icon = item.icon
-            return (
-              <motion.button
-                key={item.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 + index * 0.1 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate(item.path)}
-                className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow text-left"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-                    <Icon size={24} className="text-gray-600" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Active Orders */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="bg-white rounded-xl shadow-sm overflow-hidden"
+          >
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-gray-900">Active Orders</h2>
+                <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                  View All
+                </button>
+              </div>
+            </div>
+            <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+              {loading ? (
+                <div className="p-8 text-center text-gray-500">Loading...</div>
+              ) : orders.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">No active orders</div>
+              ) : (
+                orders.map((order) => {
+                  const StatusIcon = getStatusIcon(order.status)
+                  return (
+                    <div key={order.id} className="p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-gray-900">Order #{order.uuid?.slice(-6)}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                              {order.status}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            {order.user_name || 'Guest'} • Table {order.table_number || 'N/A'}
+                          </p>
+                          <p className="text-sm text-gray-500 mt-1">
+                            ₹{order.total_amount} • {new Date(order.created_at).toLocaleTimeString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <StatusIcon size={18} className="text-gray-400" />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </motion.div>
+
+          {/* Occupied Tables */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="bg-white rounded-xl shadow-sm overflow-hidden"
+          >
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-gray-900">Occupied Tables</h2>
+                <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                  View All
+                </button>
+              </div>
+            </div>
+            <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+              {loading ? (
+                <div className="p-8 text-center text-gray-500">Loading...</div>
+              ) : tables.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">No occupied tables</div>
+              ) : (
+                tables.map((table) => (
+                  <div key={table.id} className="p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-gray-900">Table {table.table_number}</span>
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                            Occupied
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          {table.user_name || 'Guest'} {table.user_phone && `• ${table.user_phone}`}
+                        </p>
+                        {table.order_id && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            Order #{table.order_uuid?.slice(-6)} • {table.order_status}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900">{item.label}</h3>
-                    <p className="text-sm text-gray-500">Manage {item.label.toLowerCase()}</p>
-                  </div>
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </motion.button>
-            )
-          })}
+                ))
+              )}
+            </div>
+          </motion.div>
         </div>
 
         {/* Quick Actions */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
+          transition={{ delay: 0.6 }}
           className="mt-8 bg-white rounded-xl p-6 shadow-sm"
         >
           <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <button className="px-4 py-3 bg-gray-100 rounded-lg text-sm font-medium text-gray-900 hover:bg-gray-200 transition-colors">
-              Add New Menu Item
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <button
+              onClick={() => navigate('/menu')}
+              className="px-4 py-3 bg-gray-100 rounded-lg text-sm font-medium text-gray-900 hover:bg-gray-200 transition-colors text-left flex items-center gap-2"
+            >
+              <MenuIcon size={18} />
+              View Menu
             </button>
-            <button className="px-4 py-3 bg-gray-100 rounded-lg text-sm font-medium text-gray-900 hover:bg-gray-200 transition-colors">
-              View Today's Orders
+            <button
+              onClick={() => navigate('/orders')}
+              className="px-4 py-3 bg-gray-100 rounded-lg text-sm font-medium text-gray-900 hover:bg-gray-200 transition-colors text-left flex items-center gap-2"
+            >
+              <ShoppingCart size={18} />
+              View Orders
             </button>
-            <button className="px-4 py-3 bg-gray-100 rounded-lg text-sm font-medium text-gray-900 hover:bg-gray-200 transition-colors">
-              Generate Report
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-3 bg-gray-100 rounded-lg text-sm font-medium text-gray-900 hover:bg-gray-200 transition-colors text-left flex items-center gap-2"
+            >
+              <BarChart3 size={18} />
+              Refresh Data
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="px-4 py-3 bg-gray-100 rounded-lg text-sm font-medium text-gray-900 hover:bg-gray-200 transition-colors text-left flex items-center gap-2"
+            >
+              <Home size={18} />
+              Back to App
             </button>
           </div>
         </motion.div>

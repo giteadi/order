@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authRoutes from './auth.routes.js';
 import productRoutes from './product.routes.js';
 import orderRoutes from './order.routes.js';
+import adminRoutes from './admin.routes.js';
 
 const router = Router();
 
@@ -9,6 +10,7 @@ const router = Router();
 router.use('/auth', authRoutes);
 router.use('/menu', productRoutes);
 router.use('/orders', orderRoutes);
+router.use('/admin', adminRoutes);
 
 // Health check
 router.get('/health', (req, res) => {

@@ -76,6 +76,8 @@ export class AuthController {
     try {
       const { email, phone, password } = req.body;
 
+      logger.info('Login attempt', { email, phone, body: req.body });
+
       // Validate input
       if (!email && !phone) {
         return validationError(res, [{ field: 'email', message: 'Email or phone is required' }]);
@@ -85,16 +87,19 @@ export class AuthController {
       const user = await User.verifyCredentials(email, phone, password);
 
       if (!user) {
+        logger.warn('Login failed - invalid credentials', { email, phone });
         return error(res, 'Invalid credentials', HTTP_STATUS.UNAUTHORIZED);
       }
+
+      logger.info('User found', { userId: user.id, role: user.role, user: user });
 
       // Generate tokens
       const token = generateToken({ id: user.id, role: user.role });
       const refreshToken = generateRefreshToken(user.id);
 
-      logger.info('User logged in', { userId: user.id });
+      logger.info('User logged in', { userId: user.id, role: user.role });
 
-      return success(res, {
+      const responseData = {
         user: {
           id: user.id,
           uuid: user.uuid,
@@ -105,7 +110,11 @@ export class AuthController {
         },
         token,
         refreshToken,
-      }, 'Login successful');
+      };
+
+      logger.info('Sending response', { data: responseData });
+
+      return success(res, responseData, 'Login successful');
 
     } catch (err) {
       logger.error('Login failed', { error: err.message });

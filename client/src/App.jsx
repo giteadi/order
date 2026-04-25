@@ -504,7 +504,9 @@ function App() {
         <Route path="/login" element={
           <LoginScreen 
             onLogin={(data) => {
-              console.log('Login:', data)
+              console.log('Login data:', data)
+              console.log('User:', data?.user)
+              console.log('Role:', data?.user?.role)
               // Save user data to Redux
               if (data.user && data.token) {
                 dispatch(setUser({
@@ -515,9 +517,12 @@ function App() {
                 
                 // Auto-redirect for admin/super admin
                 const userRole = data.user.role
+                console.log('Checking role:', userRole)
                 if (userRole === 'admin' || userRole === 'super_admin') {
+                  console.log('Redirecting to admin')
                   navigate('/admin')
                 } else {
+                  console.log('Redirecting to menu, role is:', userRole)
                   navigate('/menu')
                 }
               } else {

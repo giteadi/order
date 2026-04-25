@@ -1,23 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react'
 import { GoogleLogin } from '@react-oauth/google'
 import { authAPI } from '../services/api'
-import { useSelector } from 'react-redux'
-import { selectIsAuthenticated, selectUser } from '../store/slices/authSlice'
-import { useNavigate } from 'react-router-dom'
 
 export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot }) => {
-  const navigate = useNavigate()
-  const isAuthenticated = useSelector(selectIsAuthenticated)
-  const user = useSelector(selectUser)
-
-  // Redirect if already logged in
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      navigate('/menu')
-    }
-  }, [isAuthenticated, user, navigate])
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -28,12 +15,27 @@ export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
-    const result = await onLogin?.(formData)
-    setIsLoading(false)
-    
-    // Auto-redirect for admin/super admin
-    if (result?.user?.role === 'admin' || result?.user?.role === 'super_admin') {
-      navigate('/admin')
+    try {
+      const response = await authAPI.login(formData)
+      console.log('Full response:', response)
+      console.log('Response data:', response.data)
+      console.log('Response data.data:', response.data?.data)
+      
+      const { user, token, refreshToken } = response.data.data
+      console.log('Extracted user:', user)
+      console.log('User role:', user?.role)
+      
+      // Call parent onLogin with user data - parent will handle redirect
+      onLogin?.({
+        user,
+        token,
+        refreshToken,
+      })
+    } catch (error) {
+      console.error('Login error:', error)
+      alert('Login failed. Please check your credentials.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -142,18 +144,13 @@ export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot 
                       const response = await authAPI.googleLogin(credentialResponse.credential)
                       const { user, token, refreshToken } = response.data.data
                       
-                      // Call parent onLogin with user data
+                      // Call parent onLogin with user data - parent handles redirect
                       onLogin?.({
                         user,
                         token,
                         refreshToken,
                         isSocialLogin: true,
                       })
-                      
-                      // Auto-redirect for admin/super admin
-                      if (user.role === 'admin' || user.role === 'super_admin') {
-                        navigate('/admin')
-                      }
                     } catch (error) {
                       console.error('Google login error:', error)
                       alert('Google login failed. Please try again.')
