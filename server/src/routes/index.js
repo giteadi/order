@@ -1,0 +1,22 @@
+import { Router } from 'express';
+import authRoutes from './auth.routes.js';
+import productRoutes from './product.routes.js';
+import orderRoutes from './order.routes.js';
+
+const router = Router();
+
+// API routes
+router.use('/auth', authRoutes);
+router.use('/menu', productRoutes);
+router.use('/orders', orderRoutes);
+
+// Health check
+router.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
+});
+
+export default router;
