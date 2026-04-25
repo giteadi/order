@@ -84,6 +84,11 @@ export class SocialAuthController {
         const randomPassword = Math.random().toString(36).substring(2) + Date.now().toString(36);
         const passwordHash = await bcrypt.default.hash(randomPassword, 12);
 
+        // Get default restaurant (first active restaurant)
+        const { getDB } = await import('../database/connection.js');
+        const db = getDB();
+        const defaultRestaurant = db.prepare('SELECT id FROM restaurants WHERE is_active = 1 LIMIT 1').get();
+
         const result = User.create({
           uuid: generateUUID(),
           email,
@@ -92,11 +97,12 @@ export class SocialAuthController {
           google_id: googleId,
           avatar_url: picture,
           avatar_base64: avatarBase64,
+          restaurant_id: defaultRestaurant?.id || 1, // Link to default restaurant
           is_active: 1,
         });
 
         user = User.findById(result.id, 'id, uuid, email, name, role, avatar_url, avatar_base64, created_at');
-        logger.info('New user created via Google', { userId: user.id, email });
+        logger.info('New user created via Google', { userId: user.id, email, restaurantId: defaultRestaurant?.id || 1 });
       }
 
       // Generate tokens

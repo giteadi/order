@@ -53,11 +53,9 @@ export const SuperAdminDashboard = () => {
     const fetchData = async () => {
       try {
         setLoading(true)
-        console.log('Fetching super admin data...')
 
         // Fetch super admin stats
         const statsRes = await apiClient.get('/admin/super-admin/stats')
-        console.log('Stats response:', statsRes.data)
         if (statsRes.data.success) {
           setStats(statsRes.data.data)
           setTopRestaurants(statsRes.data.data.topRestaurants || [])
@@ -66,24 +64,18 @@ export const SuperAdminDashboard = () => {
 
         // Fetch all restaurants
         const restaurantsRes = await apiClient.get('/admin/restaurants')
-        console.log('Restaurants response:', restaurantsRes.data)
         if (restaurantsRes.data.success) {
           setRestaurants(restaurantsRes.data.data || [])
-          console.log('Restaurants loaded:', restaurantsRes.data.data?.length || 0)
         }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error)
-        console.error('Error response:', error.response?.data)
       } finally {
         setLoading(false)
       }
     }
 
     if (role === 'super_admin') {
-      console.log('Role is super_admin, fetching data...')
       fetchData()
-    } else {
-      console.log('Role is not super_admin:', role)
     }
   }, [role])
 
