@@ -307,6 +307,17 @@ export async function initializeDatabase() {
       { table: TABLES.USERS, column: 'avatar_base64', type: 'TEXT' },
       { table: TABLES.USERS, column: 'google_id', type: 'TEXT' },
       { table: TABLES.USERS, column: 'facebook_id', type: 'TEXT UNIQUE' },
+      { table: 'restaurants', column: 'description', type: 'TEXT' },
+      { table: 'restaurants', column: 'address', type: 'TEXT' },
+      { table: 'restaurants', column: 'phone', type: 'TEXT' },
+      { table: 'restaurants', column: 'email', type: 'TEXT' },
+      { table: 'restaurants', column: 'website', type: 'TEXT' },
+      { table: 'restaurants', column: 'opening_hours', type: 'TEXT' },
+      { table: 'restaurants', column: 'tax_rate', type: 'REAL' },
+      { table: 'restaurants', column: 'currency', type: 'TEXT' },
+      { table: 'restaurants', column: 'currency_symbol', type: 'TEXT' },
+      { table: 'restaurants', column: 'payment_methods', type: 'TEXT' },
+      { table: 'restaurants', column: 'features', type: 'TEXT' },
     ];
 
     for (const migration of migrations) {

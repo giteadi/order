@@ -46,16 +46,37 @@ export const RestaurantSettings = () => {
     },
   })
 
+  // Fetch settings on component mount
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        setLoading(true)
+        const response = await apiClient.get('/admin/settings')
+        if (response.data.success) {
+          setSettings(response.data.data)
+        }
+      } catch (error) {
+        console.error('Failed to fetch settings:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSettings()
+  }, [])
+
   const handleSave = async () => {
     setSaving(true)
     setMessage('')
 
     try {
-      // Simulate API call - in real scenario, create /admin/settings endpoint
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      setMessage('Settings saved successfully!')
-      setTimeout(() => setMessage(''), 3000)
+      const response = await apiClient.put('/admin/settings', settings)
+      if (response.data.success) {
+        setMessage('Settings saved successfully!')
+        setTimeout(() => setMessage(''), 3000)
+      }
     } catch (error) {
+      console.error('Failed to save settings:', error)
       setMessage('Failed to save settings')
     } finally {
       setSaving(false)
