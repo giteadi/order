@@ -53,7 +53,40 @@ export const RestaurantSettings = () => {
         setLoading(true)
         const response = await apiClient.get('/admin/settings')
         if (response.data.success) {
-          setSettings(response.data.data)
+          const data = response.data.data
+          setSettings({
+            name: data.name || 'ArtHaus Café',
+            description: data.description || '',
+            address: data.address || '',
+            phone: data.phone || '',
+            email: data.email || '',
+            website: data.website || '',
+            opening_hours: data.opening_hours || {
+              monday: { open: '08:00', close: '22:00', closed: false },
+              tuesday: { open: '08:00', close: '22:00', closed: false },
+              wednesday: { open: '08:00', close: '22:00', closed: false },
+              thursday: { open: '08:00', close: '22:00', closed: false },
+              friday: { open: '08:00', close: '23:00', closed: false },
+              saturday: { open: '09:00', close: '23:00', closed: false },
+              sunday: { open: '09:00', close: '21:00', closed: false },
+            },
+            logo_url: data.logo_url || '',
+            tax_rate: data.tax_rate || 5,
+            currency: data.currency || 'INR',
+            currency_symbol: data.currency_symbol || '₹',
+            payment_methods: data.payment_methods || {
+              cash: true,
+              card: true,
+              upi: true,
+              wallet: false,
+            },
+            features: data.features || {
+              table_reservation: true,
+              online_ordering: true,
+              delivery: false,
+              takeaway: true,
+            },
+          })
         }
       } catch (error) {
         console.error('Failed to fetch settings:', error)
