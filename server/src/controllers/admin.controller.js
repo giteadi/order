@@ -79,8 +79,8 @@ export class AdminController {
       stats.todayOrders = todayResult.count;
       stats.todayRevenue = todayResult.revenue;
 
-      // Active orders (pending, preparing, ready)
-      let activeQuery = `SELECT COUNT(*) as count FROM orders WHERE status IN ('pending', 'preparing', 'ready')`;
+      // Active orders (pending, confirmed, preparing, ready)
+      let activeQuery = `SELECT COUNT(*) as count FROM orders WHERE status IN ('pending', 'confirmed', 'preparing', 'ready')`;
       let activeParams = [];
       if (restaurantId) {
         activeQuery += ' AND restaurant_id = ?';
@@ -202,7 +202,7 @@ export class AdminController {
   }
 
   /**
-   * Get active orders (pending, preparing, ready)
+   * Get active orders (pending, confirmed, preparing, ready)
    */
   static async getActiveOrders(req, res) {
     try {
@@ -217,7 +217,7 @@ export class AdminController {
           u.name as user_name, u.email as user_email, u.phone as user_phone
         FROM orders o
         LEFT JOIN users u ON o.user_id = u.id
-        WHERE o.status IN ('pending', 'preparing', 'ready')
+        WHERE o.status IN ('pending', 'confirmed', 'preparing', 'ready')
       `;
       let params = [];
 
@@ -229,12 +229,25 @@ export class AdminController {
       query += ` ORDER BY
         CASE o.status
           WHEN 'pending' THEN 1
+          WHEN 'confirmed' THEN 2
           WHEN 'preparing' THEN 2
           WHEN 'ready' THEN 3
         END,
         o.created_at ASC`;
 
       const orders = db.prepare(query).all(...params);
+      
+      // Get order items for each order
+      for (const order of orders) {
+        const items = db.prepare(`
+          SELECT oi.*, p.name as product_name, p.emoji_icon
+          FROM order_items oi
+          LEFT JOIN products p ON oi.product_id = p.id
+          WHERE oi.order_id = ?
+        `).all(order.id);
+        order.items = items;
+      }
+      
       return success(res, orders, 'Active orders retrieved');
     } catch (err) {
       logger.error('Get active orders error', { error: err.message });
@@ -970,7 +983,7 @@ export class AdminController {
           COALESCE(SUM(total_amount), 0) as total_revenue,
           COUNT(CASE WHEN DATE(created_at) = ? THEN 1 END) as today_orders,
           COALESCE(SUM(CASE WHEN DATE(created_at) = ? THEN total_amount ELSE 0 END), 0) as today_revenue,
-          COUNT(CASE WHEN status IN ('pending', 'preparing', 'ready') THEN 1 END) as active_orders
+          COUNT(CASE WHEN status IN ('pending', 'confirmed', 'preparing', 'ready') THEN 1 END) as active_orders
         FROM orders
       `).get(today, today);
       stats.totalOrders = orderStats.total_orders || 0;
