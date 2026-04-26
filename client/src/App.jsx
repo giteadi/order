@@ -27,7 +27,7 @@ import {
   selectSelectedProduct,
   selectIsProductModalOpen,
 } from './store/slices/uiSlice'
-import { logout, selectIsAuthenticated, selectUser, setUser } from './store/slices/authSlice'
+import { logout, selectIsAuthenticated, selectUser, selectToken, setUser } from './store/slices/authSlice'
 import { fetchRestaurantBySubdomain } from './store/slices/restaurantSlice'
 
 gsap.registerPlugin(ScrollTrigger)
@@ -183,6 +183,7 @@ function App() {
   const selectedProduct = useSelector(selectSelectedProduct)
   const isAuthenticated = useSelector(selectIsAuthenticated)
   const user = useSelector(selectUser)
+  const token = useSelector(selectToken)
   
   const [selectedCategory, setSelectedCategory] = useState(2)
   const [selectedSubcategory, setSelectedSubcategory] = useState('espresso')
@@ -311,8 +312,82 @@ function App() {
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   ) || []
 
-  const handlePlaceOrder = () => {
-    alert(`Order placed for Table ${tableNumber}! Total: ₹${cartTotal}`)
+  const handlePlaceOrder = async () => {
+    try {
+      console.log('📤 Placing order...', { 
+        cart, 
+        tableNumber, 
+        user,
+        total: cartTotal 
+      })
+
+      // Get restaurant from URL
+      const params = new URLSearchParams(window.location.search)
+      const restaurant = params.get('restaurant')
+
+      // Import orderAPI and toast
+      const { orderAPI } = await import('./services/api')
+      const toast = (await import('react-hot-toast')).default
+
+      // Prepare order data
+      const orderData = {
+        tableNumber: parseInt(tableNumber),
+        items: cart.map(item => ({
+          productId: item.productId, // Use productId, not id
+          quantity: item.quantity,
+          customizations: item.customizations || []
+        })),
+        specialInstructions: '',
+        restaurant
+      }
+
+      console.log('📤 Order data:', orderData)
+
+      // Create order
+      const response = await orderAPI.create(token, orderData)
+      console.log('✅ Order created:', response.data)
+
+      // Clear cart
+      dispatch(clearCart())
+
+      // Close cart
+      dispatch(closeCart())
+
+      // Show success toast
+      toast.success('Order Successful!', {
+        duration: 3000,
+        position: 'top-center',
+        style: {
+          background: '#10B981',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '12px',
+          fontSize: '16px',
+          fontWeight: '600',
+        },
+        icon: '✅',
+      })
+
+    } catch (error) {
+      console.error('❌ Order placement failed:', error)
+      console.error('Error response:', error.response?.data)
+      
+      // Show error toast
+      const toast = (await import('react-hot-toast')).default
+      toast.error(error.response?.data?.message || 'Failed to place order', {
+        duration: 4000,
+        position: 'top-center',
+        style: {
+          background: '#EF4444',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '12px',
+          fontSize: '16px',
+          fontWeight: '600',
+        },
+        icon: '❌',
+      })
+    }
   }
 
   const handleCreateGroupOrder = () => {
@@ -541,22 +616,79 @@ function App() {
                 navigateWithParams('/menu')
               }
             }}
-            onNavigateToRegister={() => navigate('/register')}
-            onNavigateToForgot={() => navigate('/forgot-password')}
+            onNavigateToRegister={() => navigateWithParams('/register')}
+            onNavigateToForgot={() => navigateWithParams('/forgot-password')}
           />
         } />
         <Route path="/register" element={
           <RegisterScreen 
-            onRegister={(data) => {
-              console.log('Register:', data)
-              navigateWithParams('/menu')
+            onRegister={async (data) => {
+              console.log('📤 App.jsx: Sending registration request', data)
+              try {
+                const { authAPI } = await import('./services/api')
+                
+                // Get restaurant from URL params
+                const params = new URLSearchParams(window.location.search)
+                const restaurant = params.get('restaurant')
+                
+                // Add restaurant to registration data
+                const registrationData = {
+                  ...data,
+                  restaurant
+                }
+                
+                console.log('📤 Registration data with restaurant:', registrationData)
+                
+                const response = await authAPI.register(registrationData)
+                console.log('✅ Registration successful:', response.data)
+                
+                const { user, token, refreshToken } = response.data.data
+                
+                // Save user to Redux
+                dispatch(setUser({
+                  user,
+                  token,
+                  refreshToken,
+                }))
+                
+                navigateWithParams('/menu')
+              } catch (error) {
+                console.error('❌ Registration error:', error)
+                console.error('Error response:', error.response?.data)
+                
+                // Re-throw error so RegisterScreen can handle it
+                throw error
+              }
             }}
-            onNavigateToLogin={() => navigate('/login')}
+            onNavigateToLogin={() => navigateWithParams('/login')}
           />
         } />
         <Route path="/forgot-password" element={
           <ForgotPasswordScreen 
-            onSendReset={(email) => console.log('Reset password for:', email)}
+            onSendReset={async (email) => {
+              try {
+                const { authAPI } = await import('./services/api')
+                const response = await authAPI.forgotPassword(email)
+                // In dev mode, token is returned directly
+                const { resetToken } = response.data.data
+                return resetToken
+              } catch (error) {
+                console.error('Forgot password error:', error)
+                alert('Failed to send reset instructions')
+                return null
+              }
+            }}
+            onResetPassword={async (token, newPassword) => {
+              try {
+                const { authAPI } = await import('./services/api')
+                await authAPI.resetPassword(token, newPassword)
+                alert('Password reset successful! Please login with your new password.')
+                navigate('/login')
+              } catch (error) {
+                console.error('Reset password error:', error)
+                alert('Failed to reset password')
+              }
+            }}
             onNavigateToLogin={() => navigate('/login')}
           />
         } />
@@ -630,6 +762,8 @@ function App() {
               onRemoveItem={handleRemoveFromCart}
               cartTotal={cartTotal}
               onPlaceOrder={handlePlaceOrder}
+              isAuthenticated={isAuthenticated}
+              onNavigateToLogin={() => navigateWithParams('/login')}
             />
           </>
         } />
@@ -644,6 +778,8 @@ function App() {
         onRemoveItem={handleRemoveFromCart}
         cartTotal={cartTotal}
         onPlaceOrder={handlePlaceOrder}
+        isAuthenticated={isAuthenticated}
+        onNavigateToLogin={() => navigateWithParams('/login')}
       />
 
       <ProductModal 

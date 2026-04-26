@@ -9,7 +9,9 @@ export const CartSidebar = ({
   onUpdateQuantity, 
   onRemoveItem, 
   cartTotal,
-  onPlaceOrder 
+  onPlaceOrder,
+  isAuthenticated,
+  onNavigateToLogin
 }) => {
   return (
     <AnimatePresence>
@@ -134,13 +136,23 @@ export const CartSidebar = ({
                   </span>
                 </div>
 
-                <motion.button
-                  onClick={onPlaceOrder}
-                  whileTap={{ scale: 0.97 }}
-                  className="w-full py-4 rounded-xl bg-black text-white font-semibold"
-                >
-                  Place Order
-                </motion.button>
+                {isAuthenticated ? (
+                  <motion.button
+                    onClick={onPlaceOrder}
+                    whileTap={{ scale: 0.97 }}
+                    className="w-full py-4 rounded-xl bg-black text-white font-semibold"
+                  >
+                    Place Order
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    onClick={onNavigateToLogin}
+                    whileTap={{ scale: 0.97 }}
+                    className="w-full py-4 rounded-xl bg-orange-500 text-white font-semibold"
+                  >
+                    Login to Place Order
+                  </motion.button>
+                )}
               </div>
             )}
           </motion.div>

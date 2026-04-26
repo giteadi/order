@@ -2,36 +2,38 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, ArrowRight, Check, ArrowLeft, Shield } from 'lucide-react'
 
-export const ForgotPasswordScreen = ({ onSendReset, onNavigateToLogin }) => {
+export const ForgotPasswordScreen = ({ onSendReset, onResetPassword, onNavigateToLogin }) => {
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSent, setIsSent] = useState(false)
-  const [otp, setOtp] = useState(['', '', '', '', '', ''])
+  const [resetToken, setResetToken] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
-    await onSendReset?.(email)
+    const token = await onSendReset?.(email)
+    if (token) {
+      setResetToken(token)
+      setIsSent(true)
+    }
     setIsLoading(false)
-    setIsSent(true)
   }
 
-  const handleOtpChange = (index, value) => {
-    if (value.length > 1) return
-    const newOtp = [...otp]
-    newOtp[index] = value
-    setOtp(newOtp)
-    if (value && index < 5) {
-      document.getElementById(`otp-${index + 1}`)?.focus()
+  const handleResetPassword = async (e) => {
+    e.preventDefault()
+    if (newPassword !== confirmPassword) {
+      alert('Passwords do not match')
+      return
     }
-  }
-
-  const handleVerifyOtp = () => {
-    const otpValue = otp.join('')
-    if (otpValue.length === 6) {
-      alert('Password reset successful! Please login with your new password.')
-      onNavigateToLogin?.()
+    if (newPassword.length < 6) {
+      alert('Password must be at least 6 characters')
+      return
     }
+    setIsLoading(true)
+    await onResetPassword?.(resetToken, newPassword)
+    setIsLoading(false)
   }
 
   return (
@@ -110,47 +112,66 @@ export const ForgotPasswordScreen = ({ onSendReset, onNavigateToLogin }) => {
                 </motion.button>
               </motion.form>
             ) : (
-              <motion.div
-                key="otp-form"
+              <motion.form
+                key="password-form"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="space-y-6"
+                onSubmit={handleResetPassword}
+                className="space-y-4"
               >
-                <div className="flex justify-center gap-2 sm:gap-3">
-                  {otp.map((digit, index) => (
-                    <input
-                      key={index}
-                      id={`otp-${index}`}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={(e) => handleOtpChange(index, e.target.value)}
-                      className="w-12 h-14 sm:w-14 sm:h-16 text-center text-xl sm:text-2xl font-bold bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:bg-white transition-all"
-                    />
-                  ))}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">New Password</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:bg-white transition-all"
+                    required
+                    minLength={6}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm Password</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:bg-white transition-all"
+                    required
+                    minLength={6}
+                  />
                 </div>
 
                 <motion.button
                   whileTap={{ scale: 0.98 }}
-                  onClick={handleVerifyOtp}
-                  className="w-full py-3.5 bg-gray-900 text-white rounded-xl font-medium flex items-center justify-center gap-2"
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-3.5 bg-gray-900 text-white rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                 >
-                  Verify & Reset Password
-                  <Check size={18} />
+                  {isLoading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      Reset Password
+                      <Check size={18} />
+                    </>
+                  )}
                 </motion.button>
 
                 <p className="text-center text-sm text-gray-600">
-                  Didn't receive code?{' '}
                   <button
+                    type="button"
                     onClick={() => setIsSent(false)}
                     className="font-medium text-gray-900 hover:underline"
                   >
-                    Resend
+                    Back to email
                   </button>
                 </p>
-              </motion.div>
+              </motion.form>
             )}
           </AnimatePresence>
         </motion.div>

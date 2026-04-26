@@ -6,10 +6,11 @@ export const createOrder = createAsyncThunk(
   'order/create',
   async (orderData, { rejectWithValue, getState }) => {
     try {
-      const { auth, cart } = getState()
+      const { auth, cart, restaurant } = getState()
       const response = await orderAPI.create(auth.token, {
         ...orderData,
         sessionId: cart.sessionId,
+        restaurantId: restaurant.currentRestaurant?.id,
       })
       return response.data
     } catch (error) {

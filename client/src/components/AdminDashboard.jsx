@@ -1,9 +1,10 @@
 import { useSelector } from 'react-redux'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Users, ShoppingCart, Menu as MenuIcon, Settings, BarChart3, Home, Table, Clock, CheckCircle, ChefHat, Package, XCircle, Crown, Building2, Image as ImageIcon } from 'lucide-react'
+import { Users, ShoppingCart, Menu as MenuIcon, Settings, BarChart3, Home, Table, Clock, CheckCircle, ChefHat, Package, XCircle, Crown, Building2, Image as ImageIcon, ChevronDown, ChevronUp, Check, Truck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import apiClient from '../services/api'
+import toast from 'react-hot-toast'
 
 export const AdminDashboard = () => {
   const navigate = useNavigate()
@@ -23,41 +24,68 @@ export const AdminDashboard = () => {
   const [orders, setOrders] = useState([])
   const [tables, setTables] = useState([])
   const [loading, setLoading] = useState(true)
+  const [expandedOrder, setExpandedOrder] = useState(null)
+  const [updatingOrder, setUpdatingOrder] = useState(null)
 
   // Fetch dashboard data
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true)
-
-        // Fetch stats
-        const statsRes = await apiClient.get('/admin/stats')
-        if (statsRes.data.success) {
-          setStats(statsRes.data.data)
-        }
-
-        // Fetch active orders
-        const ordersRes = await apiClient.get('/admin/orders/active')
-        if (ordersRes.data.success) {
-          setOrders(ordersRes.data.data)
-        }
-
-        // Fetch occupied tables
-        const tablesRes = await apiClient.get('/admin/tables/occupied')
-        if (tablesRes.data.success) {
-          setTables(tablesRes.data.data)
-        }
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    if (role === 'admin' || role === 'super_admin') {
-      fetchData()
-    }
+    fetchData()
   }, [role])
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+
+      // Fetch stats
+      const statsRes = await apiClient.get('/admin/stats')
+      if (statsRes.data.success) {
+        setStats(statsRes.data.data)
+      }
+
+      // Fetch active orders
+      const ordersRes = await apiClient.get('/admin/orders/active')
+      if (ordersRes.data.success) {
+        setOrders(ordersRes.data.data)
+      }
+
+      // Fetch occupied tables
+      const tablesRes = await apiClient.get('/admin/tables/occupied')
+      if (tablesRes.data.success) {
+        setTables(tablesRes.data.data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Handle order status update
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    try {
+      setUpdatingOrder(orderId)
+      const response = await apiClient.patch(`/admin/orders/${orderId}/status`, {
+        status: newStatus
+      })
+
+      if (response.data.success) {
+        if (newStatus === 'confirmed') {
+          toast.success('Order accepted!')
+        } else if (newStatus === 'served') {
+          toast.success('Order delivered!')
+        } else if (newStatus === 'cancelled') {
+          toast.success('Order cancelled!')
+        }
+        // Refresh data
+        await fetchData()
+      }
+    } catch (error) {
+      console.error('Failed to update order status:', error)
+      toast.error('Failed to update order status')
+    } finally {
+      setUpdatingOrder(null)
+    }
+  }
 
   // Redirect if not admin or super admin
   if (role !== 'admin' && role !== 'super_admin') {
@@ -194,7 +222,10 @@ export const AdminDashboard = () => {
             <div className="p-6 border-b border-gray-100">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-gray-900">Active Orders</h2>
-                <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                <button 
+                  onClick={() => navigate('/admin/orders')}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
                   View All
                 </button>
               </div>
@@ -213,27 +244,131 @@ export const AdminDashboard = () => {
               ) : (
                 orders.map((order) => {
                   const StatusIcon = getStatusIcon(order.status)
+                  const isExpanded = expandedOrder === order.id
+                  const isUpdating = updatingOrder === order.id
+                  
                   return (
-                    <div key={order.id} className="p-4 hover:bg-gray-50 transition-colors">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-gray-900">Order #{order.uuid?.slice(-6)}</span>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                              {order.status}
-                            </span>
+                    <div key={order.id} className="hover:bg-gray-50 transition-colors">
+                      <div className="p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-semibold text-gray-900">Order #{order.uuid?.slice(-6)}</span>
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                                {order.status}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600">
+                              {order.user_name || 'Guest'} • Table {order.table_number || 'N/A'}
+                            </p>
+                            
+                            {/* Order Items Preview */}
+                            {order.items && order.items.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-1">
+                                {order.items.map((item, idx) => (
+                                  <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-md text-xs text-gray-700">
+                                    <span className="font-medium">{item.quantity}x</span>
+                                    <span>{item.product_name}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            
+                            <p className="text-sm text-gray-500 mt-2">
+                              ₹{order.total_amount} • {new Date(order.created_at).toLocaleTimeString()}
+                            </p>
                           </div>
-                          <p className="text-sm text-gray-600">
-                            {order.user_name || 'Guest'} • Table {order.table_number || 'N/A'}
-                          </p>
-                          <p className="text-sm text-gray-500 mt-1">
-                            ₹{order.total_amount} • {new Date(order.created_at).toLocaleTimeString()}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <StatusIcon size={18} className="text-gray-400" />
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <StatusIcon size={18} className="text-gray-400" />
+                        
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 mt-3">
+                          {order.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleUpdateOrderStatus(order.id, 'confirmed')}
+                                disabled={isUpdating}
+                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white rounded-lg text-sm font-medium transition-colors"
+                              >
+                                <Check size={16} />
+                                {isUpdating ? 'Accepting...' : 'Accept Order'}
+                              </button>
+                              <button
+                                onClick={() => handleUpdateOrderStatus(order.id, 'cancelled')}
+                                disabled={isUpdating}
+                                className="px-3 py-2 bg-red-500 hover:bg-red-600 disabled:bg-gray-300 text-white rounded-lg text-sm font-medium transition-colors"
+                              >
+                                <XCircle size={16} />
+                              </button>
+                            </>
+                          )}
+                          
+                          {(order.status === 'confirmed' || order.status === 'preparing' || order.status === 'ready') && (
+                            <>
+                              <button
+                                onClick={() => handleUpdateOrderStatus(order.id, 'served')}
+                                disabled={isUpdating}
+                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white rounded-lg text-sm font-medium transition-colors"
+                              >
+                                <Truck size={16} />
+                                {isUpdating ? 'Delivering...' : 'Mark as Delivered'}
+                              </button>
+                              <button
+                                onClick={() => handleUpdateOrderStatus(order.id, 'cancelled')}
+                                disabled={isUpdating}
+                                className="px-3 py-2 bg-red-500 hover:bg-red-600 disabled:bg-gray-300 text-white rounded-lg text-sm font-medium transition-colors"
+                              >
+                                <XCircle size={16} />
+                              </button>
+                            </>
+                          )}
+                          
+                          <button
+                            onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
+                            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </button>
                         </div>
                       </div>
+                      
+                      {/* Expanded Order Details */}
+                      {isExpanded && (
+                        <div className="px-4 pb-4 border-t border-gray-100 bg-gray-50">
+                          <div className="pt-3 space-y-2">
+                            <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Order Details:</p>
+                            {order.items && order.items.length > 0 ? (
+                              order.items.map((item, idx) => (
+                                <div key={idx} className="flex items-center justify-between text-sm py-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600">
+                                      {item.quantity}
+                                    </span>
+                                    <span className="text-gray-900">{item.product_name || 'Unknown Item'}</span>
+                                  </div>
+                                  <span className="text-gray-600 font-medium">₹{(item.product_price || item.price_at_time || 0) * item.quantity}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-sm text-gray-500 italic">No items found</p>
+                            )}
+                            
+                            {order.special_instructions && (
+                              <div className="mt-3 pt-3 border-t border-gray-200">
+                                <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1">Special Instructions:</p>
+                                <p className="text-sm text-gray-600">{order.special_instructions}</p>
+                              </div>
+                            )}
+                            
+                            <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between items-center">
+                              <span className="text-sm font-semibold text-gray-700">Total:</span>
+                              <span className="text-lg font-bold text-gray-900">₹{order.total_amount}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )
                 })
@@ -251,7 +386,10 @@ export const AdminDashboard = () => {
             <div className="p-6 border-b border-gray-100">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-gray-900">Occupied Tables</h2>
-                <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                <button 
+                  onClick={() => navigate('/admin/tables')}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
                   View All
                 </button>
               </div>

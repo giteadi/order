@@ -113,7 +113,7 @@ export const authAPI = {
   refreshToken: (refreshToken) => apiClient.post('/auth/refresh-token', { refreshToken }),
   
   // Social Auth
-  googleLogin: (idToken) => apiClient.post('/auth/google', { idToken }),
+  googleLogin: (data) => apiClient.post('/auth/google', data),
   facebookLogin: (accessToken) => apiClient.post('/auth/facebook', { accessToken }),
 }
 

@@ -16,7 +16,22 @@ export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot 
     e.preventDefault()
     setIsLoading(true)
     try {
-      const response = await authAPI.login(formData)
+      // Detect if input is email or phone
+      const isEmail = formData.email.includes('@')
+      
+      // Get restaurant from URL params
+      const params = new URLSearchParams(window.location.search)
+      const restaurant = params.get('restaurant')
+      
+      const loginData = {
+        password: formData.password,
+        ...(isEmail ? { email: formData.email } : { phone: formData.email }),
+        restaurant
+      }
+      
+      console.log('Login data being sent:', loginData)
+      
+      const response = await authAPI.login(loginData)
       console.log('Full response:', response)
       console.log('Response data:', response.data)
       console.log('Response data.data:', response.data?.data)
@@ -134,41 +149,49 @@ export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot 
               </div>
             </div>
 
-            <div className="mt-4 space-y-3">
-              {/* Google Login Button */}
-              <div className="flex justify-center">
-                <GoogleLogin
-                  onSuccess={async (credentialResponse) => {
-                    try {
-                      setIsLoading(true)
-                      const response = await authAPI.googleLogin(credentialResponse.credential)
-                      const { user, token, refreshToken } = response.data.data
-                      
-                      // Call parent onLogin with user data - parent handles redirect
-                      onLogin?.({
-                        user,
-                        token,
-                        refreshToken,
-                        isSocialLogin: true,
-                      })
-                    } catch (error) {
-                      console.error('Google login error:', error)
+            {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+              <div className="mt-4 space-y-3">
+                {/* Google Login Button */}
+                <div className="flex justify-center w-full">
+                  <GoogleLogin
+                    onSuccess={async (credentialResponse) => {
+                      try {
+                        setIsLoading(true)
+                        // Get restaurant from URL params
+                        const params = new URLSearchParams(window.location.search)
+                        const restaurant = params.get('restaurant')
+                        const response = await authAPI.googleLogin({ 
+                          idToken: credentialResponse.credential,
+                          restaurant 
+                        })
+                        const { user, token, refreshToken } = response.data.data
+                        
+                        // Call parent onLogin with user data - parent handles redirect
+                        onLogin?.({
+                          user,
+                          token,
+                          refreshToken,
+                          isSocialLogin: true,
+                        })
+                      } catch (error) {
+                        console.error('Google login error:', error)
+                        alert('Google login failed. Please try again.')
+                      } finally {
+                        setIsLoading(false)
+                      }
+                    }}
+                    onError={() => {
+                      console.error('Google Login Failed')
                       alert('Google login failed. Please try again.')
-                    } finally {
-                      setIsLoading(false)
-                    }
-                  }}
-                  onError={() => {
-                    console.error('Google Login Failed')
-                    alert('Google login failed. Please try again.')
-                  }}
-                  useOneTap
-                  theme="filled_black"
-                  size="large"
-                  width="100%"
-                />
+                    }}
+                    useOneTap
+                    theme="filled_black"
+                    size="large"
+                    width={400}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <p className="mt-8 text-center text-sm text-gray-600">

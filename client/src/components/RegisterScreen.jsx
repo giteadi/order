@@ -17,13 +17,55 @@ export const RegisterScreen = ({ onRegister, onNavigateToLogin }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // Validate at least email or phone
+    if (!formData.email && !formData.phone) {
+      alert('Please provide either email or phone number')
+      return
+    }
+    
+    // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
       alert('Passwords do not match')
       return
     }
+    
+    // Clean phone number - remove leading 0 if present
+    const cleanedPhone = formData.phone.replace(/^0+/, '')
+    
+    // Validate phone format (10 digits starting with 6-9)
+    if (cleanedPhone && !/^[6-9]\d{9}$/.test(cleanedPhone)) {
+      alert('Phone number must be 10 digits starting with 6-9 (e.g., 9876543210)')
+      return
+    }
+    
     setIsLoading(true)
-    await onRegister?.(formData)
-    setIsLoading(false)
+    
+    const submitData = {
+      name: formData.name,
+      email: formData.email || undefined,
+      phone: cleanedPhone || undefined,
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+    }
+    
+    console.log('📤 Sending registration data:', submitData)
+    
+    try {
+      await onRegister?.(submitData)
+    } catch (error) {
+      console.error('❌ Registration error:', error)
+      if (error.response?.data?.errors) {
+        const errorMessages = error.response.data.errors
+          .map(err => `${err.field}: ${err.message}`)
+          .join('\n')
+        alert(`Registration failed:\n${errorMessages}`)
+      } else {
+        alert(error.response?.data?.message || 'Registration failed. Please try again.')
+      }
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -59,7 +101,7 @@ export const RegisterScreen = ({ onRegister, onNavigateToLogin }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email (Optional)</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input
@@ -68,7 +110,6 @@ export const RegisterScreen = ({ onRegister, onNavigateToLogin }) => {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="Enter your email"
                   className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:bg-white transition-all"
-                  required
                 />
               </div>
             </div>
@@ -80,12 +121,17 @@ export const RegisterScreen = ({ onRegister, onNavigateToLogin }) => {
                 <input
                   type="tel"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="Enter phone number"
+                  onChange={(e) => {
+                    // Only allow numbers
+                    const value = e.target.value.replace(/\D/g, '')
+                    setFormData({ ...formData, phone: value })
+                  }}
+                  placeholder="9876543210"
                   className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:bg-white transition-all"
-                  required
+                  maxLength={10}
                 />
               </div>
+              <p className="text-xs text-gray-500 mt-1">10 digits starting with 6-9 (Email or Phone required)</p>
             </div>
 
             <div>

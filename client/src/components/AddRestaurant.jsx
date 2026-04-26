@@ -12,6 +12,9 @@ import {
   Utensils,
   Link,
   FileText,
+  User,
+  Lock,
+  Shield,
 } from "lucide-react";
 import apiClient from "../services/api";
 import toast from "react-hot-toast";
@@ -28,6 +31,11 @@ export default function AddRestaurant({ onBack, onSuccess }) {
     website: "",
     tableCount: "",
     tableCapacity: 4,
+    // Admin credentials
+    adminName: "",
+    adminEmail: "",
+    adminPhone: "",
+    adminPassword: "",
   });
 
   const [errors, setErrors] = useState({});
@@ -52,6 +60,10 @@ export default function AddRestaurant({ onBack, onSuccess }) {
     const e = {};
     if (!formData.name) e.name = "Restaurant name is required";
     if (!formData.subdomain) e.subdomain = "Subdomain is required";
+    if (!formData.adminName) e.adminName = "Admin name is required";
+    if (!formData.adminEmail && !formData.adminPhone) e.adminEmail = "Admin email or phone is required";
+    if (!formData.adminPassword) e.adminPassword = "Admin password is required";
+    if (formData.adminPassword && formData.adminPassword.length < 6) e.adminPassword = "Password must be at least 6 characters";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -72,6 +84,11 @@ export default function AddRestaurant({ onBack, onSuccess }) {
         website: formData.website || null,
         table_count: formData.tableCount ? parseInt(formData.tableCount) : null,
         table_capacity: formData.tableCapacity || 4,
+        // Admin credentials
+        admin_name: formData.adminName,
+        admin_email: formData.adminEmail || null,
+        admin_phone: formData.adminPhone || null,
+        admin_password: formData.adminPassword,
       });
       if (response.data.success) {
         toast.success("Restaurant created successfully!");
@@ -244,6 +261,79 @@ export default function AddRestaurant({ onBack, onSuccess }) {
                 </span>
               </div>
             )}
+          </Section>
+
+          {/* ── SECTION: Admin Credentials ── */}
+          <Section label="04" title="Admin Credentials" icon={<Shield size={14} />}>
+            <div style={styles.adminNote}>
+              <Shield size={13} style={{ color: "#7c3aed" }} />
+              <span>Create admin account for this restaurant. Admin can manage menu, orders, and settings.</span>
+            </div>
+
+            <Field
+              label="Admin Name"
+              required
+              icon={<User size={13} />}
+              error={errors.adminName}
+            >
+              <input
+                style={{ ...styles.input, ...(errors.adminName ? styles.inputError : {}) }}
+                placeholder="e.g. John Doe"
+                value={formData.adminName}
+                onChange={e => handleChange("adminName", e.target.value)}
+                onBlur={() => handleBlur("adminName")}
+              />
+            </Field>
+
+            <div style={styles.grid2}>
+              <Field
+                label="Admin Email"
+                icon={<Mail size={13} />}
+                hint="(Email or Phone required)"
+                error={errors.adminEmail}
+              >
+                <input
+                  style={{ ...styles.input, ...(errors.adminEmail ? styles.inputError : {}) }}
+                  type="email"
+                  placeholder="admin@restaurant.com"
+                  value={formData.adminEmail}
+                  onChange={e => handleChange("adminEmail", e.target.value)}
+                  onBlur={() => handleBlur("adminEmail")}
+                />
+              </Field>
+
+              <Field
+                label="Admin Phone"
+                icon={<Phone size={13} />}
+                hint="(Email or Phone required)"
+              >
+                <input
+                  style={styles.input}
+                  type="tel"
+                  placeholder="9876543210"
+                  maxLength={10}
+                  value={formData.adminPhone}
+                  onChange={e => handleChange("adminPhone", e.target.value.replace(/\D/g, ""))}
+                />
+              </Field>
+            </div>
+
+            <Field
+              label="Admin Password"
+              required
+              icon={<Lock size={13} />}
+              hint="(min 6 characters)"
+              error={errors.adminPassword}
+            >
+              <input
+                style={{ ...styles.input, ...(errors.adminPassword ? styles.inputError : {}) }}
+                type="password"
+                placeholder="••••••••"
+                value={formData.adminPassword}
+                onChange={e => handleChange("adminPassword", e.target.value)}
+                onBlur={() => handleBlur("adminPassword")}
+              />
+            </Field>
           </Section>
 
           {/* ── ACTIONS ── */}
@@ -538,6 +628,18 @@ const styles = {
     borderRadius: 8,
     fontSize: 13,
     color: "#4b3f72",
+  },
+  adminNote: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 8,
+    padding: "10px 14px",
+    background: "#faf8ff",
+    border: "1px solid #e4deff",
+    borderRadius: 8,
+    fontSize: 12,
+    color: "#5b4a7d",
+    lineHeight: 1.5,
   },
   actions: {
     display: "flex",
