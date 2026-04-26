@@ -1,7 +1,7 @@
 import { useSelector } from 'react-redux'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Users, ShoppingCart, Menu as MenuIcon, Settings, BarChart3, Home, Table, Clock, CheckCircle, ChefHat, Package, XCircle, Crown, Building2 } from 'lucide-react'
+import { Users, ShoppingCart, Menu as MenuIcon, Settings, BarChart3, Home, Table, Clock, CheckCircle, ChefHat, Package, XCircle, Crown, Building2, Image as ImageIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import apiClient from '../services/api'
 
@@ -349,6 +349,17 @@ export const AdminDashboard = () => {
             </div>
             <h3 className="font-semibold text-gray-900">Order Management</h3>
             <p className="text-sm text-gray-500 mt-1">View & manage all orders</p>
+          </button>
+
+          <button
+            onClick={() => navigate('/admin/carousel')}
+            className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow text-left"
+          >
+            <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center mb-4">
+              <ImageIcon size={24} className="text-pink-600" />
+            </div>
+            <h3 className="font-semibold text-gray-900">Carousel Images</h3>
+            <p className="text-sm text-gray-500 mt-1">Manage highlight images</p>
           </button>
 
           {role !== 'super_admin' && (

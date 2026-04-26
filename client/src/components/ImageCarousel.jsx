@@ -2,10 +2,12 @@ import { useRef, useEffect, useState } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import apiClient from '../services/api'
 
 gsap.registerPlugin(ScrollTrigger)
 
-const defaultImages = [
+// Fallback images if API fails
+const fallbackImages = [
   'https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=1200&q=80',
   'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1200&q=80',
   'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=1200&q=80',
@@ -13,10 +15,11 @@ const defaultImages = [
 ]
 
 export const ImageCarousel = ({ 
-  images = defaultImages,
+  images: propImages,
   title = "Our Coffee Collection",
   autoPlay = true,
-  interval = 4000
+  interval = 4000,
+  carouselType = "collection"
 }) => {
   const containerRef = useRef(null)
   const carouselRef = useRef(null)
@@ -25,6 +28,29 @@ export const ImageCarousel = ({
   const [imagesLoaded, setImagesLoaded] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [isMobile, setIsMobile] = useState(true)
+  const [apiImages, setApiImages] = useState([])
+
+  // Determine which images to use
+  const images = propImages?.length > 0 ? propImages : (apiImages.length > 0 ? apiImages : fallbackImages)
+
+  // Fetch images from API if no prop images provided
+  useEffect(() => {
+    if (propImages?.length > 0) return
+
+    const fetchImages = async () => {
+      try {
+        const response = await apiClient.get(`/carousel?type=${carouselType}`)
+        if (response.data.success && response.data.data.length > 0) {
+          const images = response.data.data.map(img => img.image || img.image_base64)
+          setApiImages(images)
+        }
+      } catch (error) {
+        console.error('Failed to fetch carousel images:', error)
+      }
+    }
+
+    fetchImages()
+  }, [propImages, carouselType])
 
   useEffect(() => {
     setMounted(true)

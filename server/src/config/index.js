@@ -79,6 +79,7 @@ export const TABLES = Object.freeze({
   TABLES: 'restaurant_tables',
   GROUP_ORDERS: 'group_orders',
   GROUP_ORDER_ITEMS: 'group_order_items',
+  CAROUSEL_IMAGES: 'carousel_images',
 });
 
 // Order status enum

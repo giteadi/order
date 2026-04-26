@@ -43,7 +43,7 @@ export function authenticate(req, res, next) {
     
     // Verify user exists in database (optional but recommended)
     const db = getDB();
-    const user = db.prepare('SELECT id, uuid, email, name, role, is_active FROM users WHERE id = ?').get(decoded.id);
+    const user = db.prepare('SELECT id, uuid, email, name, role, restaurant_id, is_active FROM users WHERE id = ?').get(decoded.id);
     
     if (!user) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({
@@ -67,6 +67,7 @@ export function authenticate(req, res, next) {
       email: user.email,
       name: user.name,
       role: user.role,
+      restaurant_id: user.restaurant_id,
     };
     
     next();
@@ -144,7 +145,7 @@ export function optionalAuth(req, res, next) {
     const decoded = jwt.verify(token, CONFIG.JWT.SECRET);
     
     const db = getDB();
-    const user = db.prepare('SELECT id, uuid, email, name, role FROM users WHERE id = ? AND is_active = 1').get(decoded.id);
+    const user = db.prepare('SELECT id, uuid, email, name, role, restaurant_id FROM users WHERE id = ? AND is_active = 1').get(decoded.id);
     
     if (user) {
       req.user = user;

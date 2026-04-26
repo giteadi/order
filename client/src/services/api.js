@@ -22,6 +22,14 @@ apiClient.interceptors.request.use(
     const token = state.auth.token
     const sessionId = state.cart.sessionId
 
+    // 🔍 Debug logging
+    console.log('🔐 API Request:', {
+      url: config.url,
+      method: config.method,
+      hasToken: !!token,
+      token: token ? `${token.substring(0, 20)}...` : 'none'
+    })
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }

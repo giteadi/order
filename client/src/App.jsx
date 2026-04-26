@@ -57,6 +57,7 @@ import { MenuManagement } from './components/MenuManagement'
 import { UserManagement } from './components/UserManagement'
 import { OrderManagement } from './components/OrderManagement'
 import { RestaurantSettings } from './components/RestaurantSettings'
+import { CarouselManagement } from './components/CarouselManagement'
 import { useTableNumber } from './hooks/useTableNumber'
 import { useCursor } from './hooks/useCursor'
 
@@ -381,27 +382,7 @@ function App() {
               onCursorHover={setHovering}
             />
             <HighlightsStrip />
-            <FeatureSection 
-              title="Premium Quality"
-              description="Every cup is crafted with precision and passion"
-              images={[
-                'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80',
-                'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&q=80',
-                'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&q=80'
-              ]}
-              direction="left"
-            />
-            <ImageCarousel />
-            <FeatureSection 
-              title="Artisan Craft"
-              description="Traditional methods meet modern innovation"
-              images={[
-                'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800&q=80',
-                'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=800&q=80',
-                'https://images.unsplash.com/photo-1493857671505-72967e2cf276?w=800&q=80'
-              ]}
-              direction="right"
-            />
+            <ImageCarousel carouselType="collection" />
             <MultiLayerParallax />
           </>
         } />
@@ -559,6 +540,7 @@ function App() {
         <Route path="/admin/menu" element={<MenuManagement />} />
         <Route path="/admin/users" element={<UserManagement />} />
         <Route path="/admin/orders" element={<OrderManagement />} />
+        <Route path="/admin/carousel" element={<CarouselManagement />} />
         <Route path="/admin/settings" element={<RestaurantSettings />} />
       </Routes>
 

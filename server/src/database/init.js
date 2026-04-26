@@ -231,6 +231,28 @@ const SCHEMA = {
       FOREIGN KEY (group_order_id) REFERENCES ${TABLES.GROUP_ORDERS}(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES ${TABLES.USERS}(id)
     );
+  `,
+
+  // Carousel images for main page highlights
+  [TABLES.CAROUSEL_IMAGES]: `
+    CREATE TABLE IF NOT EXISTS ${TABLES.CAROUSEL_IMAGES} (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      uuid TEXT UNIQUE NOT NULL,
+      restaurant_id INTEGER NOT NULL,
+      carousel_type TEXT DEFAULT 'highlights' CHECK(carousel_type IN ('hero', 'highlights', 'collection')),
+      title TEXT NOT NULL,
+      subtitle TEXT,
+      image_base64 TEXT NOT NULL,
+      image_thumbnail TEXT, -- Compressed thumbnail for faster loading
+      display_order INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_carousel_restaurant ON ${TABLES.CAROUSEL_IMAGES}(restaurant_id);
+    CREATE INDEX IF NOT EXISTS idx_carousel_type ON ${TABLES.CAROUSEL_IMAGES}(carousel_type);
+    CREATE INDEX IF NOT EXISTS idx_carousel_order ON ${TABLES.CAROUSEL_IMAGES}(display_order);
   `
 };
 
@@ -253,10 +275,17 @@ const TRIGGERS = {
     END;
   `,
   orders_update: `
-    CREATE TRIGGER IF NOT EXISTS update_orders_timestamp 
+    CREATE TRIGGER IF NOT EXISTS update_orders_timestamp
     AFTER UPDATE ON ${TABLES.ORDERS}
     BEGIN
       UPDATE ${TABLES.ORDERS} SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+  `,
+  carousel_images_update: `
+    CREATE TRIGGER IF NOT EXISTS update_carousel_images_timestamp
+    AFTER UPDATE ON ${TABLES.CAROUSEL_IMAGES}
+    BEGIN
+      UPDATE ${TABLES.CAROUSEL_IMAGES} SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
     END;
   `,
   order_items_calc: `
@@ -320,6 +349,7 @@ export async function initializeDatabase() {
       { table: 'restaurants', column: 'features', type: 'TEXT' },
       { table: TABLES.ORDERS, column: 'restaurant_id', type: 'INTEGER' },
       { table: TABLES.TABLES, column: 'restaurant_id', type: 'INTEGER' },
+      { table: TABLES.CAROUSEL_IMAGES, column: 'carousel_type', type: 'TEXT' },
     ];
 
     for (const migration of migrations) {

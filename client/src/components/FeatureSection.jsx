@@ -1,16 +1,61 @@
 import { useRef, useEffect, useState } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import apiClient from '../services/api'
 
 gsap.registerPlugin(ScrollTrigger)
 
-export const FeatureSection = ({ title, description, icon, images = [], direction = 'left' }) => {
+// Fallback images if API fails
+const fallbackImages = {
+  premium: [
+    'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80',
+    'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&q=80',
+    'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&q=80'
+  ],
+  artisan: [
+    'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800&q=80',
+    'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=800&q=80',
+    'https://images.unsplash.com/photo-1493857671505-72967e2cf276?w=800&q=80'
+  ]
+}
+
+export const FeatureSection = ({ title, description, icon, images: propImages = [], direction = 'left', carouselType }) => {
   const sectionRef = useRef(null)
   const contentRef = useRef(null)
   const iconRef = useRef(null)
   const [currentImage, setCurrentImage] = useState(0)
   const [isMobile, setIsMobile] = useState(true)
   const [mounted, setMounted] = useState(false)
+  const [apiImages, setApiImages] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  // Determine which images to use
+  const images = propImages.length > 0 ? propImages : (apiImages.length > 0 ? apiImages : fallbackImages[carouselType] || fallbackImages.premium)
+
+  // Fetch images from API if no prop images provided
+  useEffect(() => {
+    if (propImages.length > 0 || !carouselType) {
+      setLoading(false)
+      return
+    }
+
+    const fetchImages = async () => {
+      try {
+        setLoading(true)
+        const response = await apiClient.get(`/carousel?type=${carouselType}`)
+        if (response.data.success && response.data.data.length > 0) {
+          const images = response.data.data.map(img => img.image || img.image_base64)
+          setApiImages(images)
+        }
+      } catch (error) {
+        console.error('Failed to fetch feature images:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchImages()
+  }, [propImages, carouselType])
 
   useEffect(() => {
     setMounted(true)

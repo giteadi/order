@@ -1,10 +1,12 @@
 import { useRef, useEffect, useState } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import apiClient from '../services/api'
 
 gsap.registerPlugin(ScrollTrigger)
 
-const heroImages = [
+// Fallback images if API fails or no images in database
+const fallbackImages = [
   'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1920&q=80&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=1920&q=80&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=1920&q=80&auto=format&fit=crop',
@@ -39,6 +41,33 @@ export const HeroSection = () => {
   const [currentImage, setCurrentImage] = useState(0)
   const [isMobile, setIsMobile] = useState(true)
   const [mounted, setMounted] = useState(false)
+  const [heroImages, setHeroImages] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  // Fetch hero images from API
+  useEffect(() => {
+    const fetchHeroImages = async () => {
+      try {
+        setLoading(true)
+        const response = await apiClient.get('/carousel?type=hero')
+        if (response.data.success && response.data.data.length > 0) {
+          // Use API images - extract the image field (can be thumbnail or full image)
+          const apiImages = response.data.data.map(img => img.image || img.image_base64)
+          setHeroImages(apiImages)
+        } else {
+          // Fallback to default images if no API images
+          setHeroImages(fallbackImages)
+        }
+      } catch (error) {
+        console.error('Failed to fetch hero images:', error)
+        setHeroImages(fallbackImages)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchHeroImages()
+  }, [])
 
   useEffect(() => {
     setMounted(true)
@@ -50,12 +79,12 @@ export const HeroSection = () => {
 
   // Auto-rotate — sirf desktop pe
   useEffect(() => {
-    if (!mounted || isMobile) return
+    if (!mounted || isMobile || heroImages.length === 0) return
     const timer = setInterval(() => {
       setCurrentImage(prev => (prev + 1) % heroImages.length)
     }, 5000)
     return () => clearInterval(timer)
-  }, [mounted, isMobile])
+  }, [mounted, isMobile, heroImages])
 
   // GSAP — sirf desktop pe
   useEffect(() => {
@@ -121,6 +150,7 @@ export const HeroSection = () => {
 
   // ✅ Mobile — alag static render
   if (isMobile) {
+    const displayImage = heroImages.length > 0 ? heroImages[0] : fallbackImages[0]
     return (
       <section
         className="relative h-screen grid place-items-center"
@@ -128,7 +158,7 @@ export const HeroSection = () => {
       >
         {/* Sirf pehli image — static */}
         <div className="absolute inset-0 w-full h-full z-0">
-          <CarouselImage src={heroImages[0]} isActive={true} />
+          <CarouselImage src={displayImage} isActive={true} />
         </div>
 
         {/* Text — no animation, direct visible */}
@@ -154,6 +184,7 @@ export const HeroSection = () => {
   }
 
   // ✅ Desktop — full animation
+  const displayImages = heroImages.length > 0 ? heroImages : fallbackImages
   return (
     <section
       ref={heroRef}
@@ -161,14 +192,14 @@ export const HeroSection = () => {
       style={{ background: '#1a0a00' }}
     >
       <div ref={imageRef} className="absolute inset-0 w-full h-full z-0 will-change-transform">
-        {heroImages.map((src, idx) => (
+        {displayImages.map((src, idx) => (
           <CarouselImage key={idx} src={src} isActive={idx === currentImage} />
         ))}
       </div>
 
       {/* Dot Indicators */}
       <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 grid grid-flow-col auto-cols-max gap-2">
-        {heroImages.map((_, idx) => (
+        {displayImages.map((_, idx) => (
           <button
             key={idx}
             onClick={() => setCurrentImage(idx)}

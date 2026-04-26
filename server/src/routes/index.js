@@ -4,6 +4,7 @@ import productRoutes from './product.routes.js';
 import orderRoutes from './order.routes.js';
 import adminRoutes from './admin.routes.js';
 import settingsRoutes from './settings.routes.js';
+import carouselRoutes from './carousel.routes.js';
 
 const router = Router();
 
@@ -13,6 +14,7 @@ router.use('/menu', productRoutes);
 router.use('/orders', orderRoutes);
 router.use('/admin', adminRoutes);
 router.use('/admin/settings', settingsRoutes);
+router.use('/carousel', carouselRoutes);
 
 // Health check
 router.get('/health', (req, res) => {

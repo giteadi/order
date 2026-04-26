@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import apiClient from '../services/api'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -35,6 +36,27 @@ export const HighlightsStrip = ({
   const trackRef = useRef(null)
   const [mounted, setMounted] = useState(false)
   const [isMobile, setIsMobile] = useState(true)
+  const [carouselImages, setCarouselImages] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  // Fetch carousel images from API
+  useEffect(() => {
+    const fetchCarouselImages = async () => {
+      // Fetch carousel images for highlights strip
+      const carouselRes = await apiClient.get('/carousel?type=highlights')
+      if (carouselRes.data.success && carouselRes.data.data.length > 0) {
+        // Transform API data to component format
+        const formattedImages = carouselRes.data.data.map(img => ({
+          title: img.title,
+          subtitle: img.subtitle || '',
+          image: img.image // Using optimized thumbnail/full image
+        }))
+        setCarouselImages(formattedImages)
+      }
+    }
+
+    fetchCarouselImages()
+  }, [])
 
   useEffect(() => {
     setMounted(true)
@@ -84,7 +106,7 @@ export const HighlightsStrip = ({
           className="grid grid-flow-col auto-cols-[280px] sm:auto-cols-[360px] md:auto-cols-[420px] gap-4 overflow-x-auto pb-4 snap-x snap-mandatory"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          {highlights.map((h, idx) => (
+          {(carouselImages.length > 0 ? carouselImages : highlights).map((h, idx) => (
             <article
               key={idx}
               className="min-w-[280px] sm:min-w-[360px] md:min-w-[420px] h-[340px] md:h-[380px] rounded-3xl overflow-hidden relative snap-start shadow-lg bg-gray-200"
