@@ -24,11 +24,12 @@ export class SocialAuthController {
    */
   static async googleAuth(req, res) {
     try {
-      const { idToken } = req.body;
+      const { idToken, restaurant } = req.body;
 
       logger.info('Google auth attempt', { 
         hasToken: !!idToken,
-        clientId: process.env.GOOGLE_CLIENT_ID?.substring(0, 20) + '...'
+        clientId: process.env.GOOGLE_CLIENT_ID?.substring(0, 20) + '...',
+        restaurant
       });
 
       if (!idToken) {
@@ -65,7 +66,7 @@ export class SocialAuthController {
       }
 
       // Check if user exists
-      let user = User.findOne({ email });
+      let user = await User.findOne({ email });
 
       if (user) {
         // Existing user - update Google ID and avatar if not set
@@ -84,10 +85,19 @@ export class SocialAuthController {
         const randomPassword = Math.random().toString(36).substring(2) + Date.now().toString(36);
         const passwordHash = await bcrypt.default.hash(randomPassword, 12);
 
-        // Get default restaurant (first active restaurant)
+        // Get restaurant from request or default to first active restaurant
         const { getDB } = await import('../database/connection.js');
         const db = getDB();
         const defaultRestaurant = db.prepare('SELECT id FROM restaurants WHERE is_active = 1 LIMIT 1').get();
+        let restaurantId = defaultRestaurant?.id || 1;
+        
+        if (restaurant) {
+          // Try to find restaurant by subdomain
+          const restaurantRecord = db.prepare('SELECT id FROM restaurants WHERE subdomain = ? LIMIT 1').get(restaurant);
+          if (restaurantRecord) {
+            restaurantId = restaurantRecord.id;
+          }
+        }
 
         const result = User.create({
           uuid: generateUUID(),
@@ -97,12 +107,12 @@ export class SocialAuthController {
           google_id: googleId,
           avatar_url: picture,
           avatar_base64: avatarBase64,
-          restaurant_id: defaultRestaurant?.id || 1, // Link to default restaurant
+          restaurant_id: restaurantId,
           is_active: 1,
         });
 
         user = User.findById(result.id, 'id, uuid, email, name, role, avatar_url, avatar_base64, created_at');
-        logger.info('New user created via Google', { userId: user.id, email, restaurantId: defaultRestaurant?.id || 1 });
+        logger.info('New user created via Google', { userId: user.id, email, restaurantId });
       }
 
       // Generate tokens
@@ -159,7 +169,7 @@ export class SocialAuthController {
       }
 
       // Check if user exists
-      let user = User.findOne({ email });
+      let user = await User.findOne({ email });
 
       if (user) {
         // Existing user

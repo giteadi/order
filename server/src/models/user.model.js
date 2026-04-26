@@ -17,7 +17,7 @@ export class UserModel extends BaseModel {
   /**
    * Create new user with hashed password
    */
-  async createUser({ email, phone, password, name, role = 'customer' }) {
+  async createUser({ email, phone, password, name, role = 'customer', restaurantId = null }) {
     const uuid = generateUUID();
     const passwordHash = await bcrypt.hash(password, CONFIG.BCRYPT_ROUNDS);
 
@@ -28,21 +28,34 @@ export class UserModel extends BaseModel {
       password_hash: passwordHash,
       name,
       role,
+      restaurant_id: restaurantId,
       is_active: 1,
     };
 
     const result = this.create(data);
     
-    logger.info('User created', { userId: result.id, email, phone });
+    logger.info('User created', { userId: result.id, email, phone, restaurantId });
     
-    return this.findById(result.id, 'id, uuid, email, phone, name, role, created_at');
+    return this.findById(result.id, 'id, uuid, email, phone, name, role, restaurant_id, created_at');
   }
 
   /**
    * Verify user credentials
    */
-  async verifyCredentials(email, phone, password) {
-    const where = email ? { email } : { phone };
+  async verifyCredentials(email, phone, password, restaurantId = null) {
+    let where = {};
+    
+    if (email) {
+      where.email = email;
+    } else if (phone) {
+      where.phone = phone;
+    }
+
+    // If restaurant context provided, add it to query
+    if (restaurantId) {
+      where.restaurant_id = restaurantId;
+    }
+
     const user = this.findOne(where);
 
     if (!user || !user.is_active) {

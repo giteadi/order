@@ -14,12 +14,36 @@ export class OrderController {
    */
   static create(req, res) {
     try {
-      const { tableId, items, specialInstructions } = req.body;
+      const { tableId, items, specialInstructions, restaurant } = req.body;
       const sessionId = req.headers['x-session-id'] || req.sessionID;
 
       if (!items || items.length === 0) {
         return badRequest(res, 'Order must contain at least one item');
       }
+
+      // Get restaurant_id from subdomain
+      let restaurantId = null;
+      if (restaurant) {
+        const restaurantRecord = Order.db.prepare(
+          'SELECT id FROM restaurants WHERE subdomain = ?'
+        ).get(restaurant);
+        if (restaurantRecord) {
+          restaurantId = restaurantRecord.id;
+        }
+      }
+
+      // If no restaurant specified, try to get from user's restaurant_id
+      if (!restaurantId && req.user?.restaurant_id) {
+        restaurantId = req.user.restaurant_id;
+      }
+
+      logger.info('Creating order', { 
+        userId: req.user?.id, 
+        tableNumber: req.body.tableNumber,
+        restaurant,
+        restaurantId,
+        itemsCount: items.length 
+      });
 
       const result = Order.createOrder({
         userId: req.user?.id,
@@ -28,14 +52,17 @@ export class OrderController {
         items,
         specialInstructions,
         sessionId,
+        restaurantId,
       });
 
       const order = Order.getOrderWithItems(result.id);
 
+      logger.info('Order created successfully', { orderId: result.id, uuid: order.uuid });
+
       return created(res, order, 'Order placed successfully');
 
     } catch (err) {
-      logger.error('Create order failed', { error: err.message });
+      logger.error('Create order failed', { error: err.message, stack: err.stack });
       return error(res, 'Failed to place order');
     }
   }

@@ -16,7 +16,7 @@ export class OrderModel extends BaseModel {
   /**
    * Create new order with items (transaction)
    */
-  createOrder({ userId, tableId, tableNumber, items, specialInstructions, sessionId }) {
+  createOrder({ userId, tableId, tableNumber, items, specialInstructions, sessionId, restaurantId }) {
     return this.transaction((db) => {
       const orderUUID = generateUUID();
       
@@ -40,12 +40,12 @@ export class OrderModel extends BaseModel {
 
       const totals = calculateOrderTotals(enrichedItems);
 
-      // Create order
+      // Create order with restaurant_id
       const orderSql = `
-        INSERT INTO orders (uuid, user_id, table_id, table_number, session_id, 
+        INSERT INTO orders (uuid, user_id, table_id, table_number, session_id, restaurant_id,
                            subtotal, tax_amount, total_amount, special_instructions, 
                            status, order_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       
       const orderResult = db.prepare(orderSql).run(
@@ -54,6 +54,7 @@ export class OrderModel extends BaseModel {
         tableId || null,
         tableNumber || null,
         sessionId || null,
+        restaurantId || null,
         totals.subtotal,
         totals.taxAmount,
         totals.total,

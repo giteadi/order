@@ -817,11 +817,23 @@ export class AdminController {
         phone, 
         email, 
         website,
-        logo_url 
+        logo_url,
+        admin_name,
+        admin_email,
+        admin_phone,
+        admin_password
       } = req.body;
 
       if (!name || !subdomain) {
         return error(res, 'Name and subdomain are required', HTTP_STATUS.BAD_REQUEST);
+      }
+
+      if (!admin_name || !admin_password) {
+        return error(res, 'Admin name and password are required', HTTP_STATUS.BAD_REQUEST);
+      }
+
+      if (!admin_email && !admin_phone) {
+        return error(res, 'Admin email or phone is required', HTTP_STATUS.BAD_REQUEST);
       }
 
       // Check if subdomain already exists
@@ -842,6 +854,7 @@ export class AdminController {
         tax_rate: 5
       });
 
+      // Create restaurant
       const result = db.prepare(`
         INSERT INTO restaurants (
           uuid, name, subdomain, domain, description, address, 
@@ -853,19 +866,46 @@ export class AdminController {
         logo_url || null, themeConfig, settings
       );
 
-      logger.info('Restaurant created', { 
-        restaurantId: result.lastInsertRowid, 
+      const restaurantId = result.lastInsertRowid;
+
+      // Create admin user for this restaurant
+      const bcrypt = await import('bcryptjs');
+      const passwordHash = await bcrypt.default.hash(admin_password, 10);
+      const userUuid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      const adminResult = db.prepare(`
+        INSERT INTO users (
+          uuid, restaurant_id, email, phone, password_hash, name, role, is_active
+        ) VALUES (?, ?, ?, ?, ?, ?, 'admin', 1)
+      `).run(
+        userUuid,
+        restaurantId,
+        admin_email || null,
+        admin_phone || null,
+        passwordHash,
+        admin_name
+      );
+
+      logger.info('Restaurant and admin created', { 
+        restaurantId, 
+        adminId: adminResult.lastInsertRowid,
         name, 
         subdomain,
         by: req.user?.id 
       });
 
       return success(res, { 
-        id: result.lastInsertRowid, 
+        id: restaurantId, 
         uuid, 
         name, 
-        subdomain 
-      }, 'Restaurant created successfully');
+        subdomain,
+        admin: {
+          id: adminResult.lastInsertRowid,
+          name: admin_name,
+          email: admin_email,
+          phone: admin_phone
+        }
+      }, 'Restaurant and admin created successfully');
     } catch (err) {
       logger.error('Create restaurant error', { error: err.message });
       return error(res, 'Failed to create restaurant', HTTP_STATUS.INTERNAL_ERROR);

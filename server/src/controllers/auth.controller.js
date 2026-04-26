@@ -16,7 +16,7 @@ export class AuthController {
    */
   static async register(req, res) {
     try {
-      const { name, email, phone, password } = req.body;
+      const { name, email, phone, password, restaurant } = req.body;
 
       // Validate at least one contact method
       if (!email && !phone) {
@@ -32,23 +32,50 @@ export class AuthController {
         return validationError(res, [{ field: 'phone', message: 'Invalid phone number' }]);
       }
 
-      // Check for existing user
-      if (email && User.emailExists(email)) {
-        return conflict(res, 'Email already registered');
+      // Get restaurant_id from subdomain or request
+      let restaurantId = null;
+      if (restaurant) {
+        const restaurantRecord = User.db.prepare('SELECT id FROM restaurants WHERE subdomain = ?').get(restaurant);
+        if (restaurantRecord) {
+          restaurantId = restaurantRecord.id;
+        }
       }
 
-      if (phone && User.phoneExists(phone)) {
-        return conflict(res, 'Phone number already registered');
+      // Check for existing user in THIS restaurant
+      if (email && restaurantId) {
+        const existingUser = User.db.prepare(
+          'SELECT id FROM users WHERE email = ? AND restaurant_id = ?'
+        ).get(email, restaurantId);
+        
+        if (existingUser) {
+          return conflict(res, 'Email already registered for this restaurant');
+        }
       }
 
-      // Create user
-      const user = await User.createUser({ email, phone, password, name });
+      if (phone && restaurantId) {
+        const existingUser = User.db.prepare(
+          'SELECT id FROM users WHERE phone = ? AND restaurant_id = ?'
+        ).get(phone, restaurantId);
+        
+        if (existingUser) {
+          return conflict(res, 'Phone number already registered for this restaurant');
+        }
+      }
+
+      // Create user with restaurant_id
+      const user = await User.createUser({ 
+        email, 
+        phone, 
+        password, 
+        name,
+        restaurantId 
+      });
 
       // Generate tokens
       const token = generateToken({ id: user.id, role: user.role });
       const refreshToken = generateRefreshToken(user.id);
 
-      logger.info('User registered', { userId: user.id });
+      logger.info('User registered', { userId: user.id, restaurant: restaurant || 'none' });
 
       return created(res, {
         user: {
@@ -58,6 +85,7 @@ export class AuthController {
           phone: user.phone,
           name: user.name,
           role: user.role,
+          restaurantId: user.restaurant_id,
         },
         token,
         refreshToken,
@@ -74,24 +102,33 @@ export class AuthController {
    */
   static async login(req, res) {
     try {
-      const { email, phone, password } = req.body;
+      const { email, phone, password, restaurant } = req.body;
 
-      logger.info('Login attempt', { email, phone, body: req.body });
+      logger.info('Login attempt', { email, phone, restaurant, body: req.body });
 
       // Validate input
       if (!email && !phone) {
         return validationError(res, [{ field: 'email', message: 'Email or phone is required' }]);
       }
 
-      // Verify credentials
-      const user = await User.verifyCredentials(email, phone, password);
+      // Get restaurant_id if provided
+      let restaurantId = null;
+      if (restaurant) {
+        const restaurantRecord = User.db.prepare('SELECT id FROM restaurants WHERE subdomain = ?').get(restaurant);
+        if (restaurantRecord) {
+          restaurantId = restaurantRecord.id;
+        }
+      }
+
+      // Verify credentials with restaurant context
+      const user = await User.verifyCredentials(email, phone, password, restaurantId);
 
       if (!user) {
-        logger.warn('Login failed - invalid credentials', { email, phone });
+        logger.warn('Login failed - invalid credentials', { email, phone, restaurant });
         return error(res, 'Invalid credentials', HTTP_STATUS.UNAUTHORIZED);
       }
 
-      logger.info('User found', { userId: user.id, role: user.role, user: user });
+      logger.info('User found', { userId: user.id, role: user.role, restaurantId: user.restaurant_id });
 
       // Generate tokens
       const token = generateToken({ id: user.id, role: user.role });
@@ -107,6 +144,7 @@ export class AuthController {
           phone: user.phone,
           name: user.name,
           role: user.role,
+          restaurantId: user.restaurant_id,
         },
         token,
         refreshToken,
