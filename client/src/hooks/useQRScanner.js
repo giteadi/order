@@ -30,16 +30,17 @@ export const useQRScanner = () => {
         const path = window.location.pathname
         const pathParts = path.split('/').filter(p => p)
         
-        // Format: /table/5 (from QR URL)
+        // Format: /table/5 (from QR URL with query param)
         if (pathParts.length >= 2 && pathParts[0] === 'table') {
           const tableNum = pathParts[1]
           if (!isNaN(tableNum)) {
-            // Get restaurant from subdomain or query param
+            // Get restaurant from query param or subdomain
+            const restaurantFromQuery = urlParams.get('restaurant')
             const host = window.location.host
             const subdomain = host.split('.')[0]
             
             setScannedData({
-              restaurant: subdomain !== 'localhost' && subdomain !== '127' ? subdomain : 'default',
+              restaurant: restaurantFromQuery || (subdomain !== 'localhost' && subdomain !== '127' ? subdomain : 'default'),
               tableNumber: tableNum,
               type: 'path'
             })

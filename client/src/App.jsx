@@ -28,6 +28,7 @@ import {
   selectIsProductModalOpen,
 } from './store/slices/uiSlice'
 import { logout, selectIsAuthenticated, selectUser, setUser } from './store/slices/authSlice'
+import { fetchRestaurantBySubdomain } from './store/slices/restaurantSlice'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -199,6 +200,16 @@ function App() {
   const { cursorPosition, isCursorHovering, setHovering } = useCursor()
 
   const activeTab = location.pathname.replace('/', '') || 'home'
+
+  // Global effect: Read restaurant from URL and store in Redux
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const restaurantFromUrl = urlParams.get('restaurant')
+    if (restaurantFromUrl) {
+      console.log('🌐 App: Restaurant from URL:', restaurantFromUrl)
+      dispatch(fetchRestaurantBySubdomain(restaurantFromUrl))
+    }
+  }, [dispatch])
   
   // Redux action wrappers
   const handleAddToCart = (product, qty = 1) => {
@@ -334,7 +345,7 @@ function App() {
   const handleAddItemToGroupOrder = (memberId) => {
     // Close group order screen and open menu
     setIsGroupOrderScreenOpen(false)
-    navigate('/menu')
+    navigateWithParams('/menu')
   }
 
   const handleRemoveItemFromGroupOrder = (memberId, itemIndex) => {
@@ -357,8 +368,16 @@ function App() {
     setGroupOrderData({ code: '', members: [], orders: {} })
   }
 
+  // Navigate with query params preserved
+  const navigateWithParams = (path) => {
+    const currentParams = new URLSearchParams(window.location.search)
+    const queryString = currentParams.toString()
+    const fullPath = queryString ? `${path}?${queryString}` : path
+    navigate(fullPath)
+  }
+
   const startOrdering = () => {
-    navigate('/menu')
+    navigateWithParams('/menu')
   }
 
   return (
@@ -516,10 +535,10 @@ function App() {
                   navigate('/admin')
                 } else {
                   console.log('Redirecting to menu, role is:', userRole)
-                  navigate('/menu')
+                  navigateWithParams('/menu')
                 }
               } else {
-                navigate('/menu')
+                navigateWithParams('/menu')
               }
             }}
             onNavigateToRegister={() => navigate('/register')}
@@ -530,7 +549,7 @@ function App() {
           <RegisterScreen 
             onRegister={(data) => {
               console.log('Register:', data)
-              navigate('/menu')
+              navigateWithParams('/menu')
             }}
             onNavigateToLogin={() => navigate('/login')}
           />
@@ -550,6 +569,70 @@ function App() {
         <Route path="/admin/carousel" element={<CarouselManagement />} />
         <Route path="/admin/settings" element={<RestaurantSettings />} />
         <Route path="/admin/tables" element={<TablesManagement />} />
+        <Route path="/table/:tableNumber" element={
+          <>
+            <Header 
+              tableNumber={tableNumber}
+              showSearch={true}
+              onCartClick={handleOpenCart}
+              cartCount={cartCount}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onGroupOrderClick={() => setIsGroupOrderOpen(true)}
+              onCursorHover={setHovering}
+              user={user}
+            />
+            <CategoryTabs 
+              categories={menuData.categories}
+              selectedCategory={selectedCategory}
+              onSelectCategory={setSelectedCategory}
+            />
+            <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6">
+              <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] xl:grid-cols-[280px_1fr] gap-4 lg:gap-6">
+                <SubcategorySidebar 
+                  subcategories={menuData.subcategories[selectedCategory]}
+                  selectedSubcategory={selectedSubcategory}
+                  onSelectSubcategory={setSelectedSubcategory}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="lg:hidden mb-4">
+                    <select
+                      value={selectedSubcategory}
+                      onChange={(e) => setSelectedSubcategory(e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-900 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+                    >
+                      {menuData.subcategories[selectedCategory]?.map((sub) => (
+                        <option key={sub.id} value={sub.id}>
+                          {sub.name} ({sub.count} items)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <h2 className="hidden lg:block text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">
+                    {menuData.subcategories[selectedCategory]?.find(s => s.id === selectedSubcategory)?.name}
+                  </h2>
+                  <ProductGrid 
+                    products={filteredProducts}
+                    onAddToCart={handleAddToCart}
+                    onProductClick={handleProductClick}
+                    onCursorHover={setHovering}
+                  />
+                </div>
+              </div>
+            </div>
+            <CartSidebar 
+              isOpen={isCartOpen}
+              onClose={handleCloseCart}
+              cart={cart}
+              tableNumber={tableNumber}
+              onUpdateQuantity={handleUpdateQuantity}
+              onRemoveItem={handleRemoveFromCart}
+              cartTotal={cartTotal}
+              onPlaceOrder={handlePlaceOrder}
+            />
+          </>
+        } />
       </Routes>
 
       <CartSidebar 

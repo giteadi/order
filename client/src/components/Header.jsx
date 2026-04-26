@@ -1,7 +1,9 @@
 import { motion } from 'framer-motion'
 import { Search, ShoppingCart, Users } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { useSelector, useDispatch } from 'react-redux'
+import { selectRestaurantName, selectRestaurantLogo, fetchRestaurantBySubdomain } from '../store/slices/restaurantSlice'
 import apiClient from '../services/api'
 
 export const Header = ({ 
@@ -17,35 +19,22 @@ export const Header = ({
   user = null
 }) => {
   const navigate = useNavigate()
-  const [logo, setLogo] = useState('https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=100&q=80')
-  const [restaurantName, setRestaurantName] = useState('ArtHaus Café')
+  const [searchParams] = useSearchParams()
+  const dispatch = useDispatch()
+  const restaurantName = useSelector(selectRestaurantName)
+  const restaurantLogo = useSelector(selectRestaurantLogo)
 
-  // Fetch logo from settings
+  console.log('🏪 Header - Restaurant Name:', restaurantName)
+  console.log('🏪 Header - Restaurant Logo:', restaurantLogo)
+
+  // Check URL for restaurant query param and fetch from Redux
   useEffect(() => {
-    const fetchLogo = async () => {
-      try {
-        console.log('🔍 Fetching logo from settings...')
-        const response = await apiClient.get('/admin/settings/public')
-        console.log('✅ Settings response:', response.data)
-        
-        if (response.data.success) {
-          const data = response.data.data
-          if (data.logo_url) {
-            console.log('✅ Logo found:', data.logo_url.substring(0, 50) + '...')
-            setLogo(data.logo_url)
-          }
-          if (data.name) {
-            console.log('✅ Restaurant name:', data.name)
-            setRestaurantName(data.name)
-          }
-        }
-      } catch (error) {
-        console.log('⚠️ Failed to fetch logo:', error.message)
-        console.log('Using default logo')
-      }
+    const restaurantFromUrl = searchParams.get('restaurant')
+    if (restaurantFromUrl) {
+      console.log('✅ Header: Restaurant from URL:', restaurantFromUrl)
+      dispatch(fetchRestaurantBySubdomain(restaurantFromUrl))
     }
-    fetchLogo()
-  }, [])
+  }, [searchParams, dispatch])
 
   return (
     <motion.header 
@@ -58,7 +47,7 @@ export const Header = ({
         <div className="flex items-center justify-between gap-2 sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-3">
             <img 
-              src={logo}
+              src={restaurantLogo}
               alt={`${restaurantName} Logo`}
               className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shadow-sm"
             />

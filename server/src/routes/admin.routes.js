@@ -5,6 +5,9 @@ import { asyncHandler } from '../middleware/errorHandler.js';
 
 const router = Router();
 
+// Public endpoint for restaurants (no auth required - for QR scanning)
+router.get('/restaurants/public', asyncHandler(AdminController.getAllRestaurantsPublic));
+
 // All admin routes require authentication and admin role
 router.use(authenticate);
 router.use(authorize('admin', 'super_admin'));

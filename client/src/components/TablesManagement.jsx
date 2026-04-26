@@ -730,11 +730,17 @@ export const TablesManagement = () => {
                     const restaurant = restaurants.find(r => r.id === bulkQRRange.restaurantId)
                     if (!restaurant) return
 
-                    // Download all QR codes
+                    // Get network IP for mobile access
+                    const networkIP = window.location.hostname === 'localhost' 
+                      ? '192.168.31.140' // Update this to your actual network IP
+                      : window.location.hostname
+                    const port = window.location.port || '5173'
+
+                    // Download all QR codes using query param instead of subdomain
                     for (let i = bulkQRRange.startTable; i <= bulkQRRange.endTable; i++) {
                       const qrInfo = {
-                        url: `${restaurant.subdomain}.localhost/table/${i}`,
-                        fullUrl: `http://${restaurant.subdomain}.localhost:5173/table/${i}`
+                        url: `${networkIP}:${port}/table/${i}?restaurant=${restaurant.subdomain}`,
+                        fullUrl: `http://${networkIP}:${port}/table/${i}?restaurant=${restaurant.subdomain}`
                       }
                       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrInfo.fullUrl)}`
                       

@@ -15,6 +15,7 @@ import cartReducer from './slices/cartSlice'
 import menuReducer from './slices/menuSlice'
 import orderReducer from './slices/orderSlice'
 import uiReducer from './slices/uiSlice'
+import restaurantReducer from './slices/restaurantSlice'
 
 // Custom localStorage wrapper for Vite compatibility
 const createNoopStorage = () => {
@@ -60,6 +61,7 @@ const rootReducer = combineReducers({
   menu: menuReducer,
   order: orderReducer,
   ui: uiReducer,
+  restaurant: restaurantReducer,
 })
 
 const persistedReducer = persistReducer(persistConfig, rootReducer)

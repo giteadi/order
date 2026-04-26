@@ -16,6 +16,11 @@ export const BottomNav = () => {
   const user = useSelector(selectUser)
   const isAuthenticated = useSelector(selectIsAuthenticated)
 
+  // Preserve query params during navigation
+  const getPathWithParams = (path) => {
+    return location.search ? `${path}${location.search}` : path
+  }
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10 safe-area-bottom shadow-lg">
       <div className="max-w-7xl mx-auto px-2 sm:px-4">
@@ -27,7 +32,7 @@ export const BottomNav = () => {
             return (
               <Link
                 key={tab.id}
-                to={tab.path}
+                to={getPathWithParams(tab.path)}
                 className="relative flex flex-col items-center justify-center py-1.5 px-2"
               >
                 <motion.div
@@ -54,7 +59,7 @@ export const BottomNav = () => {
           {/* Profile Tab - Show user avatar if logged in */}
           {isAuthenticated && user ? (
             <Link
-              to="/profile"
+              to={getPathWithParams('/profile')}
               className="relative flex flex-col items-center justify-center py-1.5 px-2"
             >
               {user.avatarBase64 || user.avatarUrl ? (
@@ -81,7 +86,7 @@ export const BottomNav = () => {
             </Link>
           ) : (
             <Link
-              to="/login"
+              to={getPathWithParams('/login')}
               className="relative flex flex-col items-center justify-center py-1.5 px-2"
             >
               <motion.div

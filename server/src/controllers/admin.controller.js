@@ -774,6 +774,29 @@ export class AdminController {
   }
 
   /**
+   * Get all restaurants PUBLIC (no auth required - for QR scanning)
+   */
+  static async getAllRestaurantsPublic(req, res) {
+    try {
+      const db = getDB();
+
+      // Get only active restaurants with basic info
+      const restaurants = db.prepare(`
+        SELECT 
+          r.id, r.uuid, r.name, r.subdomain, r.domain, r.logo_url
+        FROM restaurants r
+        WHERE r.is_active = 1
+        ORDER BY r.name ASC
+      `).all();
+
+      return success(res, restaurants, 'Restaurants retrieved');
+    } catch (err) {
+      logger.error('Get all restaurants public error', { error: err.message });
+      return error(res, 'Failed to get restaurants', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
    * Create new restaurant (super admin only)
    */
   static async createRestaurant(req, res) {

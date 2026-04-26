@@ -1,6 +1,9 @@
 import { useRef, useEffect, useState } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { useSearchParams } from 'react-router-dom'
+import { useSelector, useDispatch } from 'react-redux'
+import { selectRestaurantName, fetchRestaurantBySubdomain } from '../store/slices/restaurantSlice'
 import apiClient from '../services/api'
 
 gsap.registerPlugin(ScrollTrigger)
@@ -38,11 +41,22 @@ export const HeroSection = () => {
   const textRef = useRef(null)
   const imageRef = useRef(null)
   const subtitleRef = useRef(null)
+  const [searchParams] = useSearchParams()
+  const dispatch = useDispatch()
+  const restaurantName = useSelector(selectRestaurantName)
   const [currentImage, setCurrentImage] = useState(0)
   const [isMobile, setIsMobile] = useState(true)
   const [mounted, setMounted] = useState(false)
   const [heroImages, setHeroImages] = useState([])
   const [loading, setLoading] = useState(true)
+
+  // Fetch restaurant from Redux when URL param changes
+  useEffect(() => {
+    const restaurantFromUrl = searchParams.get('restaurant')
+    if (restaurantFromUrl) {
+      dispatch(fetchRestaurantBySubdomain(restaurantFromUrl))
+    }
+  }, [searchParams, dispatch])
 
   // Fetch hero images from API
   useEffect(() => {
@@ -172,7 +186,7 @@ export const HeroSection = () => {
                 textShadow: '0 0 60px rgba(255,255,255,0.4)'
               }}
             >
-              ArtHaus Café
+              {restaurantName}
             </h1>
             <p className="text-lg sm:text-xl text-white/90 max-w-2xl drop-shadow-md">
               Experience coffee like never before
@@ -221,7 +235,7 @@ export const HeroSection = () => {
               textShadow: '0 0 60px rgba(255,255,255,0.4), 0 0 100px rgba(255,255,255,0.2)'
             }}
           >
-            ArtHaus Café
+            {restaurantName}
           </h1>
           <p
             ref={subtitleRef}
