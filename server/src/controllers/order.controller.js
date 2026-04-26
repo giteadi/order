@@ -106,7 +106,24 @@ export class OrderController {
         limit: parseInt(limit, 10),
       });
 
-      return success(res, result.data, null, { pagination: result.pagination });
+      // Fetch order items for each order
+      const ordersWithItems = result.data.map(order => {
+        const items = Order.db.prepare(`
+          SELECT oi.id, oi.product_id, oi.product_name, oi.product_price, 
+                 oi.quantity, oi.customizations, oi.subtotal,
+                 p.emoji_icon, p.image_url
+          FROM order_items oi
+          LEFT JOIN products p ON oi.product_id = p.id
+          WHERE oi.order_id = ?
+        `).all(order.id);
+        
+        return {
+          ...order,
+          items
+        };
+      });
+
+      return success(res, ordersWithItems, null, { pagination: result.pagination });
 
     } catch (err) {
       logger.error('Get my orders failed', { error: err.message });

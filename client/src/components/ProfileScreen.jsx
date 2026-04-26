@@ -1,18 +1,31 @@
 import { useSelector, useDispatch } from 'react-redux'
 import { motion } from 'framer-motion'
-import { User, Mail, LogOut, Settings, CreditCard, Bell, HelpCircle } from 'lucide-react'
+import { User, Mail, LogOut, Settings, CreditCard, Bell, HelpCircle, ShoppingBag } from 'lucide-react'
 import { logout } from '../store/slices/authSlice'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useEffect } from 'react'
 
 export const ProfileScreen = () => {
   const dispatch = useDispatch()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const restaurant = searchParams.get('restaurant')
   const user = useSelector((state) => state.auth.user)
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated)
 
+  // Save restaurant to localStorage when available
+  useEffect(() => {
+    if (restaurant) {
+      localStorage.setItem('lastRestaurant', restaurant)
+    }
+  }, [restaurant])
+
   const handleLogout = () => {
     dispatch(logout())
-    navigate('/')
+    // Get restaurant from URL or localStorage
+    const savedRestaurant = restaurant || localStorage.getItem('lastRestaurant')
+    const homeUrl = savedRestaurant ? `/?restaurant=${savedRestaurant}` : '/'
+    navigate(homeUrl)
   }
 
   if (!isAuthenticated || !user) {
@@ -25,7 +38,10 @@ export const ProfileScreen = () => {
           <h2 className="text-xl font-bold text-gray-900 mb-2">Not Logged In</h2>
           <p className="text-gray-500 mb-4">Please login to view your profile</p>
           <button
-            onClick={() => navigate('/login')}
+            onClick={() => {
+              const loginUrl = restaurant ? `/login?restaurant=${restaurant}` : '/login'
+              navigate(loginUrl)
+            }}
             className="px-6 py-3 bg-gray-900 text-white rounded-xl font-medium"
           >
             Go to Login
@@ -91,6 +107,31 @@ export const ProfileScreen = () => {
             </div>
           </div>
         </motion.div>
+
+        {/* Order History Button */}
+        <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          onClick={() => {
+            const orderHistoryUrl = restaurant ? `/order-history?restaurant=${restaurant}` : '/order-history'
+            navigate(orderHistoryUrl)
+          }}
+          className="w-full bg-white rounded-2xl p-6 shadow-sm mb-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+              <ShoppingBag size={20} className="text-orange-600" />
+            </div>
+            <div className="text-left">
+              <p className="text-base font-medium text-gray-900">Order History</p>
+              <p className="text-sm text-gray-500">View your past orders</p>
+            </div>
+          </div>
+          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </motion.button>
 
         {/* Logout Button */}
         <motion.button

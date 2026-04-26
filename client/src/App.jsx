@@ -58,6 +58,7 @@ import { SuperAdminDashboard } from './components/SuperAdminDashboard'
 import { MenuManagement } from './components/MenuManagement'
 import { UserManagement } from './components/UserManagement'
 import { OrderManagement } from './components/OrderManagement'
+import { OrderHistoryScreen } from './components/OrderHistoryScreen'
 import { RestaurantSettings } from './components/RestaurantSettings'
 import { CarouselManagement } from './components/CarouselManagement'
 import { TablesManagement } from './components/TablesManagement'
@@ -693,6 +694,7 @@ function App() {
           />
         } />
         <Route path="/profile" element={<ProfileScreen />} />
+        <Route path="/order-history" element={<OrderHistoryScreen />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/super-admin" element={<SuperAdminDashboard />} />
         <Route path="/admin/menu" element={<MenuManagement />} />
