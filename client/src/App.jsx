@@ -28,7 +28,7 @@ import {
   selectIsProductModalOpen,
 } from './store/slices/uiSlice'
 import { logout, selectIsAuthenticated, selectUser, selectToken, setUser } from './store/slices/authSlice'
-import { fetchRestaurantBySubdomain } from './store/slices/restaurantSlice'
+import { fetchRestaurantBySubdomain, selectCurrentRestaurant } from './store/slices/restaurantSlice'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -200,18 +200,27 @@ function App() {
 
   const tableNumber = useTableNumber()
   const { cursorPosition, isCursorHovering, setHovering } = useCursor()
+  const restaurant = useSelector(selectCurrentRestaurant)
 
   const activeTab = location.pathname.replace('/', '') || 'home'
 
-  // Global effect: Read restaurant from URL and store in Redux
+  // Global effect: Read restaurant from URL or use persisted Redux state
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const restaurantFromUrl = urlParams.get('restaurant')
+    const restaurantFromRedux = restaurant?.subdomain
+    
     if (restaurantFromUrl) {
+      // URL has restaurant - update Redux
       console.log('🌐 App: Restaurant from URL:', restaurantFromUrl)
       dispatch(fetchRestaurantBySubdomain(restaurantFromUrl))
+    } else if (restaurantFromRedux) {
+      // No URL param but Redux has restaurant - use persisted one
+      console.log('💾 App: Using persisted restaurant:', restaurantFromRedux)
+    } else {
+      console.log('⚠️ App: No restaurant specified')
     }
-  }, [dispatch])
+  }, [dispatch, restaurant?.subdomain])
   
   // Redux action wrappers
   const handleAddToCart = (product, qty = 1) => {
@@ -608,7 +617,7 @@ function App() {
                 console.log('Checking role:', userRole)
                 if (userRole === 'admin' || userRole === 'super_admin') {
                   console.log('Redirecting to admin')
-                  navigate('/admin')
+                  navigateWithParams('/admin')
                 } else {
                   console.log('Redirecting to menu, role is:', userRole)
                   navigateWithParams('/menu')
@@ -684,13 +693,13 @@ function App() {
                 const { authAPI } = await import('./services/api')
                 await authAPI.resetPassword(token, newPassword)
                 alert('Password reset successful! Please login with your new password.')
-                navigate('/login')
+                navigateWithParams('/login')
               } catch (error) {
                 console.error('Reset password error:', error)
                 alert('Failed to reset password')
               }
             }}
-            onNavigateToLogin={() => navigate('/login')}
+            onNavigateToLogin={() => navigateWithParams('/login')}
           />
         } />
         <Route path="/profile" element={<ProfileScreen />} />

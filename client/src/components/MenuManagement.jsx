@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Plus, Search, Edit2, Trash2, Image as ImageIcon, DollarSign, Tag, CheckCircle, XCircle } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 import apiClient from '../services/api'
 
 export const MenuManagement = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigateWithParams()
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)

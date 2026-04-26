@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { Search, ShoppingCart, Users } from 'lucide-react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
+import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 import { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { selectRestaurantName, selectRestaurantLogo, fetchRestaurantBySubdomain } from '../store/slices/restaurantSlice'
@@ -18,7 +19,7 @@ export const Header = ({
   variant = 'sticky',
   user = null
 }) => {
-  const navigate = useNavigate()
+  const navigate = useNavigateWithParams()
   const [searchParams] = useSearchParams()
   const dispatch = useDispatch()
   const restaurantName = useSelector(selectRestaurantName)

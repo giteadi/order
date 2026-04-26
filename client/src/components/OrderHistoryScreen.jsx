@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Clock, CheckCircle, Package, XCircle, ChevronDown, ChevronUp, ShoppingBag } from 'lucide-react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
+import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 import { useSelector } from 'react-redux'
 import apiClient from '../services/api'
 
 export const OrderHistoryScreen = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigateWithParams()
   const [searchParams] = useSearchParams()
   const restaurant = searchParams.get('restaurant')
   const user = useSelector((state) => state.auth.user)
@@ -24,8 +25,7 @@ export const OrderHistoryScreen = () => {
 
   useEffect(() => {
     if (!user || !token) {
-      const loginUrl = restaurant ? `/login?restaurant=${restaurant}` : '/login'
-      navigate(loginUrl)
+      navigate('/login')
       return
     }
     fetchOrders()
@@ -92,10 +92,7 @@ export const OrderHistoryScreen = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => {
-                  const homeUrl = restaurant ? `/?restaurant=${restaurant}` : '/'
-                  navigate(homeUrl)
-                }}
+                onClick={() => navigate('/')}
                 className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
               >
                 <ArrowLeft size={20} />
@@ -128,10 +125,7 @@ export const OrderHistoryScreen = () => {
             <h3 className="text-xl font-bold text-gray-900 mb-2">No Orders Yet</h3>
             <p className="text-gray-500 mb-6">You haven't placed any orders yet</p>
             <button
-              onClick={() => {
-                const menuUrl = restaurant ? `/menu?restaurant=${restaurant}` : '/menu'
-                navigate(menuUrl)
-              }}
+              onClick={() => navigate('/menu')}
               className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium transition-colors"
             >
               Browse Menu
@@ -272,28 +266,20 @@ export const OrderHistoryScreen = () => {
 
                         {/* Reorder Button */}
                         {order.status === 'served' && (
-                          <button
-                            onClick={() => {
-                              const menuUrl = restaurant ? `/menu?restaurant=${restaurant}` : '/menu'
-                              navigate(menuUrl)
-                            }}
-                            className="w-full mt-3 px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors"
-                          >
-                            Order Again
-                          </button>
-                        )}
-
-                        {/* Cancelled Order - Browse Menu */}
-                        {order.status === 'cancelled' && (
-                          <button
-                            onClick={() => {
-                              const menuUrl = restaurant ? `/menu?restaurant=${restaurant}` : '/menu'
-                              navigate(menuUrl)
-                            }}
-                            className="w-full mt-3 px-4 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-                          >
-                            Browse Menu
-                          </button>
+                          <div className="space-y-2">
+                            <button
+                              onClick={() => navigate('/menu')}
+                              className="w-full mt-3 px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors"
+                            >
+                              Order Again
+                            </button>
+                            <button
+                              onClick={() => navigate('/menu')}
+                              className="w-full px-4 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                            >
+                              Browse Menu
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>

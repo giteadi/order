@@ -2,12 +2,13 @@ import { useSelector, useDispatch } from 'react-redux'
 import { motion } from 'framer-motion'
 import { User, Mail, LogOut, Settings, CreditCard, Bell, HelpCircle, ShoppingBag } from 'lucide-react'
 import { logout } from '../store/slices/authSlice'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useEffect } from 'react'
+import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 
 export const ProfileScreen = () => {
   const dispatch = useDispatch()
-  const navigate = useNavigate()
+  const navigate = useNavigateWithParams()
   const [searchParams] = useSearchParams()
   const restaurant = searchParams.get('restaurant')
   const user = useSelector((state) => state.auth.user)
@@ -22,10 +23,8 @@ export const ProfileScreen = () => {
 
   const handleLogout = () => {
     dispatch(logout())
-    // Get restaurant from URL or localStorage
-    const savedRestaurant = restaurant || localStorage.getItem('lastRestaurant')
-    const homeUrl = savedRestaurant ? `/?restaurant=${savedRestaurant}` : '/'
-    navigate(homeUrl)
+    // Restaurant will be preserved by useNavigateWithParams
+    navigate('/')
   }
 
   if (!isAuthenticated || !user) {
@@ -38,10 +37,7 @@ export const ProfileScreen = () => {
           <h2 className="text-xl font-bold text-gray-900 mb-2">Not Logged In</h2>
           <p className="text-gray-500 mb-4">Please login to view your profile</p>
           <button
-            onClick={() => {
-              const loginUrl = restaurant ? `/login?restaurant=${restaurant}` : '/login'
-              navigate(loginUrl)
-            }}
+            onClick={() => navigate('/login')}
             className="px-6 py-3 bg-gray-900 text-white rounded-xl font-medium"
           >
             Go to Login
@@ -113,10 +109,7 @@ export const ProfileScreen = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          onClick={() => {
-            const orderHistoryUrl = restaurant ? `/order-history?restaurant=${restaurant}` : '/order-history'
-            navigate(orderHistoryUrl)
-          }}
+          onClick={() => navigate('/order-history')}
           className="w-full bg-white rounded-2xl p-6 shadow-sm mb-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
         >
           <div className="flex items-center gap-3">

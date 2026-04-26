@@ -5,12 +5,15 @@ import {
   CheckCircle, XCircle, Clock, Users, Building2,
   ArrowLeft, RefreshCw, Maximize2
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
+import { useSelector } from 'react-redux'
 import apiClient from '../services/api'
 import toast from 'react-hot-toast'
 
 export const TablesManagement = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigateWithParams()
+  const user = useSelector((state) => state.auth.user)
+  const role = user?.role || 'customer'
   const [tables, setTables] = useState([])
   const [restaurants, setRestaurants] = useState([])
   const [loading, setLoading] = useState(true)
@@ -42,9 +45,13 @@ export const TablesManagement = () => {
   const fetchData = async () => {
     try {
       setLoading(true)
+      // Use different endpoint based on role
+      const tablesEndpoint = role === 'super_admin' ? '/admin/super-admin/tables' : '/admin/tables'
+      const restaurantsEndpoint = role === 'super_admin' ? '/admin/restaurants' : '/admin/restaurants/public'
+      
       const [tablesRes, restaurantsRes] = await Promise.all([
-        apiClient.get('/admin/super-admin/tables'),
-        apiClient.get('/admin/restaurants')
+        apiClient.get(tablesEndpoint),
+        apiClient.get(restaurantsEndpoint)
       ])
 
       if (tablesRes.data.success) {
@@ -65,7 +72,16 @@ export const TablesManagement = () => {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [role, user?.restaurantId])
+
+  // Set default restaurant for regular admins
+  useEffect(() => {
+    if (role !== 'super_admin' && user?.restaurantId) {
+      setRestaurantFilter(user.restaurantId.toString())
+      setNewTable(prev => ({ ...prev, restaurantId: user.restaurantId.toString() }))
+      setBulkQRRange(prev => ({ ...prev, restaurantId: user.restaurantId.toString() }))
+    }
+  }, [role, user?.restaurantId])
 
   // Create new table
   const handleCreateTable = async (e) => {
@@ -141,25 +157,32 @@ export const TablesManagement = () => {
 
   // Generate QR code URL with restaurant info
   const generateQRData = (table) => {
-    const restaurant = restaurants.find(r => r.id === table.restaurant_id)
+    const restaurant = restaurants.find(r => parseInt(r.id) === parseInt(table.restaurant_id))
     const subdomain = restaurant?.subdomain || 'default'
-    // Format: subdomain.localhost/table/tableNumber
+    const fullUrl = `http://${subdomain}.localhost:5173/table/${table.table_number}`
+    
     return {
       url: `${subdomain}.localhost/table/${table.table_number}`,
       data: `restaurant:${subdomain},table:${table.table_number}`,
-      fullUrl: `http://${subdomain}.localhost:5173/table/${table.table_number}`
+      fullUrl
     }
   }
 
   // Download QR code as image (using QR API)
   const downloadQR = (table) => {
     const qrInfo = generateQRData(table)
+    console.log('🔍 QR Info:', qrInfo)  // Debug log
+    
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrInfo.fullUrl)}`
-
+    console.log('🔗 QR URL:', qrUrl)  // Debug log - open this in browser to test
+    
     const link = document.createElement('a')
     link.href = qrUrl
-    link.download = `table-${table.table_number}-${qrInfo.url}.png`
+    link.target = '_blank'
+    link.download = `table-${table.table_number}.png`
+    document.body.appendChild(link)
     link.click()
+    document.body.removeChild(link)
   }
 
   // Update table status
@@ -271,14 +294,16 @@ export const TablesManagement = () => {
                   className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10"
                 />
               </div>
-              <select
-                value={restaurantFilter}
-                onChange={(e) => setRestaurantFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-              >
-                <option value="all">All Restaurants</option>
-                {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-              </select>
+              {role === 'super_admin' && (
+                <select
+                  value={restaurantFilter}
+                  onChange={(e) => setRestaurantFilter(e.target.value)}
+                  className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                >
+                  <option value="all">All Restaurants</option>
+                  {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+              )}
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -440,19 +465,21 @@ export const TablesManagement = () => {
             </div>
 
             <form onSubmit={handleCreateTable} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Restaurant *</label>
-                <select
-                  required
-                  value={newTable.restaurantId}
-                  onChange={(e) => setNewTable({ ...newTable, restaurantId: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-                >
-                  {restaurants.map(r => (
-                    <option key={r.id} value={r.id}>{r.name} ({r.subdomain}.localhost)</option>
-                  ))}
-                </select>
-              </div>
+              {role === 'super_admin' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Restaurant *</label>
+                  <select
+                    required
+                    value={newTable.restaurantId}
+                    onChange={(e) => setNewTable({ ...newTable, restaurantId: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                  >
+                    {restaurants.map(r => (
+                      <option key={r.id} value={r.id}>{r.name} ({r.subdomain}.localhost)</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Table Number *</label>
@@ -672,19 +699,21 @@ export const TablesManagement = () => {
             </div>
 
             <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Restaurant *</label>
-                <select
-                  required
-                  value={bulkQRRange.restaurantId}
-                  onChange={(e) => setBulkQRRange({ ...bulkQRRange, restaurantId: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-                >
-                  {restaurants.map(r => (
-                    <option key={r.id} value={r.id}>{r.name} ({r.subdomain}.localhost)</option>
-                  ))}
-                </select>
-              </div>
+              {role === 'super_admin' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Restaurant *</label>
+                  <select
+                    required
+                    value={bulkQRRange.restaurantId}
+                    onChange={(e) => setBulkQRRange({ ...bulkQRRange, restaurantId: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                  >
+                    {restaurants.map(r => (
+                      <option key={r.id} value={r.id}>{r.name} ({r.subdomain}.localhost)</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -727,22 +756,29 @@ export const TablesManagement = () => {
                 </button>
                 <button
                   onClick={() => {
-                    const restaurant = restaurants.find(r => r.id === bulkQRRange.restaurantId)
-                    if (!restaurant) return
+                    // Find restaurant - for regular admin use default if not set
+                    let restaurantId = bulkQRRange.restaurantId
+                    if (!restaurantId && role !== 'super_admin' && user?.restaurantId) {
+                      restaurantId = user.restaurantId.toString()
+                    }
+                    
+                    const restaurant = restaurants.find(r => parseInt(r.id) === parseInt(restaurantId))
+                    if (!restaurant) {
+                      alert('Restaurant not found. Please try again.')
+                      return
+                    }
+                    
+                    console.log('🔍 Bulk QR for restaurant:', restaurant.name, restaurant.subdomain)
 
-                    // Get network IP for mobile access
-                    const networkIP = window.location.hostname === 'localhost' 
-                      ? '192.168.31.140' // Update this to your actual network IP
-                      : window.location.hostname
+                    // Use localhost for QR (better for testing)
                     const port = window.location.port || '5173'
 
                     // Download all QR codes using query param instead of subdomain
                     for (let i = bulkQRRange.startTable; i <= bulkQRRange.endTable; i++) {
-                      const qrInfo = {
-                        url: `${networkIP}:${port}/table/${i}?restaurant=${restaurant.subdomain}`,
-                        fullUrl: `http://${networkIP}:${port}/table/${i}?restaurant=${restaurant.subdomain}`
-                      }
-                      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrInfo.fullUrl)}`
+                      const fullUrl = `http://localhost:${port}/table/${i}?restaurant=${restaurant.subdomain}`
+                      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(fullUrl)}`
+                      
+                      console.log(`🔗 Table ${i} QR:`, qrUrl)
                       
                       // Download with delay to prevent browser blocking
                       setTimeout(() => {

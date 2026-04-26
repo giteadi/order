@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Save, Store, Clock, Phone, Mail, MapPin, Image as ImageIcon, DollarSign, CreditCard, ToggleLeft, ToggleRight, Upload } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 import { useSelector } from 'react-redux'
 import apiClient from '../services/api'
 
 export const RestaurantSettings = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigateWithParams()
   const user = useSelector((state) => state.auth.user)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)

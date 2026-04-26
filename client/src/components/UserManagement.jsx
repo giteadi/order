@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Search, Users, UserCheck, UserX, Shield, ChefHat, ShoppingBag, MoreVertical, Filter } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 import { useSelector } from 'react-redux'
 import apiClient from '../services/api'
 
 export const UserManagement = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigateWithParams()
   const user = useSelector((state) => state.auth.user)
   const userRole = user?.role || 'customer'
   const [users, setUsers] = useState([])

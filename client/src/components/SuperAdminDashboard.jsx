@@ -7,13 +7,13 @@ import {
   ChevronRight, Activity, Globe, MoreVertical, Search,
   Filter, ArrowUpRight, ArrowDownRight, Crown, ArrowLeft, QrCode
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 import apiClient from '../services/api'
 import AddRestaurant from './AddRestaurant'
 import { RestaurantDetailScreen } from './RestaurantDetailScreen'
 
 export const SuperAdminDashboard = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigateWithParams()
   const user = useSelector((state) => state.auth.user)
   const role = user?.role || 'customer'
 

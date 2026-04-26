@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Clock, CheckCircle, ChefHat, Package, XCircle, Check, Truck, ChevronDown, ChevronUp } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 import apiClient from '../services/api'
 import toast from 'react-hot-toast'
 
 export const OrderManagement = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigateWithParams()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedOrder, setExpandedOrder] = useState(null)

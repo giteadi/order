@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { motion } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 
 const featuredItems = [
   { id: 1, name: 'Espresso', price: 120, image: '☕', description: 'Pure, bold, intense', category: 'espresso' },
@@ -14,7 +14,7 @@ const featuredItems = [
 ]
 
 export const FeaturedItemsSection = ({ onProductClick, onAddToCart, onCursorHover }) => {
-  const navigate = useNavigate()
+  const navigate = useNavigateWithParams()
   const sectionRef = useRef(null)
 
   const handleItemClick = (item) => {
