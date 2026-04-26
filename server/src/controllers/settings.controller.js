@@ -16,10 +16,13 @@ export class SettingsController {
   static async getSettings(req, res) {
     try {
       const db = getDB();
-      const { restaurantId } = req.tenant || {};
+      // ✅ Try multiple sources for restaurant ID
+      const restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || 1; // Default to first restaurant
+
+      console.log('🔍 Getting settings for restaurant:', restaurantId)
 
       // Fetch restaurant settings from restaurants table
-      let query = `
+      const query = `
         SELECT 
           id,
           name,
@@ -36,17 +39,13 @@ export class SettingsController {
           payment_methods,
           features
         FROM restaurants
+        WHERE id = ?
       `;
-      let params = [];
 
-      if (restaurantId) {
-        query += ' WHERE id = ?';
-        params.push(restaurantId);
-      }
-
-      const restaurant = db.prepare(query).get(...params);
+      const restaurant = db.prepare(query).get(restaurantId);
 
       if (!restaurant) {
+        console.log('⚠️ No restaurant found, returning defaults')
         // Return default settings if no restaurant found
         const defaultSettings = {
           name: 'ArtHaus Café',
@@ -84,6 +83,8 @@ export class SettingsController {
         return success(res, defaultSettings, 'Default settings retrieved');
       }
 
+      console.log('✅ Restaurant found:', restaurant.name, 'Logo:', restaurant.logo_url ? 'Yes' : 'No')
+
       // Parse JSON fields if stored as strings
       const settings = {
         ...restaurant,
@@ -111,7 +112,9 @@ export class SettingsController {
   static async updateSettings(req, res) {
     try {
       const db = getDB();
-      const { restaurantId } = req.tenant || {};
+      // ✅ Try multiple sources for restaurant ID
+      const restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || 1;
+      
       const {
         name,
         description,
@@ -128,9 +131,8 @@ export class SettingsController {
         features,
       } = req.body;
 
-      if (!restaurantId) {
-        return error(res, 'Restaurant ID required', HTTP_STATUS.BAD_REQUEST);
-      }
+      console.log('💾 Updating settings for restaurant:', restaurantId)
+      console.log('📸 Logo URL length:', logo_url?.length || 0)
 
       // Convert objects to JSON for storage
       const openingHoursJson = JSON.stringify(opening_hours);
@@ -173,9 +175,11 @@ export class SettingsController {
         restaurantId
       );
 
+      console.log('✅ Settings updated successfully')
       logger.info('Settings updated', { restaurantId });
       return success(res, { restaurantId }, 'Settings updated successfully');
     } catch (err) {
+      console.error('❌ Update settings error:', err)
       logger.error('Update settings error', { error: err.message });
       return error(res, 'Failed to update settings', HTTP_STATUS.INTERNAL_ERROR);
     }

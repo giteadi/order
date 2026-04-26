@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion'
 import { Search, ShoppingCart, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import apiClient from '../services/api'
 
 export const Header = ({ 
   tableNumber, 
@@ -15,6 +17,35 @@ export const Header = ({
   user = null
 }) => {
   const navigate = useNavigate()
+  const [logo, setLogo] = useState('https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=100&q=80')
+  const [restaurantName, setRestaurantName] = useState('ArtHaus Café')
+
+  // Fetch logo from settings
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        console.log('🔍 Fetching logo from settings...')
+        const response = await apiClient.get('/admin/settings/public')
+        console.log('✅ Settings response:', response.data)
+        
+        if (response.data.success) {
+          const data = response.data.data
+          if (data.logo_url) {
+            console.log('✅ Logo found:', data.logo_url.substring(0, 50) + '...')
+            setLogo(data.logo_url)
+          }
+          if (data.name) {
+            console.log('✅ Restaurant name:', data.name)
+            setRestaurantName(data.name)
+          }
+        }
+      } catch (error) {
+        console.log('⚠️ Failed to fetch logo:', error.message)
+        console.log('Using default logo')
+      }
+    }
+    fetchLogo()
+  }, [])
 
   return (
     <motion.header 
@@ -27,13 +58,13 @@ export const Header = ({
         <div className="flex items-center justify-between gap-2 sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-3">
             <img 
-              src="https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=100&q=80" 
-              alt="ArtHaus Logo" 
+              src={logo}
+              alt={`${restaurantName} Logo`}
               className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shadow-sm"
             />
             <div className="flex flex-col">
               <span className="text-sm sm:text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent hidden sm:block">
-                ArtHaus Café
+                {restaurantName}
               </span>
               <span className="text-xs text-gray-500 sm:text-sm">Table {tableNumber}</span>
             </div>

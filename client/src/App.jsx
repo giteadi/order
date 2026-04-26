@@ -383,7 +383,6 @@ function App() {
             />
             <HighlightsStrip />
             <ImageCarousel carouselType="collection" />
-            <MultiLayerParallax />
           </>
         } />
         <Route path="/menu" element={

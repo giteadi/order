@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Image as ImageIcon, Plus, Trash2, Edit2, GripVertical, 
+import {
+  Image as ImageIcon, Plus, Trash2, Edit2, GripVertical,
   Upload, X, ChevronRight, ChevronLeft, Save, ChevronUp, ChevronDown,
-  Layout, Grid3X3, Monitor, ArrowRight
+  Layout, Grid3X3, Monitor, ArrowRight, Layers
 } from 'lucide-react'
 import apiClient from '../services/api'
 
 export const CarouselManagement = () => {
-  const [activeTab, setActiveTab] = useState('highlights') // 'hero', 'highlights', or 'collection'
+  const [activeTab, setActiveTab] = useState('highlights') // 'hero', 'highlights', 'collection', or 'parallax'
   const [heroImages, setHeroImages] = useState([])
   const [highlightsImages, setHighlightsImages] = useState([])
   const [collectionImages, setCollectionImages] = useState([])
+  const [parallaxImages, setParallaxImages] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingImage, setEditingImage] = useState(null)
@@ -34,13 +35,14 @@ export const CarouselManagement = () => {
   const fetchImages = async () => {
     try {
       setLoading(true)
-      // Fetch all three types of images (using admin endpoint with auth)
-      const [heroRes, highlightsRes, collectionRes] = await Promise.all([
+      // Fetch all four types of images (using admin endpoint with auth)
+      const [heroRes, highlightsRes, collectionRes, parallaxRes] = await Promise.all([
         apiClient.get('/carousel/admin/all?type=hero'),
         apiClient.get('/carousel/admin/all?type=highlights'),
-        apiClient.get('/carousel/admin/all?type=collection')
+        apiClient.get('/carousel/admin/all?type=collection'),
+        apiClient.get('/carousel/admin/all?type=parallax')
       ])
-      
+
       if (heroRes.data.success) {
         setHeroImages(heroRes.data.data)
       }
@@ -49,6 +51,9 @@ export const CarouselManagement = () => {
       }
       if (collectionRes.data.success) {
         setCollectionImages(collectionRes.data.data)
+      }
+      if (parallaxRes.data.success) {
+        setParallaxImages(parallaxRes.data.data)
       }
     } catch (error) {
       console.error('Failed to fetch carousel images:', error)
@@ -71,6 +76,7 @@ export const CarouselManagement = () => {
     switch (activeTab) {
       case 'hero': return heroImages
       case 'collection': return collectionImages
+      case 'parallax': return parallaxImages
       default: return highlightsImages
     }
   }
@@ -78,6 +84,7 @@ export const CarouselManagement = () => {
     switch (activeTab) {
       case 'hero': return setHeroImages(images)
       case 'collection': return setCollectionImages(images)
+      case 'parallax': return setParallaxImages(images)
       default: return setHighlightsImages(images)
     }
   }
@@ -330,6 +337,20 @@ export const CarouselManagement = () => {
               <div className="text-xs opacity-70">Bottom carousel</div>
             </div>
           </button>
+          <button
+            onClick={() => setActiveTab('parallax')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+              activeTab === 'parallax'
+                ? 'bg-white text-purple-600 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Layers size={20} />
+            <div className="text-left">
+              <div className="text-sm font-semibold">Parallax</div>
+              <div className="text-xs opacity-70">Depth in Motion section</div>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -339,14 +360,16 @@ export const CarouselManagement = () => {
           <Layout className="text-blue-600 mt-0.5" size={20} />
           <div>
             <h3 className="font-medium text-blue-900">
-              {activeTab === 'hero' ? 'Hero Banner Section' : activeTab === 'highlights' ? 'Highlights Strip Section' : 'Collection Section'}
+              {activeTab === 'hero' ? 'Hero Banner Section' : activeTab === 'highlights' ? 'Highlights Strip Section' : activeTab === 'collection' ? 'Collection Section' : 'Parallax Section'}
             </h3>
             <p className="text-sm text-blue-700 mt-1">
-              {activeTab === 'hero' 
+              {activeTab === 'hero'
                 ? 'These images appear as the large banner at the top of your homepage. Recommended size: 1920x1080px (16:9).'
                 : activeTab === 'highlights'
                 ? 'These images appear in the horizontal scrolling section below "Get the highlights." Recommended size: 800x600px (4:3).'
-                : 'These images appear in the bottom full-width carousel. Recommended size: 1600x900px (16:9).'
+                : activeTab === 'collection'
+                ? 'These images appear in the bottom full-width carousel. Recommended size: 1600x900px (16:9).'
+                : 'These images are used in the "Depth in Motion" parallax section. Upload exactly 3 images: Background (1920x1080), Middle (1200x800), and Foreground (1200x800).'
               }
             </p>
           </div>
@@ -360,7 +383,7 @@ export const CarouselManagement = () => {
           className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
         >
           <Plus size={20} />
-          Add {activeTab === 'hero' ? 'Banner' : activeTab === 'highlights' ? 'Highlight' : 'Collection'} Image
+          Add {activeTab === 'hero' ? 'Banner' : activeTab === 'highlights' ? 'Highlight' : activeTab === 'collection' ? 'Collection' : 'Parallax'} Image
         </button>
       </div>
 
@@ -420,13 +443,15 @@ export const CarouselManagement = () => {
               <div className="p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span className={`text-xs px-2 py-1 rounded-full ${
-                    activeTab === 'hero' 
-                      ? 'bg-purple-100 text-purple-700' 
+                    activeTab === 'hero'
+                      ? 'bg-purple-100 text-purple-700'
                       : activeTab === 'highlights'
                       ? 'bg-pink-100 text-pink-700'
-                      : 'bg-blue-100 text-blue-700'
+                      : activeTab === 'collection'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-green-100 text-green-700'
                   }`}>
-                    {activeTab === 'hero' ? 'Banner' : activeTab === 'highlights' ? 'Highlight' : 'Collection'}
+                    {activeTab === 'hero' ? 'Banner' : activeTab === 'highlights' ? 'Highlight' : activeTab === 'collection' ? 'Collection' : 'Parallax'}
                   </span>
                   <span className="text-xs text-gray-400">Order: {image.display_order}</span>
                 </div>
@@ -452,7 +477,7 @@ export const CarouselManagement = () => {
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold">
-                  Add {activeTab === 'hero' ? 'Banner' : activeTab === 'highlights' ? 'Highlight' : 'Collection'} Image
+                  Add {activeTab === 'hero' ? 'Banner' : activeTab === 'highlights' ? 'Highlight' : activeTab === 'collection' ? 'Collection' : 'Parallax'} Image
                 </h3>
                 <button
                   onClick={() => {
@@ -472,7 +497,7 @@ export const CarouselManagement = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Image
                     <span className="text-xs text-gray-500 ml-2">
-                      ({activeTab === 'hero' ? 'Recommended: 1920x1080px' : activeTab === 'highlights' ? 'Recommended: 800x600px' : 'Recommended: 1600x900px'})
+                      ({activeTab === 'hero' ? 'Recommended: 1920x1080px' : activeTab === 'highlights' ? 'Recommended: 800x600px' : activeTab === 'collection' ? 'Recommended: 1600x900px' : 'Recommended: 1920x1080px (BG) / 1200x800px'})
                     </span>
                   </label>
                   {/* Multiple Image Previews Grid */}

@@ -5,7 +5,10 @@ import { asyncHandler } from '../middleware/errorHandler.js';
 
 const router = Router();
 
-// All settings routes require authentication and admin role
+// ✅ Public route - Get basic restaurant info (logo, name) - NO AUTH
+router.get('/public', asyncHandler(SettingsController.getSettings));
+
+// All other settings routes require authentication and admin role
 router.use(authenticate);
 router.use(authorize('admin', 'super_admin'));
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Save, Store, Clock, Phone, Mail, MapPin, Image as ImageIcon, DollarSign, CreditCard, ToggleLeft, ToggleRight } from 'lucide-react'
+import { ArrowLeft, Save, Store, Clock, Phone, Mail, MapPin, Image as ImageIcon, DollarSign, CreditCard, ToggleLeft, ToggleRight, Upload } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import apiClient from '../services/api'
@@ -103,14 +103,22 @@ export const RestaurantSettings = () => {
     setMessage('')
 
     try {
+      console.log('💾 Saving settings...')
+      console.log('📸 Logo URL length:', settings.logo_url?.length || 0)
+      console.log('🏪 Restaurant name:', settings.name)
+      
       const response = await apiClient.put('/admin/settings', settings)
+      
+      console.log('✅ Save response:', response.data)
+      
       if (response.data.success) {
         setMessage('Settings saved successfully!')
         setTimeout(() => setMessage(''), 3000)
       }
     } catch (error) {
-      console.error('Failed to save settings:', error)
-      setMessage('Failed to save settings')
+      console.error('❌ Failed to save settings:', error)
+      console.error('Error response:', error.response?.data)
+      setMessage('Failed to save settings: ' + (error.response?.data?.message || error.message))
     } finally {
       setSaving(false)
     }
@@ -278,7 +286,7 @@ export const RestaurantSettings = () => {
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="w-24 h-24 rounded-xl bg-gray-100 flex items-center justify-center">
+              <div className="w-24 h-24 rounded-xl bg-gray-100 border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden">
                 {settings.logo_url ? (
                   <img src={settings.logo_url} alt="Logo" className="w-full h-full object-contain" />
                 ) : (
@@ -286,15 +294,31 @@ export const RestaurantSettings = () => {
                 )}
               </div>
               <div className="flex-1">
-                <input
-                  type="url"
-                  placeholder="Logo URL"
-                  value={settings.logo_url}
-                  onChange={(e) => setSettings({ ...settings, logo_url: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-900 focus:outline-none"
-                />
+                <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-gray-200 hover:border-gray-900 cursor-pointer transition-colors bg-white">
+                  <Upload size={18} />
+                  <span className="font-medium">Upload Logo</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0]
+                      if (file) {
+                        if (file.size > 2 * 1024 * 1024) {
+                          alert('Image must be less than 2MB')
+                          return
+                        }
+                        const reader = new FileReader()
+                        reader.onload = (event) => {
+                          setSettings({ ...settings, logo_url: event.target.result })
+                        }
+                        reader.readAsDataURL(file)
+                      }
+                    }}
+                    className="hidden"
+                  />
+                </label>
                 <p className="text-sm text-gray-500 mt-2">
-                  Enter a URL for your restaurant logo (recommended size: 200x200px)
+                  PNG, JPG, SVG up to 2MB (recommended: 200x200px)
                 </p>
               </div>
             </div>

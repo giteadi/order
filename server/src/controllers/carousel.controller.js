@@ -69,7 +69,7 @@ export class CarouselController {
       const carouselType = req.query.type || 'highlights';
 
       // ✅ Validate carousel type
-      const allowedTypes = ['hero', 'highlights', 'collection'];
+      const allowedTypes = ['hero', 'highlights', 'collection', 'parallax'];
       if (!allowedTypes.includes(carouselType)) {
         return error(res, `Invalid carousel type. Allowed: ${allowedTypes.join(', ')}`, HTTP_STATUS.BAD_REQUEST);
       }
@@ -160,7 +160,7 @@ export class CarouselController {
       const carouselType = carousel_type || 'highlights';
 
       // ✅ Validate carousel type
-      const allowedTypes = ['hero', 'highlights', 'collection'];
+      const allowedTypes = ['hero', 'highlights', 'collection', 'parallax'];
       if (!allowedTypes.includes(carouselType)) {
         return error(res, `Invalid carousel type. Allowed: ${allowedTypes.join(', ')}`, HTTP_STATUS.BAD_REQUEST);
       }

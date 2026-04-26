@@ -1,8 +1,16 @@
 import { useRef, useEffect, useState } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import apiClient from '../services/api'
 
 gsap.registerPlugin(ScrollTrigger)
+
+// Default fallback images for parallax layers
+const fallbackParallaxImages = [
+  'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1920&q=80', // background
+  'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=1200&q=80', // middle
+  'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1200&q=80'  // foreground
+]
 
 export const ParallaxSection = ({ children, speed = 0.5 }) => {
   const sectionRef = useRef(null)
@@ -55,6 +63,27 @@ export const MultiLayerParallax = () => {
   const textRef = useRef(null)
   const [mounted, setMounted] = useState(false)
   const [isMobile, setIsMobile] = useState(true)
+  const [parallaxImages, setParallaxImages] = useState([])
+
+  // Fetch parallax images from API
+  useEffect(() => {
+    const fetchImages = async () => {
+      try {
+        const response = await apiClient.get('/carousel?type=parallax')
+        if (response.data.success && response.data.data.length > 0) {
+          const images = response.data.data.map(img => img.image || img.image_base64)
+          setParallaxImages(images)
+        }
+      } catch (error) {
+        console.error('Failed to fetch parallax images:', error)
+      }
+    }
+
+    fetchImages()
+  }, [])
+
+  // Get images with fallback
+  const getImage = (index) => parallaxImages[index] || fallbackParallaxImages[index]
 
   useEffect(() => {
     setMounted(true)
@@ -127,12 +156,12 @@ export const MultiLayerParallax = () => {
       className="min-h-screen relative overflow-hidden bg-gradient-to-br from-gray-950 to-black grid place-items-center"
     >
       {/* Background layer */}
-      <div 
+      <div
         ref={bgRef}
         className="absolute inset-0 opacity-60 pointer-events-none"
       >
         <img
-          src="https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1920&q=80"
+          src={getImage(0)}
           alt="Cafe"
           className="w-full h-full object-cover"
           loading="lazy"
@@ -141,12 +170,12 @@ export const MultiLayerParallax = () => {
       </div>
 
       {/* Middle layer */}
-      <div 
+      <div
         ref={midRef}
         className="absolute inset-0 grid place-items-center opacity-35 pointer-events-none"
       >
         <img
-          src="https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=1200&q=80"
+          src={getImage(1)}
           alt="Coffee"
           className="w-[85%] max-w-5xl h-[60%] object-cover rounded-[48px] blur-[1px]"
           loading="lazy"
@@ -154,12 +183,12 @@ export const MultiLayerParallax = () => {
       </div>
 
       {/* Foreground layer */}
-      <div 
+      <div
         ref={fgRef}
         className="absolute inset-0 grid items-end justify-center pb-16 opacity-70 pointer-events-none"
       >
         <img
-          src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1200&q=80"
+          src={getImage(2)}
           alt="Latte"
           className="w-[520px] max-w-[92%] h-[320px] object-cover rounded-[42px] shadow-2xl"
           loading="lazy"
