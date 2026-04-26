@@ -29,11 +29,14 @@ export function generateShortCode(length = 6) {
 }
 
 /**
- * Generate QR code data for table
+ * Generate QR code data for table with restaurant info
+ * Format: restaurant:subdomain,table:tableNumber,timestamp:xxx
  */
-export function generateTableQRCode(tableNumber) {
+export function generateTableQRCode(tableNumber, restaurantSubdomain = 'default') {
   const timestamp = Date.now().toString(36).toUpperCase();
-  return `ART-${tableNumber}-${timestamp}-${generateShortCode(4)}`;
+  const shortCode = generateShortCode(4);
+  // New format includes restaurant subdomain for proper routing
+  return `restaurant:${restaurantSubdomain},table:${tableNumber},code:${shortCode},ts:${timestamp}`;
 }
 
 /**

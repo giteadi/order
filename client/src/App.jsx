@@ -1,6 +1,7 @@
 import { useState, useEffect, useLayoutEffect } from 'react'
 import { Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
+import { Toaster } from 'react-hot-toast'
 import Lenis from 'lenis'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
@@ -58,6 +59,7 @@ import { UserManagement } from './components/UserManagement'
 import { OrderManagement } from './components/OrderManagement'
 import { RestaurantSettings } from './components/RestaurantSettings'
 import { CarouselManagement } from './components/CarouselManagement'
+import { TablesManagement } from './components/TablesManagement'
 import { useTableNumber } from './hooks/useTableNumber'
 import { useCursor } from './hooks/useCursor'
 
@@ -236,6 +238,12 @@ function App() {
 
     let rafId
     function raf(time) {
+      // Stop Lenis when overlay is open
+      if (document.body.getAttribute('data-lenis-stop') === 'true') {
+        cancelAnimationFrame(rafId)
+        rafId = requestAnimationFrame(raf)
+        return
+      }
       lenis.raf(time)
       rafId = requestAnimationFrame(raf)
     }
@@ -354,7 +362,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen transition-colors duration-500 pb-24 md:pb-20 bg-gray-50">
+    <div className="min-h-screen transition-colors duration-500 pb-24 md:pb-20 bg-gray-50 overflow-x-hidden w-full">
       <CustomCursor 
         cursorPosition={cursorPosition} 
         isCursorHovering={isCursorHovering} 
@@ -541,6 +549,7 @@ function App() {
         <Route path="/admin/orders" element={<OrderManagement />} />
         <Route path="/admin/carousel" element={<CarouselManagement />} />
         <Route path="/admin/settings" element={<RestaurantSettings />} />
+        <Route path="/admin/tables" element={<TablesManagement />} />
       </Routes>
 
       <CartSidebar 
@@ -587,6 +596,7 @@ function App() {
       />
 
       <BottomNav />
+      <Toaster position="top-center" />
     </div>
   )
 }

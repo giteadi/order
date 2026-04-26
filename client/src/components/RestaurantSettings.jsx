@@ -153,10 +153,10 @@ export const RestaurantSettings = () => {
   const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden w-full max-w-full">
       {/* Header */}
-      <div className="bg-gray-900 text-white">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+      <div className="bg-gray-900 text-white w-full">
+        <div className="max-w-7xl mx-auto px-4 py-4 w-full">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button
@@ -182,12 +182,12 @@ export const RestaurantSettings = () => {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8 w-full overflow-x-hidden">
         {message && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`mb-6 p-4 rounded-xl ${
+            className={`mb-6 p-4 rounded-xl w-full ${
               message.includes('success') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
             }`}
           >
@@ -195,7 +195,7 @@ export const RestaurantSettings = () => {
           </motion.div>
         )}
 
-        <div className="space-y-6">
+        <div className="space-y-6 w-full">
           {/* Basic Information */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center gap-3 mb-6">

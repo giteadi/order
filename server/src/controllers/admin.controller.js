@@ -515,10 +515,22 @@ export class AdminController {
   static async createTable(req, res) {
     try {
       const db = getDB();
-      const { tableNumber, capacity, location } = req.body;
-      const { restaurantId } = req.tenant || {};
+      const { tableNumber, capacity, location, restaurantId: bodyRestaurantId } = req.body;
+      const { restaurantId: tenantRestaurantId } = req.tenant || {};
+      const restaurantId = tenantRestaurantId || bodyRestaurantId;
 
-      const qrCode = `TABLE_${tableNumber}_${Date.now()}`;
+      // Get restaurant subdomain for QR code
+      let restaurantSubdomain = 'default';
+      if (restaurantId) {
+        const restaurant = db.prepare('SELECT subdomain FROM restaurants WHERE id = ?').get(restaurantId);
+        if (restaurant) {
+          restaurantSubdomain = restaurant.subdomain;
+        }
+      }
+
+      // Generate QR code with restaurant info
+      const { generateTableQRCode } = await import('../utils/helpers.js');
+      const qrCode = generateTableQRCode(tableNumber, restaurantSubdomain);
 
       const result = db.prepare(`
         INSERT INTO restaurant_tables (table_number, qr_code, capacity, location, restaurant_id)
@@ -555,6 +567,81 @@ export class AdminController {
     } catch (err) {
       logger.error('Update table status error', { error: err.message });
       return error(res, 'Failed to update table', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
+   * Update table details (capacity, location, status)
+   */
+  static async updateTable(req, res) {
+    try {
+      const db = getDB();
+      const { id } = req.params;
+      const { capacity, location, status } = req.body;
+
+      const validStatuses = ['available', 'occupied', 'reserved', 'cleaning'];
+      if (status && !validStatuses.includes(status)) {
+        return error(res, 'Invalid status', HTTP_STATUS.BAD_REQUEST);
+      }
+
+      let updates = [];
+      let params = [];
+
+      if (capacity !== undefined) {
+        updates.push('capacity = ?');
+        params.push(capacity);
+      }
+      if (location !== undefined) {
+        updates.push('location = ?');
+        params.push(location);
+      }
+      if (status !== undefined) {
+        updates.push('status = ?');
+        params.push(status);
+      }
+
+      if (updates.length === 0) {
+        return error(res, 'No fields to update', HTTP_STATUS.BAD_REQUEST);
+      }
+
+      params.push(id);
+
+      db.prepare(`UPDATE restaurant_tables SET ${updates.join(', ')} WHERE id = ?`)
+        .run(...params);
+
+      logger.info('Table updated', { tableId: id, updates });
+      return success(res, { id }, 'Table updated successfully');
+    } catch (err) {
+      logger.error('Update table error', { error: err.message });
+      return error(res, 'Failed to update table', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
+   * Delete table
+   */
+  static async deleteTable(req, res) {
+    try {
+      const db = getDB();
+      const { id } = req.params;
+
+      // Check if table has active orders
+      const table = db.prepare('SELECT status FROM restaurant_tables WHERE id = ?').get(id);
+      if (!table) {
+        return error(res, 'Table not found', HTTP_STATUS.NOT_FOUND);
+      }
+
+      if (table.status === 'occupied') {
+        return error(res, 'Cannot delete occupied table', HTTP_STATUS.BAD_REQUEST);
+      }
+
+      db.prepare('DELETE FROM restaurant_tables WHERE id = ?').run(id);
+
+      logger.info('Table deleted', { tableId: id });
+      return success(res, { id }, 'Table deleted successfully');
+    } catch (err) {
+      logger.error('Delete table error', { error: err.message });
+      return error(res, 'Failed to delete table', HTTP_STATUS.INTERNAL_ERROR);
     }
   }
 
@@ -918,6 +1005,136 @@ export class AdminController {
     } catch (err) {
       logger.error('Get users by restaurant error', { error: err.message });
       return error(res, 'Failed to get users', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
+   * Get all customers across all restaurants (super admin only)
+   */
+  static async getAllCustomers(req, res) {
+    try {
+      const db = getDB();
+      const userRole = req.user?.role;
+
+      if (userRole !== 'super_admin') {
+        return error(res, 'Unauthorized - Super admin only', HTTP_STATUS.FORBIDDEN);
+      }
+
+      const customers = db.prepare(`
+        SELECT
+          u.id, u.uuid, u.email, u.phone, u.name, u.avatar_url,
+          u.is_active, u.created_at,
+          r.name as restaurant_name, u.restaurant_id
+        FROM users u
+        LEFT JOIN restaurants r ON u.restaurant_id = r.id
+        WHERE u.role = 'customer'
+        ORDER BY u.created_at DESC
+      `).all();
+
+      return success(res, customers, 'All customers retrieved');
+    } catch (err) {
+      logger.error('Get all customers error', { error: err.message });
+      return error(res, 'Failed to get customers', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
+   * Get all staff across all restaurants (super admin only)
+   */
+  static async getAllStaff(req, res) {
+    try {
+      const db = getDB();
+      const userRole = req.user?.role;
+
+      if (userRole !== 'super_admin') {
+        return error(res, 'Unauthorized - Super admin only', HTTP_STATUS.FORBIDDEN);
+      }
+
+      const staff = db.prepare(`
+        SELECT
+          u.id, u.uuid, u.email, u.phone, u.name, u.role, u.avatar_url,
+          u.is_active, u.created_at,
+          r.name as restaurant_name
+        FROM users u
+        LEFT JOIN restaurants r ON u.restaurant_id = r.id
+        WHERE u.role IN ('admin', 'staff', 'super_admin')
+        ORDER BY u.role, u.created_at DESC
+      `).all();
+
+      return success(res, staff, 'All staff retrieved');
+    } catch (err) {
+      logger.error('Get all staff error', { error: err.message });
+      return error(res, 'Failed to get staff', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
+   * Get all orders across all restaurants (super admin only)
+   */
+  static async getAllOrdersSuperAdmin(req, res) {
+    try {
+      const db = getDB();
+      const userRole = req.user?.role;
+      const { status } = req.query;
+
+      if (userRole !== 'super_admin') {
+        return error(res, 'Unauthorized - Super admin only', HTTP_STATUS.FORBIDDEN);
+      }
+
+      let query = `
+        SELECT
+          o.id, o.uuid, o.status, o.total_amount, o.order_type,
+          o.created_at, o.payment_status,
+          r.name as restaurant_name,
+          u.name as customer_name, u.email as customer_email
+        FROM orders o
+        LEFT JOIN restaurants r ON o.restaurant_id = r.id
+        LEFT JOIN users u ON o.user_id = u.id
+        WHERE 1=1
+      `;
+      const params = [];
+
+      if (status) {
+        query += ' AND o.status = ?';
+        params.push(status);
+      }
+
+      query += ' ORDER BY o.created_at DESC LIMIT 100';
+
+      const orders = db.prepare(query).all(...params);
+      return success(res, orders, 'All orders retrieved');
+    } catch (err) {
+      logger.error('Get all orders error', { error: err.message });
+      return error(res, 'Failed to get orders', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
+   * Get all tables across all restaurants (super admin only)
+   */
+  static async getAllTablesSuperAdmin(req, res) {
+    try {
+      const db = getDB();
+      const userRole = req.user?.role;
+
+      if (userRole !== 'super_admin') {
+        return error(res, 'Unauthorized - Super admin only', HTTP_STATUS.FORBIDDEN);
+      }
+
+      const tables = db.prepare(`
+        SELECT
+          t.id, t.table_number, t.status, t.capacity, t.location,
+          t.current_session_id,
+          r.name as restaurant_name
+        FROM restaurant_tables t
+        LEFT JOIN restaurants r ON t.restaurant_id = r.id
+        ORDER BY r.name, t.table_number
+      `).all();
+
+      return success(res, tables, 'All tables retrieved');
+    } catch (err) {
+      logger.error('Get all tables error', { error: err.message });
+      return error(res, 'Failed to get tables', HTTP_STATUS.INTERNAL_ERROR);
     }
   }
 }

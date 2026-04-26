@@ -29,7 +29,9 @@ router.patch('/users/:id/status', asyncHandler(AdminController.updateUserStatus)
 router.get('/tables', asyncHandler(AdminController.getAllTables));
 router.get('/tables/occupied', asyncHandler(AdminController.getOccupiedTables));
 router.post('/tables', asyncHandler(AdminController.createTable));
+router.patch('/tables/:id', asyncHandler(AdminController.updateTable));
 router.patch('/tables/:id/status', asyncHandler(AdminController.updateTableStatus));
+router.delete('/tables/:id', asyncHandler(AdminController.deleteTable));
 
 // Menu management
 router.get('/menu/stats', asyncHandler(AdminController.getMenuStats));
@@ -39,5 +41,11 @@ router.get('/restaurants', asyncHandler(AdminController.getAllRestaurants));
 router.post('/restaurants', asyncHandler(AdminController.createRestaurant));
 router.get('/restaurants/:restaurantId/users', asyncHandler(AdminController.getUsersByRestaurant));
 router.get('/super-admin/stats', asyncHandler(AdminController.getSuperAdminStats));
+
+// Super admin data endpoints (all restaurants)
+router.get('/super-admin/customers', asyncHandler(AdminController.getAllCustomers));
+router.get('/super-admin/staff', asyncHandler(AdminController.getAllStaff));
+router.get('/super-admin/orders', asyncHandler(AdminController.getAllOrdersSuperAdmin));
+router.get('/super-admin/tables', asyncHandler(AdminController.getAllTablesSuperAdmin));
 
 export default router;
