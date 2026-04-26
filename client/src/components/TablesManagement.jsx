@@ -10,6 +10,61 @@ import { useSelector } from 'react-redux'
 import apiClient from '../services/api'
 import toast from 'react-hot-toast'
 
+// Helper function to generate QR code with text label using Canvas
+const generateQRWithLabel = async (tableNumber, restaurantName, subdomain, size = 400) => {
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+  const padding = 20
+  const textHeight = 60
+  const qrSize = size - (padding * 2)
+  
+  canvas.width = size
+  canvas.height = size + textHeight + padding
+  
+  // White background
+  ctx.fillStyle = 'white'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  
+  // Generate QR URL
+  const port = window.location.port || '5173'
+  const fullUrl = `http://localhost:${port}/table/${tableNumber}?restaurant=${subdomain}`
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(fullUrl)}`
+  
+  // Load QR image
+  const img = new Image()
+  img.crossOrigin = 'anonymous'
+  
+  await new Promise((resolve, reject) => {
+    img.onload = resolve
+    img.onerror = reject
+    img.src = qrUrl
+  })
+  
+  // Draw QR code
+  ctx.drawImage(img, padding, padding, qrSize, qrSize)
+  
+  // Draw border around QR
+  ctx.strokeStyle = '#e5e7eb'
+  ctx.lineWidth = 2
+  ctx.strokeRect(padding, padding, qrSize, qrSize)
+  
+  // Draw text background
+  ctx.fillStyle = '#f9fafb'
+  ctx.fillRect(0, size, size, textHeight + padding)
+  
+  // Draw text
+  ctx.fillStyle = '#111827'
+  ctx.textAlign = 'center'
+  ctx.font = 'bold 24px system-ui, -apple-system, sans-serif'
+  ctx.fillText(`Table ${tableNumber}`, size / 2, size + 35)
+  
+  ctx.fillStyle = '#6b7280'
+  ctx.font = '18px system-ui, -apple-system, sans-serif'
+  ctx.fillText(restaurantName, size / 2, size + 60)
+  
+  return canvas.toDataURL('image/png')
+}
+
 export const TablesManagement = () => {
   const navigate = useNavigateWithParams()
   const user = useSelector((state) => state.auth.user)
@@ -168,21 +223,28 @@ export const TablesManagement = () => {
     }
   }
 
-  // Download QR code as image (using QR API)
-  const downloadQR = (table) => {
-    const qrInfo = generateQRData(table)
-    console.log('🔍 QR Info:', qrInfo)  // Debug log
+  // Download QR code as image with restaurant name and table number
+  const downloadQR = async (table) => {
+    const restaurant = restaurants.find(r => parseInt(r.id) === parseInt(table.restaurant_id))
+    const restaurantName = restaurant?.name || 'Unknown Restaurant'
+    const subdomain = restaurant?.subdomain || 'default'
     
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrInfo.fullUrl)}`
-    console.log('🔗 QR URL:', qrUrl)  // Debug log - open this in browser to test
-    
-    const link = document.createElement('a')
-    link.href = qrUrl
-    link.target = '_blank'
-    link.download = `table-${table.table_number}.png`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    try {
+      toast.loading('Generating QR code...', { id: 'qr-' + table.id })
+      const dataUrl = await generateQRWithLabel(table.table_number, restaurantName, subdomain)
+      
+      const link = document.createElement('a')
+      link.href = dataUrl
+      link.download = `Table-${table.table_number}-${subdomain}.png`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      toast.success('QR code downloaded!', { id: 'qr-' + table.id })
+    } catch (error) {
+      console.error('Failed to generate QR:', error)
+      toast.error('Failed to generate QR code', { id: 'qr-' + table.id })
+    }
   }
 
   // Update table status
@@ -755,7 +817,7 @@ export const TablesManagement = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     // Find restaurant - for regular admin use default if not set
                     let restaurantId = bulkQRRange.restaurantId
                     if (!restaurantId && role !== 'super_admin' && user?.restaurantId) {
@@ -768,28 +830,36 @@ export const TablesManagement = () => {
                       return
                     }
                     
-                    console.log('🔍 Bulk QR for restaurant:', restaurant.name, restaurant.subdomain)
-
-                    // Use localhost for QR (better for testing)
-                    const port = window.location.port || '5173'
-
-                    // Download all QR codes using query param instead of subdomain
-                    for (let i = bulkQRRange.startTable; i <= bulkQRRange.endTable; i++) {
-                      const fullUrl = `http://localhost:${port}/table/${i}?restaurant=${restaurant.subdomain}`
-                      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(fullUrl)}`
-                      
-                      console.log(`🔗 Table ${i} QR:`, qrUrl)
-                      
-                      // Download with delay to prevent browser blocking
-                      setTimeout(() => {
+                    const totalTables = bulkQRRange.endTable - bulkQRRange.startTable + 1
+                    toast.loading(`Generating ${totalTables} QR codes...`, { id: 'bulk-qr' })
+                    
+                    // Generate and download QRs sequentially with delay
+                    const generateAndDownload = async (tableNum, index) => {
+                      try {
+                        const dataUrl = await generateQRWithLabel(tableNum, restaurant.name, restaurant.subdomain)
+                        
                         const link = document.createElement('a')
-                        link.href = qrUrl
-                        link.download = `table-${i}-${restaurant.subdomain}.png`
+                        link.href = dataUrl
+                        link.download = `Table-${tableNum}-${restaurant.subdomain}.png`
+                        document.body.appendChild(link)
                         link.click()
-                      }, (i - bulkQRRange.startTable) * 200)
+                        document.body.removeChild(link)
+                        
+                        // Update progress
+                        toast.loading(`Downloaded ${index + 1} of ${totalTables}...`, { id: 'bulk-qr' })
+                      } catch (error) {
+                        console.error(`Failed to generate QR for table ${tableNum}:`, error)
+                      }
                     }
                     
-                    toast.success(`Generating ${bulkQRRange.endTable - bulkQRRange.startTable + 1} QR codes...`)
+                    // Process with delay between each download to prevent browser blocking
+                    for (let i = 0; i < totalTables; i++) {
+                      const tableNum = bulkQRRange.startTable + i
+                      await new Promise(resolve => setTimeout(resolve, 500)) // 500ms delay
+                      await generateAndDownload(tableNum, i)
+                    }
+                    
+                    toast.success(`All ${totalTables} QR codes downloaded!`, { id: 'bulk-qr' })
                     setShowBulkQRModal(false)
                   }}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
