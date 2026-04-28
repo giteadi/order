@@ -15,7 +15,7 @@ npm run dev
 
 ### Access URLs
 - **Frontend:** http://localhost:5173
-- **Backend API:** http://localhost:4001/api/v1
+- **Backend API:** http://localhost:4002/api/v1
 
 ---
 

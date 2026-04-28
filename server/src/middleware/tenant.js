@@ -13,12 +13,13 @@ export const tenantMiddleware = (req, res, next) => {
     const db = req.app.locals.db;
 
     // Extract subdomain from host
-    // Examples: arthaus.localhost:4001, cafe1.example.com
+    // Examples: arthaus.localhost:4002, cafe1.example.com
     const parts = host.split('.');
     const subdomain = parts.length > 2 ? parts[0] : null;
 
-    // Skip tenant check for super admin routes or if no subdomain
-    if (!subdomain || req.path.startsWith('/admin/super')) {
+    // Skip tenant check for IP addresses, super admin routes, or if no subdomain
+    const isIP = /^\d+\.\d+\.\d+\.\d+/.test(host);
+    if (isIP || !subdomain || req.path.startsWith('/admin/super')) {
       req.tenant = { restaurantId: null, isSuperAdmin: true };
       return next();
     }

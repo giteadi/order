@@ -97,7 +97,7 @@ Create `.env` file in `client/`:
 
 ```env
 # API Configuration
-VITE_API_URL=http://localhost:4001/api/v1
+VITE_API_URL=http://localhost:4002/api/v1
 
 # Google OAuth
 VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
@@ -141,7 +141,7 @@ Create `.env` file in `server/`:
 ```env
 # Server Configuration
 NODE_ENV=development
-PORT=4001
+PORT=4002
 API_VERSION=v1
 
 # Database
@@ -174,7 +174,7 @@ LOG_FILE=./logs/app.log
 npm run dev
 ```
 
-Backend runs on `http://localhost:4001`
+Backend runs on `http://localhost:4002`
 
 ## 🗄️ Database Schema
 
@@ -387,8 +387,8 @@ CREATE TABLE cart_items (
 ## 🏢 Multi-Tenant Architecture
 
 ### Subdomain-Based Routing
-- **Cafe URL**: `http://subdomain.localhost:4001`
-- **Super Admin URL**: `http://localhost:4001`
+- **Cafe URL**: `http://subdomain.localhost:4002`
+- **Super Admin URL**: `http://localhost:4002`
 
 ### Tenant Identification
 The system identifies the restaurant from the subdomain:
@@ -438,7 +438,7 @@ Backend uses middleware to protect routes:
 
 ### Frontend (.env)
 ```env
-VITE_API_URL=http://localhost:4001/api/v1
+VITE_API_URL=http://localhost:4002/api/v1
 VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 VITE_APP_NAME=ArtHaus Café
 VITE_APP_VERSION=1.0.0
@@ -447,7 +447,7 @@ VITE_APP_VERSION=1.0.0
 ### Backend (.env)
 ```env
 NODE_ENV=development
-PORT=4001
+PORT=4002
 API_VERSION=v1
 DB_PATH=./data/arthaus.db
 JWT_SECRET=your-secret-key

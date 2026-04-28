@@ -103,6 +103,7 @@ const startServer = async () => {
     
     // Test database connection
     dbManager.connect();
+    app.locals.db = getDB();
     
     // Start server
     app.listen(CONFIG.PORT, () => {
