@@ -212,10 +212,10 @@ export const RestaurantDetailScreen = ({ restaurant, onBack, onUpdate, onDelete 
                   onChange={(e) => setFormData({ ...formData, subdomain: e.target.value })}
                   className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <span className="ml-2 text-gray-500">.localhost</span>
+                <span className="ml-2 text-gray-500">.yourdomain.com</span>
               </div>
             ) : (
-              <p className="text-gray-900">{restaurant.subdomain}.localhost</p>
+              <p className="text-gray-900">{restaurant.subdomain}.yourdomain.com</p>
             )}
           </div>
 

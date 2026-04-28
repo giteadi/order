@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 /**
  * Parse QR code data from scanned QR
  * Format: restaurant:subdomain,table:tableNumber,code:XXX,ts:timestamp
- * Or URL format: subdomain.localhost/table/5
+ * Or URL format: subdomain.domain.com/table/5
  */
 export const useQRScanner = () => {
   const [scannedData, setScannedData] = useState(null)
@@ -40,7 +40,7 @@ export const useQRScanner = () => {
             const subdomain = host.split('.')[0]
             
             setScannedData({
-              restaurant: restaurantFromQuery || (subdomain !== 'localhost' && subdomain !== '127' ? subdomain : 'default'),
+              restaurant: restaurantFromQuery || (subdomain !== 'localhost' && subdomain !== '127' && !subdomain.match(/^\d+$/) ? subdomain : 'default'),
               tableNumber: tableNum,
               type: 'path'
             })
@@ -133,6 +133,11 @@ export const parseQRString = (qrString) => {
  * @returns {string} - Full URL for QR code
  */
 export const generateQRUrl = (restaurant, tableNumber) => {
+  const hostname = window.location.hostname
   const port = window.location.port ? `:${window.location.port}` : ''
-  return `http://${restaurant}.localhost${port}/table/${tableNumber}`
+  // Use actual domain for production, localhost for dev
+  const domain = hostname === 'localhost' || hostname === '127.0.0.1' 
+    ? `localhost${port}` 
+    : hostname
+  return `http://${restaurant}.${domain}/table/${tableNumber}`
 }

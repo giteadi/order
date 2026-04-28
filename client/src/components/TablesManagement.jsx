@@ -25,9 +25,9 @@ const generateQRWithLabel = async (tableNumber, restaurantName, subdomain, size 
   ctx.fillStyle = 'white'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   
-  // Generate QR URL
-  const port = window.location.port || '5173'
-  const fullUrl = `http://localhost:${port}/table/${tableNumber}?restaurant=${subdomain}`
+  // Generate QR URL - Use production domain
+  const domain = import.meta.env.VITE_DOMAIN || 'vishnuhastkalakendra.com'
+  const fullUrl = `https://${domain}/table/${tableNumber}?restaurant=${subdomain}`
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(fullUrl)}`
   
   // Load QR image
@@ -214,10 +214,11 @@ export const TablesManagement = () => {
   const generateQRData = (table) => {
     const restaurant = restaurants.find(r => parseInt(r.id) === parseInt(table.restaurant_id))
     const subdomain = restaurant?.subdomain || 'default'
-    const fullUrl = `http://${subdomain}.localhost:5173/table/${table.table_number}`
+    const domain = import.meta.env.VITE_DOMAIN || 'vishnuhastkalakendra.com'
+    const fullUrl = `https://${domain}/table/${table.table_number}?restaurant=${subdomain}`
     
     return {
-      url: `${subdomain}.localhost/table/${table.table_number}`,
+      url: `${domain}/table/${table.table_number}?restaurant=${subdomain}`,
       data: `restaurant:${subdomain},table:${table.table_number}`,
       fullUrl
     }
@@ -537,7 +538,7 @@ export const TablesManagement = () => {
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10"
                   >
                     {restaurants.map(r => (
-                      <option key={r.id} value={r.id}>{r.name} ({r.subdomain}.localhost)</option>
+                      <option key={r.id} value={r.id}>{r.name} ({r.subdomain})</option>
                     ))}
                   </select>
                 </div>
@@ -584,7 +585,7 @@ export const TablesManagement = () => {
 
               <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
                 <p className="font-medium">QR Code will be generated automatically</p>
-                <p className="text-xs mt-1">Format: restaurant.localhost/table/{newTable.tableNumber || 'X'}</p>
+                <p className="text-xs mt-1">Format: vishnuhastkalakendra.com/table/{newTable.tableNumber || 'X'}?restaurant=subdomain</p>
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -771,7 +772,7 @@ export const TablesManagement = () => {
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10"
                   >
                     {restaurants.map(r => (
-                      <option key={r.id} value={r.id}>{r.name} ({r.subdomain}.localhost)</option>
+                      <option key={r.id} value={r.id}>{r.name} ({r.subdomain})</option>
                     ))}
                   </select>
                 </div>
