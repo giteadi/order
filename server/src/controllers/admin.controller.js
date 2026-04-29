@@ -16,7 +16,9 @@ export class AdminController {
   static async getStats(req, res) {
     try {
       const db = getDB();
-      const { restaurantId } = req.tenant || {};
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
       const userRole = req.user?.role;
 
       // Get counts
@@ -117,7 +119,9 @@ export class AdminController {
   static async getAllOrders(req, res) {
     try {
       const db = getDB();
-      const { restaurantId } = req.tenant || {};
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
       const { status, limit = 50, offset = 0 } = req.query;
 
       let query = `
@@ -171,7 +175,9 @@ export class AdminController {
   static async getTodayOrders(req, res) {
     try {
       const db = getDB();
-      const { restaurantId } = req.tenant || {};
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
       const today = new Date().toISOString().split('T')[0];
 
       let query = `
@@ -207,7 +213,9 @@ export class AdminController {
   static async getActiveOrders(req, res) {
     try {
       const db = getDB();
-      const { restaurantId } = req.tenant || {};
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
 
       let query = `
         SELECT 
@@ -293,7 +301,9 @@ export class AdminController {
   static async getAllUsers(req, res) {
     try {
       const db = getDB();
-      const { restaurantId } = req.tenant || {};
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
       const userRole = req.user?.role;
       const { role, limit = 50, offset = 0 } = req.query;
 
@@ -343,7 +353,9 @@ export class AdminController {
   static async getCustomers(req, res) {
     try {
       const db = getDB();
-      const { restaurantId } = req.tenant || {};
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
       const userRole = req.user?.role;
 
       let query = `
@@ -379,7 +391,9 @@ export class AdminController {
   static async getStaff(req, res) {
     try {
       const db = getDB();
-      const { restaurantId } = req.tenant || {};
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
       const userRole = req.user?.role;
 
       let query = `
@@ -460,7 +474,9 @@ export class AdminController {
   static async getAllTables(req, res) {
     try {
       const db = getDB();
-      const { restaurantId } = req.tenant || {};
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
 
       let query = `
         SELECT t.*, 
@@ -494,7 +510,9 @@ export class AdminController {
   static async getOccupiedTables(req, res) {
     try {
       const db = getDB();
-      const { restaurantId } = req.tenant || {};
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
 
       let query = `
         SELECT t.*, 
@@ -529,8 +547,9 @@ export class AdminController {
     try {
       const db = getDB();
       const { tableNumber, capacity, location, restaurantId: bodyRestaurantId } = req.body;
-      const { restaurantId: tenantRestaurantId } = req.tenant || {};
-      const restaurantId = tenantRestaurantId || bodyRestaurantId;
+      const tenantRestaurantId = req.tenant?.restaurantId;
+      const userRestaurantId = req.user?.restaurantId;
+      const restaurantId = tenantRestaurantId || bodyRestaurantId || userRestaurantId;
 
       // Get restaurant subdomain for QR code
       let restaurantSubdomain = 'default';
@@ -816,6 +835,8 @@ export class AdminController {
     try {
       const db = getDB();
       const userRole = req.user?.role;
+
+      console.log('🔍 CREATE RESTAURANT - req.body:', JSON.stringify(req.body, null, 2));
 
       if (userRole !== 'super_admin') {
         return error(res, 'Unauthorized - Super admin only', HTTP_STATUS.FORBIDDEN);

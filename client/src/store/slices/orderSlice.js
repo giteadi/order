@@ -7,13 +7,19 @@ export const createOrder = createAsyncThunk(
   async (orderData, { rejectWithValue, getState }) => {
     try {
       const { auth, cart, restaurant } = getState()
-      const response = await orderAPI.create(auth.token, {
+      const payload = {
         ...orderData,
         sessionId: cart.sessionId,
         restaurantId: restaurant.currentRestaurant?.id,
-      })
+      }
+      console.log('🔍 FRONTEND ORDER CREATE - Payload:', JSON.stringify(payload, null, 2))
+      console.log('🔍 FRONTEND ORDER CREATE - Current Restaurant:', JSON.stringify(restaurant.currentRestaurant, null, 2))
+      console.log('🔍 FRONTEND ORDER CREATE - Auth User:', JSON.stringify({ id: auth.user?.id, restaurantId: auth.user?.restaurantId, role: auth.user?.role }, null, 2))
+      const response = await orderAPI.create(auth.token, payload)
+      console.log('🔍 FRONTEND ORDER CREATE - Response:', JSON.stringify(response.data, null, 2))
       return response.data
     } catch (error) {
+      console.error('🔍 FRONTEND ORDER CREATE - Error:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to place order')
     }
   }

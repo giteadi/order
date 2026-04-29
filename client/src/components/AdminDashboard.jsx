@@ -39,19 +39,40 @@ export const AdminDashboard = () => {
       // Fetch stats
       const statsRes = await apiClient.get('/admin/stats')
       if (statsRes.data.success) {
+        // Stats should already be filtered by backend, but log for verification
+        console.log('🔍 Stats:', statsRes.data.data)
         setStats(statsRes.data.data)
       }
 
       // Fetch active orders
       const ordersRes = await apiClient.get('/admin/orders/active')
       if (ordersRes.data.success) {
-        setOrders(ordersRes.data.data)
+        // Additional frontend filter for safety - strict match only
+        const filteredOrders = ordersRes.data.data.filter(order => 
+          order.restaurant_id === user?.restaurantId
+        )
+        console.log('🔍 Frontend filter:', {
+          total: ordersRes.data.data.length,
+          filtered: filteredOrders.length,
+          userRestaurantId: user?.restaurantId,
+          orders: ordersRes.data.data.map(o => ({ id: o.id, restaurant_id: o.restaurant_id }))
+        })
+        setOrders(filteredOrders)
       }
 
       // Fetch occupied tables
       const tablesRes = await apiClient.get('/admin/tables/occupied')
       if (tablesRes.data.success) {
-        setTables(tablesRes.data.data)
+        // Filter tables by restaurant_id
+        const filteredTables = tablesRes.data.data.filter(table => 
+          table.restaurant_id === user?.restaurantId
+        )
+        console.log('🔍 Tables filter:', {
+          total: tablesRes.data.data.length,
+          filtered: filteredTables.length,
+          userRestaurantId: user?.restaurantId
+        })
+        setTables(filteredTables)
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)

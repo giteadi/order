@@ -17,13 +17,19 @@ export class OrderController {
       const { tableId, items, specialInstructions, restaurant } = req.body;
       const sessionId = req.headers['x-session-id'] || req.sessionID;
 
+      console.log('🔍 ORDER CREATE - req.body:', JSON.stringify(req.body, null, 2));
+      console.log('🔍 ORDER CREATE - req.tenant:', JSON.stringify(req.tenant, null, 2));
+      console.log('🔍 ORDER CREATE - req.user:', JSON.stringify({ id: req.user?.id, restaurant_id: req.user?.restaurant_id, role: req.user?.role }, null, 2));
+
       if (!items || items.length === 0) {
         return badRequest(res, 'Order must contain at least one item');
       }
 
-      // Get restaurant_id from subdomain
-      let restaurantId = null;
-      if (restaurant) {
+      // Get restaurant_id - priority: tenant middleware > request body > user's restaurant_id
+      let restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id;
+      
+      // Fallback: try to get from subdomain in request body
+      if (!restaurantId && restaurant) {
         const restaurantRecord = Order.db.prepare(
           'SELECT id FROM restaurants WHERE subdomain = ?'
         ).get(restaurant);
@@ -32,17 +38,28 @@ export class OrderController {
         }
       }
 
-      // If no restaurant specified, try to get from user's restaurant_id
+      // Final fallback: if still no restaurant_id, try from user's restaurant_id field
       if (!restaurantId && req.user?.restaurant_id) {
         restaurantId = req.user.restaurant_id;
       }
 
-      logger.info('Creating order', { 
-        userId: req.user?.id, 
+      // Log if restaurant_id is still null (this is a critical error)
+      if (!restaurantId) {
+        logger.error('Order creation failed - No restaurant_id found', {
+          userId: req.user?.id,
+          tenant: req.tenant,
+          userRestaurantId: req.user?.restaurant_id,
+          bodyRestaurant: restaurant
+        });
+        return badRequest(res, 'Restaurant context not found. Please select a restaurant.');
+      }
+
+      logger.info('Creating order', {
+        userId: req.user?.id,
         tableNumber: req.body.tableNumber,
         restaurant,
         restaurantId,
-        itemsCount: items.length 
+        itemsCount: items.length
       });
 
       const result = Order.createOrder({

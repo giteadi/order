@@ -71,7 +71,6 @@ export default function AddRestaurant({ onBack, onSuccess }) {
   const handleSubmit = async () => {
     if (!validate()) return;
     setLoading(true);
-    setStatus(null);
     try {
       const response = await apiClient.post("/admin/restaurants", {
         name: formData.name,

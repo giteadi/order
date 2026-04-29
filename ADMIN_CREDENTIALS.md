@@ -41,6 +41,17 @@
 - **Restaurant ID:** 2
 - **Dashboard:** `/admin`
 
+### 3. Hotel River View
+- **Restaurant Name:** Hotel River View
+- **Subdomain:** riverview
+- **Production URL:** `https://vishnuhastkalakendra.com/?restaurant=riverview`
+- **Admin Name:** Hotal River View
+- **Email:** riverview@gmail.com
+- **Password:** RiverView@123
+- **Role:** admin
+- **Restaurant ID:** 3
+- **Dashboard:** `/admin`
+
 ---
 
 ## 📍 Server Information
@@ -83,6 +94,12 @@
 1. Go to: `https://vishnuhastkalakendra.com/login?restaurant=adarsh`
 2. Enter email: `admin@adarsh.com`
 3. Enter password: `Admin@123`
+4. Access admin dashboard at `/admin`
+
+### For Restaurant Admin (Hotel River View):
+1. Go to: `https://vishnuhastkalakendra.com/login?restaurant=riverview`
+2. Enter email: `riverview@gmail.com`
+3. Enter password: `RiverView@123`
 4. Access admin dashboard at `/admin`
 
 ---
@@ -225,7 +242,7 @@ sudo certbot renew --force-renewal
 ## 📝 Notes
 
 - **Environment:** Production
-- **Last Updated:** April 28, 2026
+- **Last Updated:** April 29, 2026
 - **SSL Valid Until:** July 27, 2026
 - **Database Backup:** Recommended weekly
 - **Server Monitoring:** PM2 + Nginx logs
