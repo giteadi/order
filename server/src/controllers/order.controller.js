@@ -17,19 +17,16 @@ export class OrderController {
       const { tableId, items, specialInstructions, restaurant } = req.body;
       const sessionId = req.headers['x-session-id'] || req.sessionID;
 
-      console.log('🔍 ORDER CREATE - req.body:', JSON.stringify(req.body, null, 2));
-      console.log('🔍 ORDER CREATE - req.tenant:', JSON.stringify(req.tenant, null, 2));
-      console.log('🔍 ORDER CREATE - req.user:', JSON.stringify({ id: req.user?.id, restaurant_id: req.user?.restaurant_id, role: req.user?.role }, null, 2));
 
       if (!items || items.length === 0) {
         return badRequest(res, 'Order must contain at least one item');
       }
 
-      // Get restaurant_id - priority: tenant middleware > request body > user's restaurant_id
-      let restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id;
+      // Get restaurant_id - priority: request body > tenant middleware > user's default
+      let restaurantId = null;
       
-      // Fallback: try to get from subdomain in request body
-      if (!restaurantId && restaurant) {
+      // First: try to get from subdomain in request body (user's current selection)
+      if (restaurant) {
         const restaurantRecord = Order.db.prepare(
           'SELECT id FROM restaurants WHERE subdomain = ?'
         ).get(restaurant);
@@ -37,10 +34,15 @@ export class OrderController {
           restaurantId = restaurantRecord.id;
         }
       }
+      
+      // Second: try tenant middleware (from subdomain in URL)
+      if (!restaurantId) {
+        restaurantId = req.tenant?.restaurantId;
+      }
 
-      // Final fallback: if still no restaurant_id, try from user's restaurant_id field
-      if (!restaurantId && req.user?.restaurant_id) {
-        restaurantId = req.user.restaurant_id;
+      // Final fallback: use user's default restaurant_id
+      if (!restaurantId) {
+        restaurantId = req.user?.restaurant_id;
       }
 
       // Log if restaurant_id is still null (this is a critical error)
@@ -114,14 +116,43 @@ export class OrderController {
    */
   static getMyOrders(req, res) {
     try {
-      const { page = 1, limit = 20, status } = req.query;
+      // Security guard - ensure user is authenticated
+      if (!req.user?.id) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized - user authentication required"
+        });
+      }
+
+      const { page = 1, limit = 20, status, restaurant } = req.query;
+
+      // req.user uses snake_case (restaurant_id) as set by auth middleware
+      logger.info('GetMyOrders - Security Check', {
+        userId: req.user.id,
+        restaurant_id: req.user?.restaurant_id,
+        userRole: req.user?.role,
+        restaurantFilter: restaurant || 'none'
+      });
+
+      // Resolve restaurant_id from subdomain query param if provided
+      let restaurantId = null;
+      if (restaurant) {
+        const restaurantRecord = Order.db.prepare(
+          'SELECT id FROM restaurants WHERE subdomain = ?'
+        ).get(restaurant);
+        if (restaurantRecord) {
+          restaurantId = restaurantRecord.id;
+        }
+      }
 
       const result = Order.listOrders({
-        userId: req.user.id,
+        userId: req.user.id,      // always filter by logged-in user — never show other users' orders
+        restaurantId,             // filter by restaurant subdomain if provided
         status,
         page: parseInt(page, 10),
         limit: parseInt(limit, 10),
       });
+
 
       // Fetch order items for each order
       const ordersWithItems = result.data.map(order => {
@@ -140,7 +171,10 @@ export class OrderController {
         };
       });
 
-      return success(res, ordersWithItems, null, { pagination: result.pagination });
+      return success(res, {
+        orders: ordersWithItems,
+        pagination: result.pagination
+      });
 
     } catch (err) {
       logger.error('Get my orders failed', { error: err.message });

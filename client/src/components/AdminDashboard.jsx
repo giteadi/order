@@ -39,8 +39,6 @@ export const AdminDashboard = () => {
       // Fetch stats
       const statsRes = await apiClient.get('/admin/stats')
       if (statsRes.data.success) {
-        // Stats should already be filtered by backend, but log for verification
-        console.log('🔍 Stats:', statsRes.data.data)
         setStats(statsRes.data.data)
       }
 
@@ -51,12 +49,6 @@ export const AdminDashboard = () => {
         const filteredOrders = ordersRes.data.data.filter(order => 
           order.restaurant_id === user?.restaurantId
         )
-        console.log('🔍 Frontend filter:', {
-          total: ordersRes.data.data.length,
-          filtered: filteredOrders.length,
-          userRestaurantId: user?.restaurantId,
-          orders: ordersRes.data.data.map(o => ({ id: o.id, restaurant_id: o.restaurant_id }))
-        })
         setOrders(filteredOrders)
       }
 
@@ -67,11 +59,6 @@ export const AdminDashboard = () => {
         const filteredTables = tablesRes.data.data.filter(table => 
           table.restaurant_id === user?.restaurantId
         )
-        console.log('🔍 Tables filter:', {
-          total: tablesRes.data.data.length,
-          filtered: filteredTables.length,
-          userRestaurantId: user?.restaurantId
-        })
         setTables(filteredTables)
       }
     } catch (error) {

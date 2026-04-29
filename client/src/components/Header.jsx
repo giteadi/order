@@ -25,14 +25,10 @@ export const Header = ({
   const restaurantName = useSelector(selectRestaurantName)
   const restaurantLogo = useSelector(selectRestaurantLogo)
 
-  console.log('🏪 Header - Restaurant Name:', restaurantName)
-  console.log('🏪 Header - Restaurant Logo:', restaurantLogo)
-
   // Check URL for restaurant query param and fetch from Redux
   useEffect(() => {
     const restaurantFromUrl = searchParams.get('restaurant')
     if (restaurantFromUrl) {
-      console.log('✅ Header: Restaurant from URL:', restaurantFromUrl)
       dispatch(fetchRestaurantBySubdomain(restaurantFromUrl))
     }
   }, [searchParams, dispatch])

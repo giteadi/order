@@ -170,6 +170,7 @@ export class OrderModel extends BaseModel {
    */
   listOrders({ 
     userId = null, 
+    restaurantId = null, 
     tableId = null, 
     status = null, 
     page = 1, 
@@ -189,9 +190,14 @@ export class OrderModel extends BaseModel {
     `;
     const params = [];
 
-    if (userId) {
+    if (userId !== null && userId !== undefined) {
       sql += ` AND o.user_id = ?`;
       params.push(userId);
+    }
+
+    if (restaurantId) {
+      sql += ` AND o.restaurant_id = ?`;
+      params.push(restaurantId);
     }
 
     if (tableId) {
@@ -216,9 +222,10 @@ export class OrderModel extends BaseModel {
 
     sql += ` GROUP BY o.id`;
 
-    // Count
-    const countSql = sql.replace(/SELECT.*FROM/i, 'SELECT COUNT(DISTINCT o.id) as count FROM');
-    const total = this.queryOne(countSql.replace(/GROUP BY.*$/i, ''), params.slice(0, -0)).count;
+    // Count - remove GROUP BY and use only base params (without pagination)
+    const countSql = sql.replace(/SELECT.*FROM/i, 'SELECT COUNT(DISTINCT o.id) as count FROM').replace(/GROUP BY.*$/i, '');
+    const countParams = [...params]; // ✅ FIX: Use all params before pagination
+    const total = this.queryOne(countSql, countParams).count || 0;
 
     // Add ordering and pagination
     sql += ` ORDER BY o.created_at DESC LIMIT ? OFFSET ?`;

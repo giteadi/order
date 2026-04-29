@@ -34,12 +34,21 @@ export const OrderHistoryScreen = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true)
+      // Get restaurant from URL param or localStorage fallback
+      const currentRestaurant = restaurant || localStorage.getItem('lastRestaurant')
+      const params = {}
+      if (currentRestaurant) params.restaurant = currentRestaurant
+
       const response = await apiClient.get('/orders/my-orders', {
+        params,
         headers: { Authorization: `Bearer ${token}` }
       })
       
       if (response.data.success) {
-        setOrders(response.data.data)
+        setOrders(Array.isArray(response?.data?.data?.orders) 
+          ? response.data.data.orders 
+          : []
+        );
       }
     } catch (error) {
       console.error('Failed to fetch orders:', error)
@@ -133,7 +142,7 @@ export const OrderHistoryScreen = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {orders.map((order) => {
+            {Array.isArray(orders) && orders.map((order) => {
               const StatusIcon = getStatusIcon(order.status)
               const isExpanded = expandedOrder === order.id
 
