@@ -69,9 +69,9 @@ export const AdminDashboard = () => {
           order.restaurant_id === user?.restaurantId
         )
         setOrders(prev => {
-          const prevIds = prev.map(o => o.id).join(',')
-          const nextIds = filteredOrders.map(o => o.id).join(',')
-          return prevIds === nextIds ? prev : filteredOrders
+          const prevSig = prev.map(o => `${o.id}:${o.status}`).join(',')
+          const nextSig = filteredOrders.map(o => `${o.id}:${o.status}`).join(',')
+          return prevSig === nextSig ? prev : filteredOrders
         })
       }
 
@@ -116,6 +116,12 @@ export const AdminDashboard = () => {
         } else if (newStatus === 'cancelled') {
           toast.success('Order cancelled!')
         }
+
+        if (newStatus === 'served' || newStatus === 'cancelled') {
+          setOrders(prev => prev.filter(o => o.id !== orderId))
+          setExpandedOrder(prev => (prev === orderId ? null : prev))
+        }
+
         // Force non-silent refresh to update UI immediately
         await fetchData({ silent: false })
       }

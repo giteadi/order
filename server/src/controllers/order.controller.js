@@ -67,13 +67,36 @@ export class OrderController {
 
       // Resolve tableId from tableNumber if not provided
       let tableId = bodyTableId;
-      const tableNumber = req.body.tableNumber;
+      let tableNumber = req.body.tableNumber;
+
+      if (typeof tableNumber === 'string') {
+        const match = tableNumber.match(/\d+/);
+        if (match) {
+          tableNumber = match[0];
+        }
+      }
+
+      if (typeof tableNumber === 'number') {
+        tableNumber = String(tableNumber);
+      }
+
       if (!tableId && tableNumber && restaurantId) {
-        const tableRecord = Order.db.prepare(
-          'SELECT id FROM restaurant_tables WHERE restaurant_id = ? AND table_number = ?'
+        const tableRecordByNumber = Order.db.prepare(
+          'SELECT id, table_number FROM restaurant_tables WHERE restaurant_id = ? AND table_number = ?'
         ).get(restaurantId, tableNumber);
-        if (tableRecord) {
-          tableId = tableRecord.id;
+
+        if (tableRecordByNumber) {
+          tableId = tableRecordByNumber.id;
+          tableNumber = String(tableRecordByNumber.table_number);
+        } else {
+          const tableRecordById = Order.db.prepare(
+            'SELECT id, table_number FROM restaurant_tables WHERE restaurant_id = ? AND id = ?'
+          ).get(restaurantId, tableNumber);
+
+          if (tableRecordById) {
+            tableId = tableRecordById.id;
+            tableNumber = String(tableRecordById.table_number);
+          }
         }
       }
 
