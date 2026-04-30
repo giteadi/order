@@ -17,7 +17,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurant_id;
+      const userId = req.user?.restaurantId;
       const restaurantId = tenantId || userId;
       const userRole = req.user?.role;
 
@@ -120,7 +120,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurant_id;
+      const userId = req.user?.restaurantId;
       const restaurantId = tenantId || userId;
       const { status, limit = 50, offset = 0 } = req.query;
 
@@ -176,7 +176,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurant_id;
+      const userId = req.user?.restaurantId;
       const restaurantId = tenantId || userId;
       const today = new Date().toISOString().split('T')[0];
 
@@ -200,10 +200,22 @@ export class AdminController {
       query += ' ORDER BY o.created_at DESC';
 
       const orders = db.prepare(query).all(...params);
+
+      // Get order items for each order
+      for (const order of orders) {
+        const items = db.prepare(`
+          SELECT oi.*, p.name as product_name, p.emoji_icon
+          FROM order_items oi
+          LEFT JOIN products p ON oi.product_id = p.id
+          WHERE oi.order_id = ?
+        `).all(order.id);
+        order.items = items;
+      }
+
       return success(res, orders, "Today's orders retrieved");
     } catch (err) {
-      logger.error('Get today orders error', { error: err.message });
-      return error(res, 'Failed to get orders', HTTP_STATUS.INTERNAL_ERROR);
+      logger.error("Get today's orders error", { error: err.message });
+      return error(res, "Failed to fetch today's orders");
     }
   }
 
@@ -214,20 +226,23 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurant_id;
+      const userId = req.user?.restaurantId;
       const restaurantId = tenantId || userId;
 
+      const today = new Date().toISOString().split('T')[0];
+      
       let query = `
         SELECT 
-          o.id, o.uuid, o.status, o.order_type, o.payment_status,
+          o.id, o.uuid, o.restaurant_id, o.status, o.order_type, o.payment_status,
           o.total_amount, o.table_number, o.special_instructions,
           o.estimated_ready_at, o.created_at,
           u.name as user_name, u.email as user_email, u.phone as user_phone
         FROM orders o
         LEFT JOIN users u ON o.user_id = u.id
         WHERE o.status IN ('pending', 'confirmed', 'preparing', 'ready')
+          AND DATE(o.created_at) = ?
       `;
-      let params = [];
+      let params = [today];
 
       if (restaurantId) {
         query += ' AND o.restaurant_id = ?';
@@ -259,7 +274,7 @@ export class AdminController {
       return success(res, orders, 'Active orders retrieved');
     } catch (err) {
       logger.error('Get active orders error', { error: err.message });
-      return error(res, 'Failed to get orders', HTTP_STATUS.INTERNAL_ERROR);
+      return error(res, 'Failed to fetch active orders');
     }
   }
 
@@ -302,7 +317,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurant_id;
+      const userId = req.user?.restaurantId;
       const restaurantId = tenantId || userId;
       const userRole = req.user?.role;
       const { role, limit = 50, offset = 0 } = req.query;
@@ -354,7 +369,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurant_id;
+      const userId = req.user?.restaurantId;
       const restaurantId = tenantId || userId;
       const userRole = req.user?.role;
 
@@ -392,7 +407,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurant_id;
+      const userId = req.user?.restaurantId;
       const restaurantId = tenantId || userId;
       const userRole = req.user?.role;
 
@@ -475,7 +490,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurant_id;
+      const userId = req.user?.restaurantId;
       const restaurantId = tenantId || userId;
 
       let query = `
@@ -511,7 +526,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurant_id;
+      const userId = req.user?.restaurantId;
       const restaurantId = tenantId || userId;
 
       let query = `

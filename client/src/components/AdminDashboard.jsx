@@ -29,17 +29,29 @@ export const AdminDashboard = () => {
 
   // Fetch dashboard data
   useEffect(() => {
-    fetchData()
+    fetchData({ silent: false })
+
+    const intervalId = setInterval(() => {
+      fetchData({ silent: true })
+    }, 5000)
+
+    return () => clearInterval(intervalId)
   }, [role])
 
-  const fetchData = async () => {
+  const fetchData = async ({ silent } = { silent: false }) => {
     try {
-      setLoading(true)
+      if (!silent) {
+        setLoading(true)
+      }
 
       // Fetch stats
       const statsRes = await apiClient.get('/admin/stats')
       if (statsRes.data.success) {
-        setStats(statsRes.data.data)
+        setStats(prev => {
+          const next = statsRes.data.data
+          const same = JSON.stringify(prev) === JSON.stringify(next)
+          return same ? prev : next
+        })
       }
 
       // Fetch active orders
@@ -49,7 +61,11 @@ export const AdminDashboard = () => {
         const filteredOrders = ordersRes.data.data.filter(order => 
           order.restaurant_id === user?.restaurantId
         )
-        setOrders(filteredOrders)
+        setOrders(prev => {
+          const prevIds = prev.map(o => o.id).join(',')
+          const nextIds = filteredOrders.map(o => o.id).join(',')
+          return prevIds === nextIds ? prev : filteredOrders
+        })
       }
 
       // Fetch occupied tables
@@ -59,12 +75,18 @@ export const AdminDashboard = () => {
         const filteredTables = tablesRes.data.data.filter(table => 
           table.restaurant_id === user?.restaurantId
         )
-        setTables(filteredTables)
+        setTables(prev => {
+          const prevIds = prev.map(t => t.id).join(',')
+          const nextIds = filteredTables.map(t => t.id).join(',')
+          return prevIds === nextIds ? prev : filteredTables
+        })
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)
     } finally {
-      setLoading(false)
+      if (!silent) {
+        setLoading(false)
+      }
     }
   }
 
@@ -84,8 +106,8 @@ export const AdminDashboard = () => {
         } else if (newStatus === 'cancelled') {
           toast.success('Order cancelled!')
         }
-        // Refresh data
-        await fetchData()
+        // Force non-silent refresh to update UI immediately
+        await fetchData({ silent: false })
       }
     } catch (error) {
       console.error('Failed to update order status:', error)

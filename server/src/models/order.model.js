@@ -65,6 +65,15 @@ export class OrderModel extends BaseModel {
 
       const orderId = orderResult.lastInsertRowid;
 
+      // Mark table as occupied for dine-in orders
+      if (tableId && sessionId) {
+        db.prepare(`
+          UPDATE restaurant_tables
+          SET status = 'occupied', current_session_id = ?
+          WHERE id = ?
+        `).run(sessionId, tableId);
+      }
+
       // Create order items
       const itemSql = `
         INSERT INTO order_items (order_id, product_id, product_name, product_price, 

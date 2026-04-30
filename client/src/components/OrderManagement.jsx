@@ -15,6 +15,12 @@ export const OrderManagement = () => {
 
   useEffect(() => {
     fetchOrders()
+
+    const intervalId = setInterval(() => {
+      fetchOrders()
+    }, 5000)
+
+    return () => clearInterval(intervalId)
   }, [filterStatus])
 
   const fetchOrders = async () => {

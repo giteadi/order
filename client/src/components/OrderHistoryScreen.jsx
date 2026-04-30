@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Clock, CheckCircle, Package, XCircle, ChevronDown, ChevronUp, ShoppingBag } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 import { useSelector } from 'react-redux'
 import apiClient from '../services/api'
+import toast from 'react-hot-toast'
 
 export const OrderHistoryScreen = () => {
   const navigate = useNavigateWithParams()
@@ -15,6 +16,7 @@ export const OrderHistoryScreen = () => {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedOrder, setExpandedOrder] = useState(null)
+  const previousOrdersRef = useRef([])
 
   // Save restaurant to localStorage when available
   useEffect(() => {
@@ -29,31 +31,58 @@ export const OrderHistoryScreen = () => {
       return
     }
     fetchOrders()
+
+    // Poll for order status changes every 10 seconds
+    const intervalId = setInterval(() => {
+      fetchOrders(true)
+    }, 10000)
+
+    return () => clearInterval(intervalId)
   }, [user, token, restaurant])
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (silent = false) => {
     try {
-      setLoading(true)
-      // Get restaurant from URL param or localStorage fallback
-      const currentRestaurant = restaurant || localStorage.getItem('lastRestaurant')
-      const params = {}
-      if (currentRestaurant) params.restaurant = currentRestaurant
-
+      if (!silent) {
+        setLoading(true)
+      }
       const response = await apiClient.get('/orders/my-orders', {
-        params,
         headers: { Authorization: `Bearer ${token}` }
       })
       
       if (response.data.success) {
-        setOrders(Array.isArray(response?.data?.data?.orders) 
+        const newOrders = Array.isArray(response?.data?.data?.orders) 
           ? response.data.data.orders 
           : []
-        );
+        
+        // Check for status changes and notify user
+        if (!silent && previousOrdersRef.current.length > 0) {
+          previousOrdersRef.current.forEach(prevOrder => {
+            const newOrder = newOrders.find(o => o.id === prevOrder.id)
+            if (newOrder && newOrder.status !== prevOrder.status) {
+              if (newOrder.status === 'confirmed' && prevOrder.status === 'pending') {
+                toast.success('🎉 Order accepted by restaurant!')
+              } else if (newOrder.status === 'preparing' && prevOrder.status === 'confirmed') {
+                toast.success('👨‍🍳 Order is being prepared')
+              } else if (newOrder.status === 'ready' && prevOrder.status === 'preparing') {
+                toast.success('🍽️ Order is ready!')
+              } else if (newOrder.status === 'served' && prevOrder.status === 'ready') {
+                toast.success('✅ Order delivered!')
+              } else if (newOrder.status === 'cancelled') {
+                toast.error('❌ Order cancelled')
+              }
+            }
+          })
+        }
+
+        setOrders(newOrders)
+        previousOrdersRef.current = newOrders
       }
     } catch (error) {
       console.error('Failed to fetch orders:', error)
     } finally {
-      setLoading(false)
+      if (!silent) {
+        setLoading(false)
+      }
     }
   }
 

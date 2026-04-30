@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Order, Cart } from '../models/order.model.js';
 import { success, created, error, notFound, badRequest } from '../utils/response.js';
 import { HTTP_STATUS, ORDER_STATUS } from '../config/index.js';
@@ -14,8 +15,8 @@ export class OrderController {
    */
   static create(req, res) {
     try {
-      const { tableId, items, specialInstructions, restaurant } = req.body;
-      const sessionId = req.headers['x-session-id'] || req.sessionID;
+      const { tableId: bodyTableId, items, specialInstructions, restaurant, sessionId: bodySessionId } = req.body;
+      let sessionId = req.headers['x-session-id'] || req.sessionID || bodySessionId;
 
 
       if (!items || items.length === 0) {
@@ -64,10 +65,27 @@ export class OrderController {
         itemsCount: items.length
       });
 
+      // Resolve tableId from tableNumber if not provided
+      let tableId = bodyTableId;
+      const tableNumber = req.body.tableNumber;
+      if (!tableId && tableNumber && restaurantId) {
+        const tableRecord = Order.db.prepare(
+          'SELECT id FROM restaurant_tables WHERE restaurant_id = ? AND table_number = ?'
+        ).get(restaurantId, tableNumber);
+        if (tableRecord) {
+          tableId = tableRecord.id;
+        }
+      }
+
+      // Ensure sessionId exists for table orders so occupied table joins work
+      if (!sessionId && (tableId || tableNumber)) {
+        sessionId = crypto.randomUUID();
+      }
+
       const result = Order.createOrder({
         userId: req.user?.id,
         tableId,
-        tableNumber: req.body.tableNumber,
+        tableNumber,
         items,
         specialInstructions,
         sessionId,
