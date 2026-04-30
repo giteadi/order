@@ -1,5 +1,5 @@
 import { useSelector } from 'react-redux'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Users, ShoppingCart, Menu as MenuIcon, Settings, BarChart3, Home, Table, Clock, CheckCircle, ChefHat, Package, XCircle, Crown, Building2, Image as ImageIcon, ChevronDown, ChevronUp, Check, Truck } from 'lucide-react'
 import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
@@ -26,14 +26,21 @@ export const AdminDashboard = () => {
   const [loading, setLoading] = useState(true)
   const [expandedOrder, setExpandedOrder] = useState(null)
   const [updatingOrder, setUpdatingOrder] = useState(null)
+  const rateLimitUntilRef = useRef(0)
 
   // Fetch dashboard data
   useEffect(() => {
     fetchData({ silent: false })
 
     const intervalId = setInterval(() => {
+      if (document.visibilityState !== 'visible') {
+        return
+      }
+      if (Date.now() < rateLimitUntilRef.current) {
+        return
+      }
       fetchData({ silent: true })
-    }, 5000)
+    }, 15000)
 
     return () => clearInterval(intervalId)
   }, [role])
@@ -82,6 +89,9 @@ export const AdminDashboard = () => {
         })
       }
     } catch (error) {
+      if (error?.response?.status === 429) {
+        rateLimitUntilRef.current = Date.now() + 60000
+      }
       console.error('Failed to fetch dashboard data:', error)
     } finally {
       if (!silent) {

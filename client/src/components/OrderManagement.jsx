@@ -17,8 +17,11 @@ export const OrderManagement = () => {
     fetchOrders()
 
     const intervalId = setInterval(() => {
+      if (document.visibilityState !== 'visible') {
+        return
+      }
       fetchOrders()
-    }, 5000)
+    }, 15000)
 
     return () => clearInterval(intervalId)
   }, [filterStatus])

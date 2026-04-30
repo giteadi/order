@@ -34,8 +34,11 @@ export const OrderHistoryScreen = () => {
 
     // Poll for order status changes every 10 seconds
     const intervalId = setInterval(() => {
+      if (document.visibilityState !== 'visible') {
+        return
+      }
       fetchOrders(true)
-    }, 10000)
+    }, 30000)
 
     return () => clearInterval(intervalId)
   }, [user, token, restaurant])
@@ -55,7 +58,7 @@ export const OrderHistoryScreen = () => {
           : []
         
         // Check for status changes and notify user
-        if (!silent && previousOrdersRef.current.length > 0) {
+        if (silent && previousOrdersRef.current.length > 0) {
           previousOrdersRef.current.forEach(prevOrder => {
             const newOrder = newOrders.find(o => o.id === prevOrder.id)
             if (newOrder && newOrder.status !== prevOrder.status) {

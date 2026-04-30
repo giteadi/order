@@ -15,20 +15,35 @@ const apiClient = axios.create({
   },
 })
 
+const inFlightGetRequests = new Map()
+const getResponseCache = new Map()
+const GET_CACHE_TTL_MS = 5000
+let globalRateLimitUntil = 0
+
 // Request Interceptor - Add auth token and session ID
 apiClient.interceptors.request.use(
   (config) => {
+    if (Date.now() < globalRateLimitUntil) {
+      return Promise.reject({
+        response: { status: 429 },
+        message: 'Rate limited',
+        config,
+      })
+    }
+
     const state = store.getState()
     const token = state.auth.token
     const sessionId = state.cart.sessionId
 
     // 🔍 Debug logging
-    console.log('🔐 API Request:', {
-      url: config.url,
-      method: config.method,
-      hasToken: !!token,
-      token: token ? `${token.substring(0, 20)}...` : 'none'
-    })
+    if (import.meta.env.DEV) {
+      console.log('🔐 API Request:', {
+        url: config.url,
+        method: config.method,
+        hasToken: !!token,
+        token: token ? `${token.substring(0, 20)}...` : 'none'
+      })
+    }
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
@@ -45,11 +60,60 @@ apiClient.interceptors.request.use(
   }
 )
 
+const originalGet = apiClient.get.bind(apiClient)
+
+apiClient.get = (url, config = {}) => {
+  if (Date.now() < globalRateLimitUntil) {
+    return Promise.reject({
+      response: { status: 429 },
+      message: 'Rate limited',
+      config: { url, method: 'get', ...config },
+    })
+  }
+
+  const cacheKey = `${API_BASE_URL}|${url}|${JSON.stringify(config?.params || {})}`
+
+  const cached = getResponseCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < GET_CACHE_TTL_MS) {
+    return Promise.resolve({
+      data: cached.data,
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: { url, method: 'get', ...config },
+      request: null,
+    })
+  }
+
+  const inFlight = inFlightGetRequests.get(cacheKey)
+  if (inFlight) {
+    return inFlight
+  }
+
+  const reqPromise = originalGet(url, config)
+    .then((res) => {
+      getResponseCache.set(cacheKey, { timestamp: Date.now(), data: res.data })
+      inFlightGetRequests.delete(cacheKey)
+      return res
+    })
+    .catch((err) => {
+      inFlightGetRequests.delete(cacheKey)
+      throw err
+    })
+
+  inFlightGetRequests.set(cacheKey, reqPromise)
+  return reqPromise
+}
+
 // Response Interceptor - Handle errors and token refresh
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
+
+    if (error.response?.status === 429) {
+      globalRateLimitUntil = Date.now() + 15000
+    }
 
     // Handle 401 - Token expired
     if (error.response?.status === 401 && !originalRequest._retry) {
