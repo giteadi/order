@@ -156,6 +156,17 @@ export const SuperAdminSubscriptions = () => {
     return Math.ceil(diff / (1000 * 60 * 60 * 24))
   }
 
+  // Group subscriptions by restaurant
+  const groupedByRestaurant = subscriptions.reduce((acc, sub) => {
+    const restaurantName = sub.restaurant_name || 'No Restaurant'
+    if (!acc[restaurantName]) {
+      acc[restaurantName] = []
+    }
+    acc[restaurantName].push(sub)
+    return acc
+  }, {})
+
+  // Filter subscriptions
   const filteredSubscriptions = subscriptions.filter(sub => {
     const matchesSearch = 
       sub.user_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -163,14 +174,33 @@ export const SuperAdminSubscriptions = () => {
       sub.plan_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       sub.restaurant_name?.toLowerCase().includes(searchQuery.toLowerCase())
     
-    const matchesStatus = statusFilter === 'all' || sub.status === statusFilter
     const matchesTab = activeTab === 'all' || 
       (activeTab === 'blocked' && sub.is_manually_blocked) ||
       (activeTab === 'active' && sub.status === 'active' && !sub.is_manually_blocked) ||
       (activeTab === 'pending' && sub.status === 'pending') ||
       (activeTab === 'expired' && sub.status === 'expired')
     
-    return matchesSearch && matchesStatus && matchesTab
+    return matchesSearch && matchesTab
+  })
+
+  // Get filtered restaurant names
+  const filteredRestaurantNames = Object.keys(groupedByRestaurant).filter(restaurantName => {
+    const hasMatchingSub = groupedByRestaurant[restaurantName].some(sub => {
+      const matchesSearch = 
+        sub.user_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        sub.user_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        sub.plan_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        sub.restaurant_name?.toLowerCase().includes(searchQuery.toLowerCase())
+      
+      const matchesTab = activeTab === 'all' || 
+        (activeTab === 'blocked' && sub.is_manually_blocked) ||
+        (activeTab === 'active' && sub.status === 'active' && !sub.is_manually_blocked) ||
+        (activeTab === 'pending' && sub.status === 'pending') ||
+        (activeTab === 'expired' && sub.status === 'expired')
+      
+      return matchesSearch && matchesTab
+    })
+    return hasMatchingSub
   })
 
   const statusColors = {
@@ -263,7 +293,7 @@ export const SuperAdminSubscriptions = () => {
           })}
         </div>
 
-        {/* Plan Breakdown */}
+        {/* Plan Summary - 3 Cards Only */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -271,36 +301,28 @@ export const SuperAdminSubscriptions = () => {
           className="bg-white rounded-xl shadow-sm overflow-hidden mb-8"
         >
           <div className="p-6 border-b border-gray-100">
-            <h2 className="text-lg font-bold text-gray-900">Plan Breakdown</h2>
-            <p className="text-sm text-gray-500">Revenue by subscription plan</p>
+            <h2 className="text-lg font-bold text-gray-900">Available Plans</h2>
+            <p className="text-sm text-gray-500">3 subscription tiers</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-            {stats.planBreakdown.map((plan, index) => (
+            {stats.planBreakdown.slice(0, 3).map((plan, index) => (
               <div key={index} className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-gray-900">{plan.name}</h3>
-                  <span className="text-sm text-gray-500">₹{plan.price}</span>
+                  <h3 className="font-semibold text-gray-900 text-lg">{plan.name}</h3>
+                  <span className="text-lg font-bold text-blue-600">₹{plan.price}</span>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Total</span>
-                    <span className="font-medium">{plan.count}</span>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-2xl font-bold text-gray-900">{plan.count}</p>
+                    <p className="text-xs text-gray-500">Total</p>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Active</span>
-                    <span className="font-medium text-green-600">{plan.active_count}</span>
+                  <div className="bg-green-50 rounded-lg p-3">
+                    <p className="text-2xl font-bold text-green-600">{plan.active_count}</p>
+                    <p className="text-xs text-gray-500">Active</p>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Revenue</span>
-                    <span className="font-medium">{formatCurrency(plan.revenue)}</span>
-                  </div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-500 h-2 rounded-full transition-all"
-                      style={{ width: `${stats.totalSubscriptions > 0 ? (plan.count / stats.totalSubscriptions) * 100 : 0}%` }}
-                    />
+                  <div className="bg-blue-50 rounded-lg p-3">
+                    <p className="text-lg font-bold text-blue-600">{formatCurrency(plan.revenue)}</p>
+                    <p className="text-xs text-gray-500">Revenue</p>
                   </div>
                 </div>
               </div>
@@ -342,7 +364,7 @@ export const SuperAdminSubscriptions = () => {
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold text-gray-900">All Subscriptions</h2>
-                <p className="text-sm text-gray-500">{filteredSubscriptions.length} subscriptions found</p>
+                <p className="text-sm text-gray-500">{filteredSubscriptions.length} subscriptions found across {filteredRestaurantNames.length} restaurants</p>
               </div>
               
               <div className="flex flex-col sm:flex-row gap-3">
@@ -368,132 +390,167 @@ export const SuperAdminSubscriptions = () => {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input
                     type="text"
-                    placeholder="Search subscriptions..."
+                    placeholder="Search restaurant, user, plan..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                    className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10 w-64"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Subscriptions Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Valid Until</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {loading ? (
-                  <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
-                      <p>Loading...</p>
-                    </td>
-                  </tr>
-                ) : filteredSubscriptions.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-                        <Package size={24} className="text-gray-400" />
+          {/* Subscriptions List by Restaurant */}
+          <div className="divide-y divide-gray-100">
+            {loading ? (
+              <div className="p-12 text-center text-gray-500">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                <p>Loading...</p>
+              </div>
+            ) : filteredRestaurantNames.length === 0 ? (
+              <div className="p-12 text-center text-gray-500">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                  <Package size={24} className="text-gray-400" />
+                </div>
+                <p className="text-lg font-medium">No subscriptions found</p>
+              </div>
+            ) : (
+              filteredRestaurantNames.map((restaurantName) => (
+                <div key={restaurantName} className="p-6 hover:bg-gray-50 transition-colors">
+                  {/* Restaurant Header */}
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white font-bold text-lg">
+                        {restaurantName.charAt(0).toUpperCase()}
                       </div>
-                      <p className="text-lg font-medium">No subscriptions found</p>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredSubscriptions.map((sub) => (
-                    <tr key={sub.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                            <Users size={18} className="text-gray-500" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">{sub.user_name}</p>
-                            <p className="text-sm text-gray-500">{sub.user_email}</p>
-                            {sub.restaurant_name && (
-                              <p className="text-xs text-gray-400">{sub.restaurant_name}</p>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-medium text-gray-900">{sub.plan_name}</p>
-                          <p className="text-sm text-gray-500">{sub.duration_months} month(s)</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-1">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[sub.status]}`}>
-                            {sub.status}
-                          </span>
-                          {sub.is_manually_blocked ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
-                              <Ban size={12} className="mr-1" />
-                              Blocked
-                            </span>
-                          ) : sub.status === 'active' && getDaysRemaining(sub.end_date) <= 7 && (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                              <AlertTriangle size={12} className="mr-1" />
-                              Expiring Soon
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="text-sm text-gray-900">{formatDate(sub.end_date)}</p>
-                          {sub.status === 'active' && (
-                            <p className={`text-xs ${getDaysRemaining(sub.end_date) <= 7 ? 'text-red-500' : 'text-gray-500'}`}>
-                              {getDaysRemaining(sub.end_date)} days left
-                            </p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="font-medium text-gray-900">{formatCurrency(sub.plan_price)}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        {sub.status === 'active' && (
-                          <button
-                            onClick={() => {
-                              setSelectedSubscription(sub)
-                              setShowBlockModal(true)
-                            }}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                              sub.is_manually_blocked
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                : 'bg-red-100 text-red-700 hover:bg-red-200'
-                            }`}
-                          >
-                            {sub.is_manually_blocked ? (
-                              <>
-                                <CheckCircle size={16} />
-                                Unblock
-                              </>
-                            ) : (
-                              <>
-                                <Ban size={16} />
-                                Block
-                              </>
-                            )}
-                          </button>
+                      <div>
+                        <h3 className="font-bold text-gray-900 text-lg">{restaurantName}</h3>
+                        <p className="text-sm text-gray-500">
+                          {groupedByRestaurant[restaurantName].length} subscription(s)
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-500">Total Revenue</p>
+                      <p className="font-bold text-gray-900">
+                        {formatCurrency(
+                          groupedByRestaurant[restaurantName]
+                            .filter(s => s.status === 'active')
+                            .reduce((sum, s) => sum + (s.plan_price || 0), 0)
                         )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Subscriptions Table for this Restaurant */}
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-left text-xs font-medium text-gray-400 uppercase">
+                        <th className="pb-3 pr-4">User</th>
+                        <th className="pb-3 pr-4">Plan</th>
+                        <th className="pb-3 pr-4">Status</th>
+                        <th className="pb-3 pr-4">Valid Until</th>
+                        <th className="pb-3 pr-4">Amount</th>
+                        <th className="pb-3">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {groupedByRestaurant[restaurantName]
+                        .filter(sub => {
+                          const matchesSearch = 
+                            sub.user_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            sub.user_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            sub.plan_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            sub.restaurant_name?.toLowerCase().includes(searchQuery.toLowerCase())
+                          
+                          const matchesTab = activeTab === 'all' || 
+                            (activeTab === 'blocked' && sub.is_manually_blocked) ||
+                            (activeTab === 'active' && sub.status === 'active' && !sub.is_manually_blocked) ||
+                            (activeTab === 'pending' && sub.status === 'pending') ||
+                            (activeTab === 'expired' && sub.status === 'expired')
+                          
+                          return matchesSearch && matchesTab
+                        })
+                        .map((sub) => (
+                          <tr key={sub.id} className="border-t border-gray-50">
+                            <td className="py-3 pr-4">
+                              <div>
+                                <p className="font-medium text-gray-900">{sub.user_name}</p>
+                                <p className="text-sm text-gray-500">{sub.user_email}</p>
+                                <p className="text-xs text-gray-400">{sub.user_phone}</p>
+                              </div>
+                            </td>
+                            <td className="py-3 pr-4">
+                              <div>
+                                <p className="font-medium text-gray-900">{sub.plan_name}</p>
+                                <p className="text-sm text-gray-500">{sub.duration_months} month(s)</p>
+                              </div>
+                            </td>
+                            <td className="py-3 pr-4">
+                              <div className="flex flex-col gap-1">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium w-fit ${statusColors[sub.status]}`}>
+                                  {sub.status}
+                                </span>
+                                {sub.is_manually_blocked ? (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 w-fit">
+                                    <Ban size={12} className="mr-1" />
+                                    Blocked
+                                  </span>
+                                ) : sub.status === 'active' && getDaysRemaining(sub.end_date) <= 7 && (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 w-fit">
+                                    <AlertTriangle size={12} className="mr-1" />
+                                    Expiring Soon
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 pr-4">
+                              <div>
+                                <p className="text-sm text-gray-900">{formatDate(sub.end_date)}</p>
+                                {sub.status === 'active' && (
+                                  <p className={`text-xs ${getDaysRemaining(sub.end_date) <= 7 ? 'text-red-500' : 'text-gray-500'}`}>
+                                    {getDaysRemaining(sub.end_date)} days left
+                                  </p>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 pr-4">
+                              <p className="font-medium text-gray-900">{formatCurrency(sub.plan_price)}</p>
+                            </td>
+                            <td className="py-3">
+                              {sub.status === 'active' && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedSubscription(sub)
+                                    setShowBlockModal(true)
+                                  }}
+                                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                    sub.is_manually_blocked
+                                      ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                      : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                  }`}
+                                >
+                                  {sub.is_manually_blocked ? (
+                                    <>
+                                      <CheckCircle size={12} />
+                                      Unblock
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Ban size={12} />
+                                      Block
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))
+            )}
           </div>
         </motion.div>
       </div>
@@ -524,10 +581,12 @@ export const SuperAdminSubscriptions = () => {
 
             <div className="mb-6">
               <div className="flex items-center gap-3 mb-4 p-4 bg-gray-50 rounded-lg">
-                <Users size={24} className="text-gray-400" />
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white font-bold">
+                  {selectedSubscription.restaurant_name?.charAt(0).toUpperCase() || '?'}
+                </div>
                 <div>
-                  <p className="font-medium text-gray-900">{selectedSubscription.user_name}</p>
-                  <p className="text-sm text-gray-500">{selectedSubscription.plan_name}</p>
+                  <p className="font-medium text-gray-900">{selectedSubscription.restaurant_name || 'Unknown Restaurant'}</p>
+                  <p className="text-sm text-gray-500">{selectedSubscription.user_name} • {selectedSubscription.plan_name}</p>
                 </div>
               </div>
 
