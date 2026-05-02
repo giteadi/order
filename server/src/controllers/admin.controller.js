@@ -1249,4 +1249,255 @@ export class AdminController {
       return error(res, 'Failed to get tables', HTTP_STATUS.INTERNAL_ERROR);
     }
   }
+
+  /**
+   * Get all subscriptions with user and plan details (super admin only)
+   */
+  static async getAllSubscriptions(req, res) {
+    try {
+      const db = getDB();
+      const userRole = req.user?.role;
+      const { status, limit = 50, offset = 0 } = req.query;
+
+      if (userRole !== 'super_admin') {
+        return error(res, 'Unauthorized - Super admin only', HTTP_STATUS.FORBIDDEN);
+      }
+
+      let query = `
+        SELECT 
+          us.id, us.user_id, us.plan_id, us.start_date, us.end_date,
+          us.status, us.payment_verified, us.transaction_id, us.payment_proof,
+          us.verified_by, us.verified_at, us.created_at, us.updated_at,
+          us.is_manually_blocked, us.block_reason, us.blocked_at, us.blocked_by,
+          u.name as user_name, u.email as user_email, u.phone as user_phone,
+          u.role as user_role,
+          sp.name as plan_name, sp.price as plan_price, sp.duration_months,
+          r.name as restaurant_name,
+          verifier.name as verified_by_name,
+          blocker.name as blocked_by_name
+        FROM user_subscriptions us
+        JOIN users u ON us.user_id = u.id
+        JOIN subscription_plans sp ON us.plan_id = sp.id
+        LEFT JOIN restaurants r ON u.restaurant_id = r.id
+        LEFT JOIN users verifier ON us.verified_by = verifier.id
+        LEFT JOIN users blocker ON us.blocked_by = blocker.id
+        WHERE 1=1
+      `;
+      let params = [];
+
+      if (status) {
+        query += ' AND us.status = ?';
+        params.push(status);
+      }
+
+      query += ' ORDER BY us.created_at DESC LIMIT ? OFFSET ?';
+      params.push(parseInt(limit), parseInt(offset));
+
+      const subscriptions = db.prepare(query).all(...params);
+
+      // Parse features for each plan
+      const subscriptionsWithFeatures = subscriptions.map(sub => ({
+        ...sub,
+        features: sub.features ? JSON.parse(sub.features) : []
+      }));
+
+      return success(res, subscriptionsWithFeatures, 'Subscriptions retrieved');
+    } catch (err) {
+      logger.error('Get all subscriptions error', { error: err.message });
+      return error(res, 'Failed to get subscriptions', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
+   * Get subscription revenue stats (super admin only)
+   */
+  static async getSubscriptionRevenueStats(req, res) {
+    try {
+      const db = getDB();
+      const userRole = req.user?.role;
+
+      if (userRole !== 'super_admin') {
+        return error(res, 'Unauthorized - Super admin only', HTTP_STATUS.FORBIDDEN);
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+
+      const stats = {
+        totalSubscriptions: 0,
+        activeSubscriptions: 0,
+        pendingSubscriptions: 0,
+        expiredSubscriptions: 0,
+        blockedSubscriptions: 0,
+        totalRevenue: 0,
+        monthlyRevenue: 0,
+        todayRevenue: 0,
+        planBreakdown: []
+      };
+
+      // Count by status
+      const statusCounts = db.prepare(`
+        SELECT 
+          COUNT(*) as total,
+          COUNT(CASE WHEN status = 'active' THEN 1 END) as active,
+          COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,
+          COUNT(CASE WHEN status = 'expired' THEN 1 END) as expired,
+          COUNT(CASE WHEN is_manually_blocked = 1 THEN 1 END) as blocked
+        FROM user_subscriptions
+      `).get();
+
+      stats.totalSubscriptions = statusCounts.total || 0;
+      stats.activeSubscriptions = statusCounts.active || 0;
+      stats.pendingSubscriptions = statusCounts.pending || 0;
+      stats.expiredSubscriptions = statusCounts.expired || 0;
+      stats.blockedSubscriptions = statusCounts.blocked || 0;
+
+      // Revenue stats
+      const revenueStats = db.prepare(`
+        SELECT 
+          COALESCE(SUM(CASE WHEN status = 'active' THEN sp.price ELSE 0 END), 0) as total_revenue,
+          COALESCE(SUM(CASE WHEN status = 'active' AND DATE(us.created_at) >= DATE('now', 'start of month') THEN sp.price ELSE 0 END), 0) as monthly_revenue,
+          COALESCE(SUM(CASE WHEN DATE(us.created_at) = ? AND status = 'active' THEN sp.price ELSE 0 END), 0) as today_revenue
+        FROM user_subscriptions us
+        JOIN subscription_plans sp ON us.plan_id = sp.id
+      `).get(today);
+
+      stats.totalRevenue = revenueStats.total_revenue || 0;
+      stats.monthlyRevenue = revenueStats.monthly_revenue || 0;
+      stats.todayRevenue = revenueStats.today_revenue || 0;
+
+      // Plan breakdown
+      const planBreakdown = db.prepare(`
+        SELECT 
+          sp.name,
+          sp.price,
+          COUNT(us.id) as count,
+          COUNT(CASE WHEN us.status = 'active' THEN 1 END) as active_count,
+          SUM(CASE WHEN us.status = 'active' THEN sp.price ELSE 0 END) as revenue
+        FROM subscription_plans sp
+        LEFT JOIN user_subscriptions us ON sp.id = us.plan_id
+        WHERE sp.is_active = 1
+        GROUP BY sp.id
+      `).all();
+
+      stats.planBreakdown = planBreakdown;
+
+      return success(res, stats, 'Subscription revenue stats retrieved');
+    } catch (err) {
+      logger.error('Get subscription revenue stats error', { error: err.message });
+      return error(res, 'Failed to get subscription stats', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
+   * Manually block/unblock subscription (super admin only)
+   */
+  static async updateSubscriptionBlockStatus(req, res) {
+    try {
+      const db = getDB();
+      const userRole = req.user?.role;
+      const { subscriptionId } = req.params;
+      const { isBlocked, reason } = req.body;
+      const adminId = req.user?.id;
+
+      if (userRole !== 'super_admin') {
+        return error(res, 'Unauthorized - Super admin only', HTTP_STATUS.FORBIDDEN);
+      }
+
+      const subscription = db.prepare('SELECT * FROM user_subscriptions WHERE id = ?').get(subscriptionId);
+      if (!subscription) {
+        return error(res, 'Subscription not found', HTTP_STATUS.NOT_FOUND);
+      }
+
+      if (isBlocked) {
+        // Block subscription
+        db.prepare(`
+          UPDATE user_subscriptions 
+          SET is_manually_blocked = 1, 
+              block_reason = ?, 
+              blocked_at = datetime('now'),
+              blocked_by = ?,
+              updated_at = datetime('now')
+          WHERE id = ?
+        `).run(reason || 'Manually blocked by admin', adminId, subscriptionId);
+
+        logger.info('Subscription manually blocked', { 
+          subscriptionId, 
+          adminId, 
+          reason,
+          userId: subscription.user_id 
+        });
+
+        return success(res, { 
+          id: subscriptionId, 
+          isBlocked: true,
+          reason,
+          blockedAt: new Date().toISOString()
+        }, 'Subscription blocked successfully');
+      } else {
+        // Unblock subscription
+        db.prepare(`
+          UPDATE user_subscriptions 
+          SET is_manually_blocked = 0, 
+              block_reason = NULL, 
+              blocked_at = NULL,
+              blocked_by = NULL,
+              updated_at = datetime('now')
+          WHERE id = ?
+        `).run(subscriptionId);
+
+        logger.info('Subscription manually unblocked', { 
+          subscriptionId, 
+          adminId,
+          userId: subscription.user_id 
+        });
+
+        return success(res, { 
+          id: subscriptionId, 
+          isBlocked: false,
+          unblockedAt: new Date().toISOString()
+        }, 'Subscription unblocked successfully');
+      }
+    } catch (err) {
+      logger.error('Update subscription block status error', { error: err.message });
+      return error(res, 'Failed to update subscription', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
+   * Get expiring subscriptions (super admin only)
+   */
+  static async getExpiringSubscriptions(req, res) {
+    try {
+      const db = getDB();
+      const userRole = req.user?.role;
+      const { days = 7 } = req.query;
+
+      if (userRole !== 'super_admin') {
+        return error(res, 'Unauthorized - Super admin only', HTTP_STATUS.FORBIDDEN);
+      }
+
+      const subscriptions = db.prepare(`
+        SELECT 
+          us.id, us.user_id, us.end_date, us.status,
+          u.name as user_name, u.email as user_email, u.phone as user_phone,
+          sp.name as plan_name, sp.price as plan_price,
+          r.name as restaurant_name,
+          julianday(us.end_date) - julianday(datetime('now')) as days_remaining
+        FROM user_subscriptions us
+        JOIN users u ON us.user_id = u.id
+        JOIN subscription_plans sp ON us.plan_id = sp.id
+        LEFT JOIN restaurants r ON u.restaurant_id = r.id
+        WHERE us.status = 'active'
+        AND us.end_date <= datetime('now', '+' || ? || ' days')
+        AND us.end_date > datetime('now')
+        AND (us.is_manually_blocked IS NULL OR us.is_manually_blocked = 0)
+        ORDER BY us.end_date ASC
+      `).all(days);
+
+      return success(res, subscriptions, 'Expiring subscriptions retrieved');
+    } catch (err) {
+      logger.error('Get expiring subscriptions error', { error: err.message });
+      return error(res, 'Failed to get expiring subscriptions', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
 }

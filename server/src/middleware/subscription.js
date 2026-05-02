@@ -14,7 +14,7 @@ export function checkSubscription(req, res, next) {
     const userId = req.user.id;
     const db = getDB();
 
-    // Check for active subscription
+    // Check for active subscription (not manually blocked)
     const subscription = db.prepare(`
       SELECT us.*, sp.name as plan_name, sp.price, sp.duration_months, sp.features
       FROM user_subscriptions us
@@ -22,6 +22,7 @@ export function checkSubscription(req, res, next) {
       WHERE us.user_id = ?
       AND us.status = 'active'
       AND us.end_date > datetime('now')
+      AND (us.is_manually_blocked IS NULL OR us.is_manually_blocked = 0)
       ORDER BY us.end_date DESC
       LIMIT 1
     `).get(userId);
@@ -30,6 +31,39 @@ export function checkSubscription(req, res, next) {
       // Active subscription found
       req.subscription = subscription;
       return next();
+    }
+
+    // Check if subscription is manually blocked by admin
+    const blockedSubscription = db.prepare(`
+      SELECT us.*, sp.name as plan_name, sp.price, sp.duration_months, sp.features,
+             us.block_reason, us.blocked_at, us.blocked_by
+      FROM user_subscriptions us
+      JOIN subscription_plans sp ON us.plan_id = sp.id
+      WHERE us.user_id = ?
+      AND us.status = 'active'
+      AND us.end_date > datetime('now')
+      AND us.is_manually_blocked = 1
+      ORDER BY us.end_date DESC
+      LIMIT 1
+    `).get(userId);
+
+    if (blockedSubscription) {
+      logger.warn('Subscription manually blocked by admin', {
+        userId,
+        blockReason: blockedSubscription.block_reason,
+        blockedAt: blockedSubscription.blocked_at,
+        path: req.path
+      });
+
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        message: 'Your subscription has been suspended by admin. Please contact support.',
+        code: 'SUBSCRIPTION_BLOCKED',
+        blockReason: blockedSubscription.block_reason,
+        blockedAt: blockedSubscription.blocked_at,
+        isHardBlock: true,
+        requiresContactSupport: true
+      });
     }
 
     // Check if user is in grace period (soft lock)

@@ -55,4 +55,10 @@ router.get('/super-admin/staff', asyncHandler(AdminController.getAllStaff));
 router.get('/super-admin/orders', asyncHandler(AdminController.getAllOrdersSuperAdmin));
 router.get('/super-admin/tables', asyncHandler(AdminController.getAllTablesSuperAdmin));
 
+// Super admin subscription management
+router.get('/super-admin/subscriptions', asyncHandler(AdminController.getAllSubscriptions));
+router.get('/super-admin/subscriptions/stats', asyncHandler(AdminController.getSubscriptionRevenueStats));
+router.get('/super-admin/subscriptions/expiring', asyncHandler(AdminController.getExpiringSubscriptions));
+router.patch('/super-admin/subscriptions/:subscriptionId/block', asyncHandler(AdminController.updateSubscriptionBlockStatus));
+
 export default router;

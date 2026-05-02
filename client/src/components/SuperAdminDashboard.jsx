@@ -5,7 +5,8 @@ import {
   Users, ShoppingCart, Store, Settings, BarChart3, Home,
   Plus, Building2, TrendingUp, DollarSign, UserCheck,
   ChevronRight, Activity, Globe, MoreVertical, Search,
-  Filter, ArrowUpRight, ArrowDownRight, Crown, ArrowLeft, QrCode
+  Filter, ArrowUpRight, ArrowDownRight, Crown, ArrowLeft, QrCode,
+  CreditCard
 } from 'lucide-react'
 import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 import apiClient from '../services/api'
@@ -29,6 +30,7 @@ export const SuperAdminDashboard = () => {
     activeOrders: 0,
     totalTables: 0,
     occupiedTables: 0,
+    totalSubscriptions: 0,
   })
   const [restaurants, setRestaurants] = useState([])
   const [createdRestaurant, setCreatedRestaurant] = useState(null)
@@ -138,6 +140,9 @@ export const SuperAdminDashboard = () => {
         case 'tables':
           endpoint = '/admin/super-admin/tables'
           break
+        case 'subscriptions':
+          navigate('/super-admin/subscriptions')
+          return
         default:
           return
       }
@@ -267,7 +272,7 @@ export const SuperAdminDashboard = () => {
             { label: "Today's Orders", value: stats.todayOrders, icon: ShoppingCart, color: 'bg-indigo-500', screen: 'orders' },
             { label: "Today's Revenue", value: formatCurrency(stats.todayRevenue), icon: TrendingUp, color: 'bg-pink-500', screen: 'revenue' },
             { label: 'Active Orders', value: stats.activeOrders, icon: Activity, color: 'bg-red-500', screen: 'orders' },
-            { label: 'Occupied Tables', value: `${stats.occupiedTables}/${stats.totalTables}`, icon: Store, color: 'bg-cyan-500', screen: 'tables' },
+            { label: 'Subscriptions', value: stats.totalSubscriptions || 0, icon: CreditCard, color: 'bg-cyan-500', screen: 'subscriptions' },
           ].map((stat, index) => {
             const Icon = stat.icon
             return (
@@ -510,14 +515,14 @@ export const SuperAdminDashboard = () => {
           </button>
 
           <button
-            onClick={() => navigate('/admin/tables')}
+            onClick={() => navigate('/super-admin/subscriptions')}
             className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow text-left"
           >
             <div className="w-12 h-12 rounded-full bg-cyan-100 flex items-center justify-center mb-4">
-              <QrCode size={24} className="text-cyan-600" />
+              <CreditCard size={24} className="text-cyan-600" />
             </div>
-            <h3 className="font-semibold text-gray-900">Table Management</h3>
-            <p className="text-sm text-gray-500 mt-1">QR codes & table setup</p>
+            <h3 className="font-semibold text-gray-900">Subscriptions</h3>
+            <p className="text-sm text-gray-500 mt-1">Manage plans & revenue</p>
           </button>
 
           <button

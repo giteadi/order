@@ -66,6 +66,7 @@ import { PricingPage } from './components/PricingPage'
 import { PaymentPage } from './components/PaymentPage'
 import { SubscriptionHistory } from './components/SubscriptionHistory'
 import { PaymentVerification } from './components/PaymentVerification'
+import { SuperAdminSubscriptions } from './components/SuperAdminSubscriptions'
 import { useTableNumber } from './hooks/useTableNumber'
 import { useCursor } from './hooks/useCursor'
 
@@ -713,6 +714,7 @@ function App() {
         <Route path="/subscription/history" element={<SubscriptionHistory />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/super-admin" element={<SuperAdminDashboard />} />
+        <Route path="/super-admin/subscriptions" element={<SuperAdminSubscriptions />} />
         <Route path="/admin/menu" element={<MenuManagement />} />
         <Route path="/admin/users" element={<UserManagement />} />
         <Route path="/admin/orders" element={<OrderManagement />} />
