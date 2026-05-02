@@ -1365,7 +1365,7 @@ export class AdminController {
       stats.monthlyRevenue = revenueStats.monthly_revenue || 0;
       stats.todayRevenue = revenueStats.today_revenue || 0;
 
-      // Plan breakdown
+      // Plan breakdown (get unique plans only - filter out duplicates by name/price)
       const planBreakdown = db.prepare(`
         SELECT 
           sp.name,
@@ -1373,10 +1373,16 @@ export class AdminController {
           COUNT(us.id) as count,
           COUNT(CASE WHEN us.status = 'active' THEN 1 END) as active_count,
           SUM(CASE WHEN us.status = 'active' THEN sp.price ELSE 0 END) as revenue
-        FROM subscription_plans sp
+        FROM (
+          SELECT id, name, price, is_active 
+          FROM subscription_plans 
+          GROUP BY name, price
+          HAVING id = MIN(id)
+        ) sp
         LEFT JOIN user_subscriptions us ON sp.id = us.plan_id
         WHERE sp.is_active = 1
         GROUP BY sp.id
+        ORDER BY sp.price ASC
       `).all();
 
       stats.planBreakdown = planBreakdown;
