@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ProductController } from '../controllers/product.controller.js';
 import { authenticate, authorize } from '../middleware/auth.js';
+import { checkSubscriptionWithBypass } from '../middleware/subscription.js';
 import { validators } from '../middleware/validator.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 
@@ -15,28 +16,32 @@ router.get('/search', asyncHandler(ProductController.search));
 router.get('/', asyncHandler(ProductController.getMenu));
 
 // Admin only routes
-router.post('/', 
-  authenticate, 
-  authorize('admin', 'staff'), 
+router.post('/',
+  authenticate,
+  authorize('admin', 'staff'),
+  checkSubscriptionWithBypass,
   validators.createProduct,
   asyncHandler(ProductController.create)
 );
 
-router.patch('/:id', 
-  authenticate, 
-  authorize('admin', 'staff'), 
+router.patch('/:id',
+  authenticate,
+  authorize('admin', 'staff'),
+  checkSubscriptionWithBypass,
   asyncHandler(ProductController.update)
 );
 
-router.delete('/:id', 
-  authenticate, 
-  authorize('admin'), 
+router.delete('/:id',
+  authenticate,
+  authorize('admin'),
+  checkSubscriptionWithBypass,
   asyncHandler(ProductController.delete)
 );
 
-router.patch('/:id/availability', 
-  authenticate, 
-  authorize('admin', 'staff'), 
+router.patch('/:id/availability',
+  authenticate,
+  authorize('admin', 'staff'),
+  checkSubscriptionWithBypass,
   asyncHandler(ProductController.toggleAvailability)
 );
 

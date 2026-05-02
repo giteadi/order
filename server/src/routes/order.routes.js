@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { OrderController, CartController } from '../controllers/order.controller.js';
 import { authenticate, authorize, optionalAuth } from '../middleware/auth.js';
+import { checkSubscriptionWithBypass } from '../middleware/subscription.js';
 import { validators } from '../middleware/validator.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 
@@ -16,13 +17,13 @@ router.delete('/cart', optionalAuth, asyncHandler(CartController.clear));
 // Order routes
 router.post('/', optionalAuth, validators.createOrder, asyncHandler(OrderController.create));
 router.get('/my-orders', authenticate, asyncHandler(OrderController.getMyOrders));
-router.get('/stats', authenticate, authorize('staff', 'admin'), asyncHandler(OrderController.getStats));
+router.get('/stats', authenticate, authorize('staff', 'admin'), checkSubscriptionWithBypass, asyncHandler(OrderController.getStats));
 router.get('/:uuid', authenticate, asyncHandler(OrderController.getOrder));
-router.patch('/:id/status', authenticate, authorize('staff', 'admin'), asyncHandler(OrderController.updateStatus));
-router.patch('/items/:itemId/status', authenticate, authorize('staff', 'admin'), asyncHandler(OrderController.updateItemStatus));
+router.patch('/:id/status', authenticate, authorize('staff', 'admin'), checkSubscriptionWithBypass, asyncHandler(OrderController.updateStatus));
+router.patch('/items/:itemId/status', authenticate, authorize('staff', 'admin'), checkSubscriptionWithBypass, asyncHandler(OrderController.updateItemStatus));
 router.delete('/:id', authenticate, asyncHandler(OrderController.cancel));
 
 // Admin list all orders
-router.get('/', authenticate, authorize('staff', 'admin'), asyncHandler(OrderController.listOrders));
+router.get('/', authenticate, authorize('staff', 'admin'), checkSubscriptionWithBypass, asyncHandler(OrderController.listOrders));
 
 export default router;

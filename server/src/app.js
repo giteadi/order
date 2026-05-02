@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
+import cron from 'node-cron';
 
 import { CONFIG } from './config/index.js';
 import { dbManager, getDB } from './database/connection.js';
@@ -16,6 +17,7 @@ import {
 } from './middleware/errorHandler.js';
 import { tenantMiddleware, filterByTenant } from './middleware/tenant.js';
 import routes from './routes/index.js';
+import { expireSubscriptions, getSubscriptionStats } from './cron/expireSubscriptions.js';
 
 const logger = Logger.getInstance();
 const app = express();
@@ -105,6 +107,28 @@ const startServer = async () => {
     dbManager.connect();
     app.locals.db = getDB();
     
+    // Schedule cron job to expire subscriptions daily at midnight
+    cron.schedule('0 0 * * *', () => {
+      logger.info('Running subscription expiry cron job');
+      try {
+        const expiredCount = expireSubscriptions();
+        const stats = getSubscriptionStats();
+        logger.info('Subscription stats', stats);
+      } catch (error) {
+        logger.error('Cron job failed', { error: error.message });
+      }
+    }, {
+      timezone: 'Asia/Kolkata'
+    });
+
+    // Run once on startup to catch any expired subscriptions
+    logger.info('Running initial subscription expiry check');
+    try {
+      expireSubscriptions();
+    } catch (error) {
+      logger.error('Initial expiry check failed', { error: error.message });
+    }
+    
     // Start server
     app.listen(CONFIG.PORT, () => {
       logger.info(`Server started`, {
@@ -114,6 +138,7 @@ const startServer = async () => {
       });
       console.log(`🚀 Server running on http://localhost:${CONFIG.PORT}`);
       console.log(`📊 API docs: http://localhost:${CONFIG.PORT}/api/v1/health`);
+      console.log(`⏰ Subscription expiry cron scheduled: Daily at midnight (IST)`);
     });
 
   } catch (error) {

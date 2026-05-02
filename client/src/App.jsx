@@ -62,6 +62,10 @@ import { OrderHistoryScreen } from './components/OrderHistoryScreen'
 import { RestaurantSettings } from './components/RestaurantSettings'
 import { CarouselManagement } from './components/CarouselManagement'
 import { TablesManagement } from './components/TablesManagement'
+import { PricingPage } from './components/PricingPage'
+import { PaymentPage } from './components/PaymentPage'
+import { SubscriptionHistory } from './components/SubscriptionHistory'
+import { PaymentVerification } from './components/PaymentVerification'
 import { useTableNumber } from './hooks/useTableNumber'
 import { useCursor } from './hooks/useCursor'
 
@@ -704,6 +708,9 @@ function App() {
         } />
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/order-history" element={<OrderHistoryScreen />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/payment" element={<PaymentPage />} />
+        <Route path="/subscription/history" element={<SubscriptionHistory />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/super-admin" element={<SuperAdminDashboard />} />
         <Route path="/admin/menu" element={<MenuManagement />} />
@@ -712,6 +719,7 @@ function App() {
         <Route path="/admin/carousel" element={<CarouselManagement />} />
         <Route path="/admin/settings" element={<RestaurantSettings />} />
         <Route path="/admin/tables" element={<TablesManagement />} />
+        <Route path="/admin/payments" element={<PaymentVerification />} />
         <Route path="/table/:tableNumber" element={
           <>
             <Header 

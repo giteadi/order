@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { AdminController } from '../controllers/admin.controller.js';
 import { authenticate, authorize } from '../middleware/auth.js';
+import { checkSubscriptionWithBypass } from '../middleware/subscription.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 
 const router = Router();
@@ -11,6 +12,9 @@ router.get('/restaurants/public', asyncHandler(AdminController.getAllRestaurants
 // All admin routes require authentication and admin role
 router.use(authenticate);
 router.use(authorize('admin', 'super_admin'));
+
+// Check subscription (super_admin bypasses this check)
+router.use(checkSubscriptionWithBypass);
 
 // Dashboard stats
 router.get('/stats', asyncHandler(AdminController.getStats));
