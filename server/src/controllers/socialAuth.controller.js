@@ -79,6 +79,70 @@ export class SocialAuthController {
         }
         User.update(user.id, updateData);
         logger.info('Google login successful', { userId: user.id, email });
+
+        // Check subscription for restaurant owners (admin, manager, staff)
+        const needsSubscription = ['admin', 'manager', 'staff'].includes(user.role);
+
+        if (needsSubscription) {
+          const db = getDB();
+          const subscription = db.prepare(`
+            SELECT us.*, sp.name as plan_name
+            FROM user_subscriptions us
+            JOIN subscription_plans sp ON us.plan_id = sp.id
+            WHERE us.user_id = ?
+            AND us.status = 'active'
+            AND us.end_date > datetime('now')
+            AND (us.is_manually_blocked IS NULL OR us.is_manually_blocked = 0)
+            ORDER BY us.end_date DESC
+            LIMIT 1
+          `).get(user.id);
+
+          if (!subscription) {
+            // Check if manually blocked
+            const blockedSub = db.prepare(`
+              SELECT us.*, sp.name as plan_name, us.block_reason
+              FROM user_subscriptions us
+              JOIN subscription_plans sp ON us.plan_id = sp.id
+              WHERE us.user_id = ?
+              AND us.is_manually_blocked = 1
+              ORDER BY us.end_date DESC
+              LIMIT 1
+            `).get(user.id);
+
+            if (blockedSub) {
+              logger.warn('Google login blocked - subscription suspended', { userId: user.id });
+              return error(res, 'Your subscription has been suspended. Please contact support.', HTTP_STATUS.FORBIDDEN);
+            }
+
+            // Check if expired
+            const expiredSub = db.prepare(`
+              SELECT us.*, sp.name as plan_name
+              FROM user_subscriptions us
+              JOIN subscription_plans sp ON us.plan_id = sp.id
+              WHERE us.user_id = ?
+              AND us.status = 'expired'
+              ORDER BY us.end_date DESC
+              LIMIT 1
+            `).get(user.id);
+
+            if (expiredSub) {
+              logger.warn('Google login blocked - subscription expired', { userId: user.id });
+              return error(res, 'SUBSCRIPTION_EXPIRED', HTTP_STATUS.FORBIDDEN, {
+                code: 'SUBSCRIPTION_EXPIRED',
+                requiresRenewal: true,
+                message: 'Your subscription has expired. Please renew to continue.'
+              });
+            }
+
+            // No subscription at all
+            logger.warn('Google login blocked - no subscription', { userId: user.id });
+            return error(res, 'SUBSCRIPTION_REQUIRED', HTTP_STATUS.FORBIDDEN, {
+              code: 'SUBSCRIPTION_REQUIRED',
+              requiresPurchase: true,
+              message: 'Subscription required. Please purchase a plan to continue.'
+            });
+          }
+        }
       } else {
         // Create new user
         const bcrypt = await import('bcryptjs');

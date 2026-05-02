@@ -66,34 +66,7 @@ export function checkSubscription(req, res, next) {
       });
     }
 
-    // Check if user is in grace period (soft lock)
-    const gracePeriod = db.prepare(`
-      SELECT us.*,
-             julianday(datetime('now')) - julianday(us.end_date) as days_expired,
-             sp.name as plan_name, sp.price
-      FROM user_subscriptions us
-      JOIN subscription_plans sp ON us.plan_id = sp.id
-      WHERE us.user_id = ?
-      AND us.status = 'expired'
-      AND julianday(datetime('now')) - julianday(us.end_date) <= 3
-      ORDER BY us.end_date DESC
-      LIMIT 1
-    `).get(userId);
-
-    if (gracePeriod) {
-      logger.warn('Subscription in grace period', {
-        userId,
-        daysExpired: gracePeriod.days_expired,
-        path: req.path
-      });
-
-      // Grace period - allow access but warn
-      req.subscription = gracePeriod;
-      req.isGracePeriod = true;
-      return next();
-    }
-
-    // No active subscription and not in grace period - hard block
+    // No active subscription - immediate hard block (no grace period)
     logger.warn('Subscription check failed - no active subscription', {
       userId,
       path: req.path

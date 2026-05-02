@@ -146,6 +146,36 @@ apiClient.interceptors.response.use(
       }
     }
 
+    // Handle 403 - Subscription expired or required
+    if (error.response?.status === 403) {
+      const errorCode = error.response?.data?.code
+
+      if (errorCode === 'SUBSCRIPTION_EXPIRED' || errorCode === 'SUBSCRIPTION_REQUIRED') {
+        store.dispatch(logout())
+        store.dispatch(addToast({
+          type: 'error',
+          message: errorCode === 'SUBSCRIPTION_EXPIRED'
+            ? 'Your subscription has expired. Please renew to continue.'
+            : 'Subscription required. Please purchase a plan.',
+        }))
+
+        // Redirect to pricing page
+        window.location.href = errorCode === 'SUBSCRIPTION_EXPIRED'
+          ? '/pricing?expired=true'
+          : '/pricing'
+        return Promise.reject(error)
+      }
+
+      if (errorCode === 'SUBSCRIPTION_BLOCKED') {
+        store.dispatch(logout())
+        store.dispatch(addToast({
+          type: 'error',
+          message: 'Your subscription has been suspended. Please contact support.',
+        }))
+        return Promise.reject(error)
+      }
+    }
+
     // Handle network errors
     if (!error.response) {
       store.dispatch(addToast({

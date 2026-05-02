@@ -18,28 +18,28 @@ export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot 
     try {
       // Detect if input is email or phone
       const isEmail = formData.email.includes('@')
-      
+
       // Get restaurant from URL params
       const params = new URLSearchParams(window.location.search)
       const restaurant = params.get('restaurant')
-      
+
       const loginData = {
         password: formData.password,
         ...(isEmail ? { email: formData.email } : { phone: formData.email }),
         restaurant
       }
-      
+
       console.log('Login data being sent:', loginData)
-      
+
       const response = await authAPI.login(loginData)
       console.log('Full response:', response)
       console.log('Response data:', response.data)
       console.log('Response data.data:', response.data?.data)
-      
+
       const { user, token, refreshToken } = response.data.data
       console.log('Extracted user:', user)
       console.log('User role:', user?.role)
-      
+
       // Call parent onLogin with user data - parent will handle redirect
       onLogin?.({
         user,
@@ -48,7 +48,29 @@ export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot 
       })
     } catch (error) {
       console.error('Login error:', error)
-      alert('Login failed. Please check your credentials.')
+
+      // Check for subscription errors
+      const errorCode = error.response?.data?.code
+      const errorMessage = error.response?.data?.message
+
+      if (errorCode === 'SUBSCRIPTION_REQUIRED') {
+        alert('Subscription required! Redirecting to pricing page...')
+        // Get restaurant from URL params for pricing page
+        const params = new URLSearchParams(window.location.search)
+        const restaurant = params.get('restaurant')
+        window.location.href = restaurant ? `/pricing?restaurant=${restaurant}` : '/pricing'
+        return
+      }
+
+      if (errorCode === 'SUBSCRIPTION_EXPIRED') {
+        alert('Your subscription has expired! Please renew to continue.')
+        const params = new URLSearchParams(window.location.search)
+        const restaurant = params.get('restaurant')
+        window.location.href = restaurant ? `/pricing?restaurant=${restaurant}&expired=true` : '/pricing?expired=true'
+        return
+      }
+
+      alert(errorMessage || 'Login failed. Please check your credentials.')
     } finally {
       setIsLoading(false)
     }
@@ -160,12 +182,12 @@ export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot 
                         // Get restaurant from URL params
                         const params = new URLSearchParams(window.location.search)
                         const restaurant = params.get('restaurant')
-                        const response = await authAPI.googleLogin({ 
+                        const response = await authAPI.googleLogin({
                           idToken: credentialResponse.credential,
-                          restaurant 
+                          restaurant
                         })
                         const { user, token, refreshToken } = response.data.data
-                        
+
                         // Call parent onLogin with user data - parent handles redirect
                         onLogin?.({
                           user,
@@ -175,7 +197,28 @@ export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot 
                         })
                       } catch (error) {
                         console.error('Google login error:', error)
-                        alert('Google login failed. Please try again.')
+
+                        // Check for subscription errors
+                        const errorCode = error.response?.data?.code
+                        const errorMessage = error.response?.data?.message
+
+                        if (errorCode === 'SUBSCRIPTION_REQUIRED') {
+                          alert('Subscription required! Redirecting to pricing page...')
+                          const params = new URLSearchParams(window.location.search)
+                          const restaurant = params.get('restaurant')
+                          window.location.href = restaurant ? `/pricing?restaurant=${restaurant}` : '/pricing'
+                          return
+                        }
+
+                        if (errorCode === 'SUBSCRIPTION_EXPIRED') {
+                          alert('Your subscription has expired! Please renew to continue.')
+                          const params = new URLSearchParams(window.location.search)
+                          const restaurant = params.get('restaurant')
+                          window.location.href = restaurant ? `/pricing?restaurant=${restaurant}&expired=true` : '/pricing?expired=true'
+                          return
+                        }
+
+                        alert(errorMessage || 'Google login failed. Please try again.')
                       } finally {
                         setIsLoading(false)
                       }
