@@ -630,13 +630,21 @@ function App() {
                   try {
                     const { data: subData } = await apiClient.get('/subscription')
                     if (!subData.data) {
-                      // No subscription - redirect to catalog
-                      console.log('No subscription, redirecting to catalog')
-                      navigateWithParams('/subscription-catalog')
+                      // Check if they had an expired subscription
+                      try {
+                        const histRes = await apiClient.get('/subscription/history')
+                        const hasExpired = histRes.data?.data?.some(s => s.status === 'expired')
+                        if (hasExpired) {
+                          navigateWithParams('/subscription-catalog?expired=true')
+                        } else {
+                          navigateWithParams('/subscription-catalog')
+                        }
+                      } catch {
+                        navigateWithParams('/subscription-catalog')
+                      }
                       return
                     }
                   } catch (error) {
-                    // Error fetching subscription - assume no subscription
                     console.log('Subscription check failed, redirecting to catalog')
                     navigateWithParams('/subscription-catalog')
                     return
