@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, QrCode, Upload, CheckCircle, AlertCircle } from 'lucide-react'
+import { ArrowLeft, CheckCircle, CreditCard } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import apiClient from '../services/api'
 import toast from 'react-hot-toast'
+import { useRazorpay } from '../hooks/useRazorpay'
 
 export const PaymentPage = () => {
   const navigate = useNavigate()
@@ -12,128 +14,140 @@ export const PaymentPage = () => {
   const planId = searchParams.get('plan')
   const restaurant = searchParams.get('restaurant') || localStorage.getItem('restaurant_subdomain')
 
+  const user = useSelector((state) => state.auth.user)
+  const { openPayment, scriptLoaded } = useRazorpay()
+
   const [plan, setPlan] = useState(null)
-  const [qrData, setQrData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [paymentProof, setPaymentProof] = useState(null)
-  const [previewUrl, setPreviewUrl] = useState(null)
+  const [paying, setPaying] = useState(false)
+  const [activated, setActivated] = useState(false)
 
   useEffect(() => {
     if (!planId) {
       navigate('/subscription-catalog')
       return
     }
-    // Fetch plan details from API
-    fetchPlanDetails()
+    fetchPlan()
   }, [planId])
 
-  const fetchPlanDetails = async () => {
+  const fetchPlan = async () => {
     try {
       const response = await apiClient.get('/subscription/plans')
       if (response.data.success) {
-        const plans = response.data.data
-        const selectedPlan = plans.find(p => p.id === parseInt(planId))
-        if (selectedPlan) {
-          setPlan(selectedPlan)
-          initiateSubscription(selectedPlan)
+        const selected = response.data.data.find(p => p.id === parseInt(planId))
+        if (selected) {
+          setPlan(selected)
         } else {
           toast.error('Plan not found')
-          const params = new URLSearchParams()
-          if (restaurant) {
-            params.set('restaurant', restaurant)
-          }
-          navigate(`/subscription-catalog${params.toString() ? `?${params.toString()}` : ''}`)
+          navigate('/subscription-catalog')
         }
       }
-    } catch (error) {
-      console.error('Failed to fetch plan:', error)
-      toast.error('Failed to load plan details')
-      const params = new URLSearchParams()
-      if (restaurant) {
-        params.set('restaurant', restaurant)
-      }
-      navigate(`/subscription-catalog${params.toString() ? `?${params.toString()}` : ''}`)
-    }
-  }
-
-  const initiateSubscription = async (planData) => {
-    try {
-      // Get user email from localStorage (from login attempt)
-      const userEmail = localStorage.getItem('user_email')
-      const userPhone = localStorage.getItem('user_phone')
-
-      const response = await apiClient.post('/subscription/subscribe', {
-        planId: planData.id,
-        email: userEmail,
-        phone: userPhone
-      })
-      if (response.data.success) {
-        setQrData(response.data.data)
-      }
-    } catch (error) {
-      console.error('Failed to initiate subscription:', error)
-      toast.error('Failed to generate payment QR')
+    } catch (err) {
+      toast.error('Failed to load plan')
       navigate('/subscription-catalog')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0]
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('File size must be less than 5MB')
-        return
-      }
-      setPaymentProof(file)
-      setPreviewUrl(URL.createObjectURL(file))
-    }
-  }
-
-  const handleSubmitPayment = async () => {
-    if (!paymentProof) {
-      toast.error('Please upload payment proof')
+  const handlePay = async () => {
+    if (!scriptLoaded) {
+      toast.error('Payment gateway loading, please wait...')
       return
     }
 
-    setSubmitting(true)
+    setPaying(true)
     try {
-      const formData = new FormData()
-      formData.append('planId', plan.id)
-      formData.append('transactionId', qrData.transactionId)
-      formData.append('paymentProof', paymentProof)
+      // Step 1: Create Razorpay order on backend
+      const orderRes = await apiClient.post('/razorpay/create-order', { planId: plan.id })
+      if (!orderRes.data.success) {
+        toast.error('Failed to create payment order')
+        return
+      }
 
-      const response = await apiClient.post('/subscription/payments/submit', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+      const { orderId, amount } = orderRes.data.data
+
+      // Step 2: Open Razorpay modal
+      openPayment({
+        amount,
+        orderId,
+        name: 'Vishnu Hastkala Kendra',
+        description: `${plan.name} Plan - ${plan.duration_months === 1 ? '1 Month' : plan.duration_months === 3 ? '3 Months' : '1 Year'}`,
+        email: user?.email || '',
+        phone: user?.phone || '',
+
+        onSuccess: async (razorpayResponse) => {
+          try {
+            // Step 3: Verify payment & activate subscription
+            const verifyRes = await apiClient.post('/razorpay/verify', {
+              razorpay_order_id: razorpayResponse.razorpay_order_id,
+              razorpay_payment_id: razorpayResponse.razorpay_payment_id,
+              razorpay_signature: razorpayResponse.razorpay_signature,
+              planId: plan.id,
+            })
+
+            if (verifyRes.data.success) {
+              setActivated(true)
+              toast.success('🎉 Subscription activated!')
+              setTimeout(() => {
+                const params = new URLSearchParams()
+                if (restaurant) params.set('restaurant', restaurant)
+                navigate(`/admin${params.toString() ? `?${params.toString()}` : ''}`)
+              }, 2000)
+            } else {
+              toast.error('Payment verification failed. Contact support.')
+            }
+          } catch (err) {
+            toast.error('Verification error. Contact support with payment ID: ' + razorpayResponse.razorpay_payment_id)
+          } finally {
+            setPaying(false)
+          }
+        },
+
+        onFailure: (err) => {
+          setPaying(false)
+          if (err?.message !== 'Payment cancelled by user') {
+            toast.error(err?.description || 'Payment failed. Please try again.')
+          }
+        },
       })
 
-      if (response.data.success) {
-        toast.success('Payment proof submitted successfully')
-        navigate('/subscription/history')
-      }
-    } catch (error) {
-      console.error('Failed to submit payment:', error)
-      toast.error('Failed to submit payment proof')
-    } finally {
-      setSubmitting(false)
+    } catch (err) {
+      toast.error('Something went wrong. Please try again.')
+      setPaying(false)
     }
   }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-gray-500">Generating payment QR...</div>
+        <div className="text-gray-500">Loading plan details...</div>
+      </div>
+    )
+  }
+
+  if (activated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white rounded-2xl shadow-lg p-10 text-center max-w-sm w-full"
+        >
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle size={40} className="text-green-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Activated!</h2>
+          <p className="text-gray-600">Your subscription is now active. Redirecting to dashboard...</p>
+        </motion.div>
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-md mx-auto">
+
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button
@@ -144,11 +158,11 @@ export const PaymentPage = () => {
           </button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Complete Payment</h1>
-            <p className="text-gray-600">Scan QR and upload payment proof</p>
+            <p className="text-gray-600">Secure payment via Razorpay</p>
           </div>
         </div>
 
-        {/* Plan Summary */}
+        {/* Plan Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -157,121 +171,53 @@ export const PaymentPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-xl font-bold text-gray-900">{plan.name} Plan</h3>
-              <p className="text-gray-600">₹{plan.price} / {plan.duration_months === 1 ? 'month' : plan.duration_months === 3 ? '3 months' : 'year'}</p>
-            </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold text-purple-600">₹{qrData?.amount}</div>
-              <div className="text-sm text-gray-500">Total Amount</div>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* QR Code */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl shadow-lg p-8 mb-6"
-        >
-          <div className="text-center">
-            <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
-              <QrCode size={16} />
-              <span>Scan to Pay</span>
-            </div>
-            
-            <div className="bg-white p-4 rounded-xl inline-block mb-4 border-2 border-gray-100">
-              {qrData?.qrCode && (
-                <img 
-                  src={qrData.qrCode} 
-                  alt="Payment QR Code" 
-                  className="w-64 h-64"
-                />
-              )}
-            </div>
-
-            <div className="space-y-2 text-sm text-gray-600">
-              <p><strong>UPI ID:</strong> 9516696009@ybl</p>
-              <p><strong>Transaction ID:</strong> {qrData?.transactionId}</p>
-              <p className="text-xs text-gray-500 mt-2">
-                Please include this transaction ID in your payment note
+              <p className="text-gray-500 text-sm mt-1">
+                {plan.duration_months === 1 ? '1 Month' : plan.duration_months === 3 ? '3 Months' : '1 Year'} access
               </p>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Payment Proof Upload */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white rounded-2xl shadow-lg p-6 mb-6"
-        >
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Payment Proof</h3>
-          
-          <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-purple-400 transition-colors">
-            <input
-              type="file"
-              id="paymentProof"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <label
-              htmlFor="paymentProof"
-              className="cursor-pointer"
-            >
-              {previewUrl ? (
-                <div>
-                  <img 
-                    src={previewUrl} 
-                    alt="Payment proof preview" 
-                    className="max-h-48 mx-auto mb-4 rounded-lg"
-                  />
-                  <p className="text-sm text-gray-600">Click to change</p>
-                </div>
-              ) : (
-                <div>
-                  <Upload size={48} className="mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-600 mb-2">Click to upload screenshot</p>
-                  <p className="text-sm text-gray-400">PNG, JPG up to 5MB</p>
-                </div>
+              {plan.features?.length > 0 && (
+                <ul className="mt-3 space-y-1">
+                  {plan.features.map((f, i) => (
+                    <li key={i} className="flex items-center gap-2 text-sm text-gray-600">
+                      <CheckCircle size={14} className="text-green-500 flex-shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
               )}
-            </label>
-          </div>
-
-          {paymentProof && (
-            <div className="mt-4 flex items-center gap-2 text-green-600">
-              <CheckCircle size={20} />
-              <span className="text-sm">{paymentProof.name}</span>
             </div>
-          )}
-        </motion.div>
-
-        {/* Info Box */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-start gap-3"
-        >
-          <AlertCircle size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-blue-800">
-            <p className="font-medium mb-1">Payment Verification</p>
-            <p>After uploading, your payment will be verified by our team. You'll receive a notification once activated.</p>
+            <div className="text-right ml-4">
+              <div className="text-3xl font-bold text-purple-600">₹{plan.price}</div>
+              <div className="text-xs text-gray-400 mt-1">incl. taxes</div>
+            </div>
           </div>
         </motion.div>
 
-        {/* Submit Button */}
+        {/* Pay Button */}
         <motion.button
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          onClick={handleSubmitPayment}
-          disabled={!paymentProof || submitting}
-          className="w-full py-4 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          transition={{ delay: 0.1 }}
+          onClick={handlePay}
+          disabled={paying || !scriptLoaded}
+          className="w-full py-4 bg-purple-600 text-white rounded-xl font-semibold text-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
         >
-          {submitting ? 'Submitting...' : 'Submit Payment Proof'}
+          {paying ? (
+            <>
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span>Processing...</span>
+            </>
+          ) : (
+            <>
+              <CreditCard size={22} />
+              <span>Pay ₹{plan.price} Securely</span>
+            </>
+          )}
         </motion.button>
+
+        <p className="text-center text-xs text-gray-400 mt-4">
+          🔒 Secured by Razorpay · UPI · Cards · Net Banking · Wallets
+        </p>
+
       </div>
     </div>
   )

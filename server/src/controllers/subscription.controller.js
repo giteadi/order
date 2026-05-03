@@ -178,7 +178,7 @@ export class SubscriptionController {
   }
 
   /**
-   * Submit payment proof with fraud prevention
+   * Submit payment proof - Auto activates subscription
    */
   static submitPayment(req, res) {
     try {
@@ -218,13 +218,31 @@ export class SubscriptionController {
         paymentProof
       });
 
-      logger.info('Payment proof submitted', {
+      // Auto-activate subscription immediately after payment
+      db.prepare(`
+        UPDATE user_subscriptions 
+        SET status = 'active', 
+            payment_verified = 1,
+            verified_at = datetime('now'),
+            updated_at = datetime('now')
+        WHERE id = ?
+      `).run(subscription.id);
+
+      logger.info('Payment submitted and auto-activated', {
         userId,
         subscriptionId: subscription.id,
         transactionId
       });
 
-      return created(res, subscription, 'Payment proof submitted. Wait for verification.');
+      // Return updated subscription
+      const activeSub = db.prepare(`
+        SELECT us.*, sp.name as plan_name, sp.price, sp.duration_months
+        FROM user_subscriptions us
+        JOIN subscription_plans sp ON us.plan_id = sp.id
+        WHERE us.id = ?
+      `).get(subscription.id);
+
+      return created(res, activeSub, 'Subscription activated successfully!');
     } catch (err) {
       logger.error('Submit payment failed', { error: err.message });
       return error(res, 'Failed to submit payment');

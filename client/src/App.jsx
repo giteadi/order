@@ -68,6 +68,10 @@ import { SubscriptionHistory } from './components/SubscriptionHistory'
 import { PaymentVerification } from './components/PaymentVerification'
 import { SuperAdminSubscriptions } from './components/SuperAdminSubscriptions'
 import { SubscriptionCatalog } from './components/SubscriptionCatalog'
+import { Footer } from './components/Footer'
+import { PrivacyPolicy } from './components/PrivacyPolicy'
+import { TermsAndConditions } from './components/TermsAndConditions'
+import { RefundPolicy } from './components/RefundPolicy'
 import { useTableNumber } from './hooks/useTableNumber'
 import { useCursor } from './hooks/useCursor'
 
@@ -744,6 +748,9 @@ function App() {
         <Route path="/admin/settings" element={<RestaurantSettings />} />
         <Route path="/admin/tables" element={<TablesManagement />} />
         <Route path="/admin/payments" element={<PaymentVerification />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsAndConditions />} />
+        <Route path="/refund-policy" element={<RefundPolicy />} />
         <Route path="/table/:tableNumber" element={
           <>
             <Header 
@@ -858,6 +865,7 @@ function App() {
       />
 
       <BottomNav />
+      <Footer />
       <Toaster position="top-center" />
     </div>
   )
