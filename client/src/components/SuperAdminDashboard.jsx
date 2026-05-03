@@ -142,6 +142,7 @@ export const SuperAdminDashboard = () => {
           break
         case 'subscriptions':
           navigate('/super-admin/subscriptions')
+          setActiveScreen(null)
           return
         default:
           return

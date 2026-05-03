@@ -129,15 +129,16 @@ export async function verifyRazorpayPayment(req, res) {
     const result = db.prepare(`
       INSERT INTO user_subscriptions 
         (user_id, plan_id, start_date, end_date, status, payment_verified, 
-         transaction_id, payment_proof, verified_at, updated_at)
-      VALUES (?, ?, ?, ?, 'active', 1, ?, ?, datetime('now'), datetime('now'))
+         transaction_id, payment_proof, razorpay_signature, verified_at, updated_at)
+      VALUES (?, ?, ?, ?, 'active', 1, ?, ?, ?, datetime('now'), datetime('now'))
     `).run(
       userId,
       plan.id,
       startDate,
       endDate.toISOString(),
-      razorpay_payment_id,
-      razorpay_order_id,
+      razorpay_payment_id,   // transaction_id = Razorpay payment ID
+      razorpay_order_id,     // payment_proof  = Razorpay order ID
+      razorpay_signature,    // razorpay_signature = signature for audit
     );
 
     logger.info('Subscription activated via Razorpay', {

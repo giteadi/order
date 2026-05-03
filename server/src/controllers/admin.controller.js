@@ -1069,8 +1069,16 @@ export class AdminController {
         LIMIT 5
       `).all();
 
+      // Active subscriptions count
+      const subCount = db.prepare(`
+        SELECT COUNT(*) as count FROM user_subscriptions 
+        WHERE status = 'active' AND end_date > datetime('now')
+        AND (is_manually_blocked IS NULL OR is_manually_blocked = 0)
+      `).get();
+
       return success(res, {
         ...stats,
+        totalSubscriptions: subCount.count || 0,
         recentActivity: last7Days,
         topRestaurants
       }, 'Super admin stats retrieved');
