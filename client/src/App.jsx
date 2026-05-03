@@ -67,6 +67,7 @@ import { PaymentPage } from './components/PaymentPage'
 import { SubscriptionHistory } from './components/SubscriptionHistory'
 import { PaymentVerification } from './components/PaymentVerification'
 import { SuperAdminSubscriptions } from './components/SuperAdminSubscriptions'
+import { SubscriptionCatalog } from './components/SubscriptionCatalog'
 import { useTableNumber } from './hooks/useTableNumber'
 import { useCursor } from './hooks/useCursor'
 
@@ -605,7 +606,7 @@ function App() {
         } />
         <Route path="/login" element={
           <LoginScreen 
-            onLogin={(data) => {
+            onLogin={async (data) => {
               console.log('Login data:', data)
               console.log('User:', data?.user)
               console.log('Role:', data?.user?.role)
@@ -617,8 +618,28 @@ function App() {
                   refreshToken: data.refreshToken,
                 }))
                 
-                // Auto-redirect for admin/super admin
+                // Check subscription for restaurant owners (admin, manager, staff)
                 const userRole = data.user.role
+                const needsSubscription = ['admin', 'manager', 'staff'].includes(userRole)
+                
+                if (needsSubscription) {
+                  try {
+                    const { data: subData } = await apiClient.get('/subscription')
+                    if (!subData.data) {
+                      // No subscription - redirect to catalog
+                      console.log('No subscription, redirecting to catalog')
+                      navigateWithParams('/subscription-catalog')
+                      return
+                    }
+                  } catch (error) {
+                    // Error fetching subscription - assume no subscription
+                    console.log('Subscription check failed, redirecting to catalog')
+                    navigateWithParams('/subscription-catalog')
+                    return
+                  }
+                }
+                
+                // Auto-redirect for admin/super admin
                 console.log('Checking role:', userRole)
                 if (userRole === 'admin' || userRole === 'super_admin') {
                   console.log('Redirecting to admin')
@@ -710,6 +731,7 @@ function App() {
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/order-history" element={<OrderHistoryScreen />} />
         <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/subscription-catalog" element={<SubscriptionCatalog />} />
         <Route path="/payment" element={<PaymentPage />} />
         <Route path="/subscription/history" element={<SubscriptionHistory />} />
         <Route path="/admin" element={<AdminDashboard />} />

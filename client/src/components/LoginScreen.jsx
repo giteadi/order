@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, ArrowRight, X, Crown, Sparkles, Package, Check, AlertTriangle } from 'lucide-react'
 import { GoogleLogin } from '@react-oauth/google'
 import { authAPI } from '../services/api'
+import toast from 'react-hot-toast'
 
 export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot }) => {
   const [formData, setFormData] = useState({
@@ -11,6 +12,52 @@ export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot 
   })
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [showSubModal, setShowSubModal] = useState(false)
+  const [subModalType, setSubModalType] = useState('required') // 'required' or 'expired'
+  const [plans, setPlans] = useState([])
+
+  // Fetch plans when modal opens
+  useEffect(() => {
+    if (showSubModal) {
+      fetchPlans()
+    }
+  }, [showSubModal])
+
+  const fetchPlans = async () => {
+    try {
+      const response = await authAPI.getPlans?.() || fetch('/api/v1/subscription/plans').then(r => r.json())
+      if (response.data?.success) {
+        setPlans(response.data.data || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch plans:', error)
+      // Default plans if API fails
+      setPlans([
+        { id: 1, name: 'Monthly', price: 300, duration_months: 1 },
+        { id: 2, name: 'Quarterly', price: 800, duration_months: 3 },
+        { id: 3, name: 'Yearly', price: 1999, duration_months: 12 }
+      ])
+    }
+  }
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount)
+  }
+
+  const getPlanIcon = (planName) => {
+    if (planName?.toLowerCase().includes('yearly')) return <Crown className="w-6 h-6 text-yellow-500" />
+    if (planName?.toLowerCase().includes('quarterly')) return <Sparkles className="w-6 h-6 text-purple-500" />
+    return <Package className="w-6 h-6 text-blue-500" />
+  }
+
+  const handleViewPlans = () => {
+    setShowSubModal(false)
+    window.location.href = subModalType === 'expired' ? '/subscription-catalog?expired=true' : '/subscription-catalog'
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -22,6 +69,13 @@ export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot 
       // Get restaurant from URL params
       const params = new URLSearchParams(window.location.search)
       const restaurant = params.get('restaurant')
+
+      // Save email/phone for payment page
+      if (isEmail) {
+        localStorage.setItem('user_email', formData.email)
+      } else {
+        localStorage.setItem('user_phone', formData.email)
+      }
 
       const loginData = {
         password: formData.password,
@@ -49,28 +103,30 @@ export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot 
     } catch (error) {
       console.error('Login error:', error)
 
-      // Check for subscription errors
-      const errorCode = error.response?.data?.code
-      const errorMessage = error.response?.data?.message
+      // Check for subscription errors - backend sends data in error.response.data.errors
+      const errorData = error.response?.data?.errors || error.response?.data?.data || error.response?.data
+      const errorCode = errorData?.code
+      const errorMessage = errorData?.message || error.response?.data?.message
+
+      console.log('Error response:', error.response?.data)
+      console.log('Error code:', errorCode)
+      console.log('Error data:', errorData)
 
       if (errorCode === 'SUBSCRIPTION_REQUIRED') {
-        alert('Subscription required! Redirecting to pricing page...')
-        // Get restaurant from URL params for pricing page
-        const params = new URLSearchParams(window.location.search)
-        const restaurant = params.get('restaurant')
-        window.location.href = restaurant ? `/pricing?restaurant=${restaurant}` : '/pricing'
+        setSubModalType('required')
+        setShowSubModal(true)
+        toast.error('Subscription required to access dashboard')
         return
       }
 
       if (errorCode === 'SUBSCRIPTION_EXPIRED') {
-        alert('Your subscription has expired! Please renew to continue.')
-        const params = new URLSearchParams(window.location.search)
-        const restaurant = params.get('restaurant')
-        window.location.href = restaurant ? `/pricing?restaurant=${restaurant}&expired=true` : '/pricing?expired=true'
+        setSubModalType('expired')
+        setShowSubModal(true)
+        toast.error('Your subscription has expired. Please renew to continue.')
         return
       }
 
-      alert(errorMessage || 'Login failed. Please check your credentials.')
+      toast.error(errorMessage || 'Login failed. Please check your credentials.')
     } finally {
       setIsLoading(false)
     }
@@ -198,34 +254,33 @@ export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot 
                       } catch (error) {
                         console.error('Google login error:', error)
 
-                        // Check for subscription errors
-                        const errorCode = error.response?.data?.code
-                        const errorMessage = error.response?.data?.message
+                        // Check for subscription errors - backend sends data in error.response.data.errors
+                        const errorData = error.response?.data?.errors || error.response?.data?.data || error.response?.data
+                        const errorCode = errorData?.code
+                        const errorMessage = errorData?.message || error.response?.data?.message
 
                         if (errorCode === 'SUBSCRIPTION_REQUIRED') {
-                          alert('Subscription required! Redirecting to pricing page...')
-                          const params = new URLSearchParams(window.location.search)
-                          const restaurant = params.get('restaurant')
-                          window.location.href = restaurant ? `/pricing?restaurant=${restaurant}` : '/pricing'
+                          setSubModalType('required')
+                          setShowSubModal(true)
+                          toast.error('Subscription required to access dashboard')
                           return
                         }
 
                         if (errorCode === 'SUBSCRIPTION_EXPIRED') {
-                          alert('Your subscription has expired! Please renew to continue.')
-                          const params = new URLSearchParams(window.location.search)
-                          const restaurant = params.get('restaurant')
-                          window.location.href = restaurant ? `/pricing?restaurant=${restaurant}&expired=true` : '/pricing?expired=true'
+                          setSubModalType('expired')
+                          setShowSubModal(true)
+                          toast.error('Your subscription has expired. Please renew to continue.')
                           return
                         }
 
-                        alert(errorMessage || 'Google login failed. Please try again.')
+                        toast.error(errorMessage || 'Google login failed. Please try again.')
                       } finally {
                         setIsLoading(false)
                       }
                     }}
                     onError={() => {
                       console.error('Google Login Failed')
-                      alert('Google login failed. Please try again.')
+                      toast.error('Google login failed. Please try again.')
                     }}
                     useOneTap
                     theme="filled_black"
@@ -248,6 +303,117 @@ export const LoginScreen = ({ onLogin, onNavigateToRegister, onNavigateToForgot 
           </p>
         </motion.div>
       </div>
+
+      {/* Subscription Modal */}
+      {showSubModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+          >
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {subModalType === 'expired' ? (
+                    <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                      <AlertTriangle className="w-6 h-6 text-amber-600" />
+                    </div>
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                      <Crown className="w-6 h-6 text-blue-600" />
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">
+                      {subModalType === 'expired' ? 'Subscription Expired' : 'Subscription Required'}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {subModalType === 'expired'
+                        ? 'Renew to continue using all features'
+                        : 'Choose a plan to access your dashboard'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowSubModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              <p className="text-gray-600 mb-6 text-center">
+                {subModalType === 'expired'
+                  ? 'Your previous subscription has expired. Select a new plan to continue managing your restaurant.'
+                  : 'You need an active subscription to access the admin dashboard and manage orders.'}
+              </p>
+
+              {/* Plans List */}
+              <div className="space-y-3 mb-6">
+                {plans.map((plan) => (
+                  <div
+                    key={plan.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100"
+                  >
+                    <div className="flex items-center gap-3">
+                      {getPlanIcon(plan.name)}
+                      <div>
+                        <p className="font-semibold text-gray-900">{plan.name}</p>
+                        <p className="text-sm text-gray-500">{plan.duration_months} month{plan.duration_months > 1 ? 's' : ''}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-gray-900">{formatCurrency(plan.price)}</p>
+                      <p className="text-xs text-gray-500">
+                        {formatCurrency(Math.round(plan.price / plan.duration_months))}/mo
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Features */}
+              <div className="grid grid-cols-2 gap-2 text-sm mb-6">
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-green-500" />
+                  <span className="text-gray-600">Menu Management</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-green-500" />
+                  <span className="text-gray-600">Order Processing</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-green-500" />
+                  <span className="text-gray-600">Table Management</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-green-500" />
+                  <span className="text-gray-600">Analytics & Reports</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-gray-100">
+              <button
+                onClick={handleViewPlans}
+                className="w-full py-4 bg-gray-900 text-white rounded-xl font-semibold text-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+              >
+                View All Plans
+                <ArrowRight className="w-5 h-5" />
+              </button>
+              <p className="text-center text-xs text-gray-400 mt-3">
+                You will be redirected to the subscription catalog to complete your purchase
+              </p>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }

@@ -148,7 +148,8 @@ apiClient.interceptors.response.use(
 
     // Handle 403 - Subscription expired or required
     if (error.response?.status === 403) {
-      const errorCode = error.response?.data?.code
+      const errorData = error.response?.data?.errors || error.response?.data?.data || error.response?.data
+      const errorCode = errorData?.code
 
       if (errorCode === 'SUBSCRIPTION_EXPIRED' || errorCode === 'SUBSCRIPTION_REQUIRED') {
         store.dispatch(logout())
@@ -159,10 +160,10 @@ apiClient.interceptors.response.use(
             : 'Subscription required. Please purchase a plan.',
         }))
 
-        // Redirect to pricing page
+        // Redirect to subscription catalog page
         window.location.href = errorCode === 'SUBSCRIPTION_EXPIRED'
-          ? '/pricing?expired=true'
-          : '/pricing'
+          ? '/subscription-catalog?expired=true'
+          : '/subscription-catalog'
         return Promise.reject(error)
       }
 
@@ -170,7 +171,7 @@ apiClient.interceptors.response.use(
         store.dispatch(logout())
         store.dispatch(addToast({
           type: 'error',
-          message: 'Your subscription has been suspended. Please contact support.',
+          message: errorData?.message || 'Your subscription has been suspended. Please contact support.',
         }))
         return Promise.reject(error)
       }
@@ -193,6 +194,7 @@ export const authAPI = {
   login: (credentials) => apiClient.post('/auth/login', credentials),
   register: (userData) => apiClient.post('/auth/register', userData),
   logout: () => apiClient.post('/auth/logout'),
+  getPlans: () => apiClient.get('/subscription/plans'),
   getProfile: (token) => apiClient.get('/auth/profile', {
     headers: { Authorization: `Bearer ${token}` }
   }),

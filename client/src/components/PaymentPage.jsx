@@ -8,8 +8,11 @@ import toast from 'react-hot-toast'
 export const PaymentPage = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const plan = location.state?.plan
+  const searchParams = new URLSearchParams(location.search)
+  const planId = searchParams.get('plan')
+  const restaurant = searchParams.get('restaurant') || localStorage.getItem('restaurant_subdomain')
 
+  const [plan, setPlan] = useState(null)
   const [qrData, setQrData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -17,23 +20,61 @@ export const PaymentPage = () => {
   const [previewUrl, setPreviewUrl] = useState(null)
 
   useEffect(() => {
-    if (!plan) {
-      navigate('/pricing')
+    if (!planId) {
+      navigate('/subscription-catalog')
       return
     }
-    initiateSubscription()
-  }, [plan])
+    // Fetch plan details from API
+    fetchPlanDetails()
+  }, [planId])
 
-  const initiateSubscription = async () => {
+  const fetchPlanDetails = async () => {
     try {
-      const response = await apiClient.post('/subscription/subscribe', { planId: plan.id })
+      const response = await apiClient.get('/subscription/plans')
+      if (response.data.success) {
+        const plans = response.data.data
+        const selectedPlan = plans.find(p => p.id === parseInt(planId))
+        if (selectedPlan) {
+          setPlan(selectedPlan)
+          initiateSubscription(selectedPlan)
+        } else {
+          toast.error('Plan not found')
+          const params = new URLSearchParams()
+          if (restaurant) {
+            params.set('restaurant', restaurant)
+          }
+          navigate(`/subscription-catalog${params.toString() ? `?${params.toString()}` : ''}`)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch plan:', error)
+      toast.error('Failed to load plan details')
+      const params = new URLSearchParams()
+      if (restaurant) {
+        params.set('restaurant', restaurant)
+      }
+      navigate(`/subscription-catalog${params.toString() ? `?${params.toString()}` : ''}`)
+    }
+  }
+
+  const initiateSubscription = async (planData) => {
+    try {
+      // Get user email from localStorage (from login attempt)
+      const userEmail = localStorage.getItem('user_email')
+      const userPhone = localStorage.getItem('user_phone')
+
+      const response = await apiClient.post('/subscription/subscribe', {
+        planId: planData.id,
+        email: userEmail,
+        phone: userPhone
+      })
       if (response.data.success) {
         setQrData(response.data.data)
       }
     } catch (error) {
       console.error('Failed to initiate subscription:', error)
       toast.error('Failed to generate payment QR')
-      navigate('/pricing')
+      navigate('/subscription-catalog')
     } finally {
       setLoading(false)
     }
@@ -96,7 +137,7 @@ export const PaymentPage = () => {
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button
-            onClick={() => navigate('/pricing')}
+            onClick={() => navigate('/subscription-catalog')}
             className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors"
           >
             <ArrowLeft size={20} />

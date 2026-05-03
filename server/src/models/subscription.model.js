@@ -12,16 +12,25 @@ export class SubscriptionModel extends BaseModel {
   }
 
   /**
-   * Get all active plans
+   * Get all active plans (unique by name and price)
    */
   getActivePlans() {
-    const sql = `
-      SELECT id, name, price, duration_months, features
-      FROM subscription_plans
-      WHERE is_active = 1
-      ORDER BY duration_months ASC
-    `;
-    return this.query(sql);
+    try {
+      const sql = `
+        SELECT id, name, price, duration_months, features
+        FROM subscription_plans
+        WHERE is_active = 1
+        GROUP BY name, price
+        HAVING id = MIN(id)
+        ORDER BY duration_months ASC
+      `;
+      const result = this.query(sql);
+      // Ensure always return array
+      return Array.isArray(result) ? result : [];
+    } catch (error) {
+      logger.error('getActivePlans error', { error: error.message });
+      return [];
+    }
   }
 
   /**
@@ -33,7 +42,7 @@ export class SubscriptionModel extends BaseModel {
       FROM subscription_plans
       WHERE id = ? AND is_active = 1
     `;
-    return this.queryOne(sql, planId);
+    return this.queryOne(sql, [planId]);
   }
 
   /**
@@ -55,7 +64,7 @@ export class SubscriptionModel extends BaseModel {
       VALUES (?, ?, ?, ?, 'pending', ?, ?)
     `;
 
-    const result = this.execute(sql, [
+    const result = this.run(sql, [
       userId,
       planId,
       startDate.toISOString(),
@@ -64,7 +73,7 @@ export class SubscriptionModel extends BaseModel {
       paymentProof
     ]);
 
-    return this.getById(result.lastID);
+    return this.getById(result.lastInsertRowid);
   }
 
   /**
@@ -81,7 +90,7 @@ export class SubscriptionModel extends BaseModel {
       ORDER BY us.end_date DESC
       LIMIT 1
     `;
-    return this.queryOne(sql, userId);
+    return this.queryOne(sql, [userId]);
   }
 
   /**
@@ -95,7 +104,7 @@ export class SubscriptionModel extends BaseModel {
       WHERE us.user_id = ?
       ORDER BY us.created_at DESC
     `;
-    return this.query(sql, userId);
+    return this.query(sql, [userId]);
   }
 
   /**
@@ -189,7 +198,7 @@ export class SubscriptionModel extends BaseModel {
       ORDER BY us.end_date DESC
       LIMIT 1
     `;
-    return this.queryOne(sql, userId);
+    return this.queryOne(sql, [userId]);
   }
 
   /**

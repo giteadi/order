@@ -18,15 +18,21 @@ export class SubscriptionController {
     try {
       const plans = Subscription.getActivePlans();
       
+      // Safety check - ensure plans is array
+      if (!Array.isArray(plans)) {
+        logger.error('getActivePlans did not return array', { plans });
+        return error(res, 'Failed to fetch plans');
+      }
+      
       // Parse features JSON
       const plansWithFeatures = plans.map(plan => ({
         ...plan,
-        features: JSON.parse(plan.features || '[]')
+        features: plan.features ? JSON.parse(plan.features) : []
       }));
 
       return success(res, plansWithFeatures);
     } catch (err) {
-      logger.error('Get plans failed', { error: err.message });
+      logger.error('Get plans failed', { error: err.message, stack: err.stack });
       return error(res, 'Failed to fetch plans');
     }
   }
@@ -39,72 +45,130 @@ export class SubscriptionController {
       const userId = req.user.id;
       const subscription = Subscription.getUserActiveSubscription(userId);
       
-      if (subscription) {
-        subscription.features = JSON.parse(subscription.features || '[]');
+      if (subscription && typeof subscription === 'object') {
+        try {
+          subscription.features = JSON.parse(subscription.features || '[]');
+        } catch (e) {
+          subscription.features = [];
+        }
       }
 
       return success(res, subscription || null);
     } catch (err) {
-      logger.error('Get subscription failed', { error: err.message });
+      logger.error('Get subscription failed', { error: err.message, stack: err.stack });
       return error(res, 'Failed to fetch subscription');
     }
   }
 
   /**
-   * Initiate subscription (generate QR)
+   * Initiate subscription (generate QR) - Public endpoint
    */
-  static initiateSubscription(req, res) {
+  static async initiateSubscription(req, res) {
     try {
-      const { planId } = req.body;
-      const userId = req.user.id;
+      const { planId, email, phone } = req.body;
+
+      // DEBUG LOG
+      logger.info('INITIATE SUBSCRIPTION DEBUG', {
+        body: req.body,
+        planId,
+        email,
+        phone,
+        type: typeof req.body
+      });
 
       if (!planId) {
         return badRequest(res, 'Plan ID is required');
       }
 
+      if (!email && !phone) {
+        return badRequest(res, 'Email or phone is required');
+      }
+
+      // Find user by email or phone (null-safe)
+      const db = getDB();
+      const user = db.prepare(`
+        SELECT id, email, phone, name
+        FROM users
+        WHERE (email = ? AND ? IS NOT NULL) 
+           OR (phone = ? AND ? IS NOT NULL)
+      `).get(email || null, email || null, phone || null, phone || null);
+
+      if (!user) {
+        return notFound(res, 'User not found');
+      }
+
       // Check if user already has active subscription
-      const existingSub = Subscription.getUserActiveSubscription(userId);
+      const existingSub = Subscription.getUserActiveSubscription(user.id);
       if (existingSub) {
         return badRequest(res, 'You already have an active subscription');
       }
 
       // Get plan details
       const plan = Subscription.getPlanById(planId);
-      if (!plan) {
-        return notFound(res, 'Plan not found');
+      
+      // DEBUG LOG
+      logger.info('PLAN DATA DEBUG', {
+        plan,
+        planId,
+        planType: typeof plan,
+        isArray: Array.isArray(plan),
+        keys: plan ? Object.keys(plan) : null
+      });
+      
+      // Safety check for plan data (BEFORE using plan properties)
+      if (!plan || typeof plan !== 'object') {
+        logger.error('Invalid plan data from DB', { plan, type: typeof plan, planId });
+        return error(res, 'Invalid plan data from database');
+      }
+      
+      if (!plan.price || !plan.duration_months) {
+        logger.error('Plan missing required fields', { plan });
+        return error(res, 'Plan configuration incomplete');
       }
 
       // Generate unique transaction ID
-      const transactionId = `SUB_${userId}_${Date.now()}`;
+      const transactionId = `SUB_${user.id}_${Date.now()}`;
 
       // Generate UPI QR
       const upiId = '9516696009@ybl';
       const upiName = 'SARS Services';
       const upiLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${plan.price}&cu=INR&tn=${encodeURIComponent(transactionId)}`;
 
-      QRCode.toDataURL(upiLink, {
-        width: 300,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff'
-        }
-      }, (err, qrDataUrl) => {
-        if (err) {
-          logger.error('QR generation failed', { error: err.message });
-          return error(res, 'Failed to generate QR code');
-        }
-
-        return success(res, {
-          plan: {
-            ...plan,
-            features: JSON.parse(plan.features || '[]')
-          },
-          qrCode: qrDataUrl,
-          upiLink,
-          transactionId,
-          amount: plan.price
+      // Generate QR with error handling
+      let qrDataUrl;
+      try {
+        qrDataUrl = await QRCode.toDataURL(upiLink, {
+          width: 300,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#ffffff'
+          }
         });
+      } catch (qrErr) {
+        logger.error('QR generation failed', { error: qrErr.message });
+        return error(res, 'Failed to generate payment QR code');
+      }
+
+      let features = [];
+      try {
+        features = plan.features ? JSON.parse(plan.features) : [];
+      } catch (e) {
+        features = [];
+      }
+
+      return success(res, {
+        plan: {
+          id: plan.id,
+          name: plan.name,
+          price: plan.price,
+          duration_months: plan.duration_months,
+          features
+        },
+        qrCode: qrDataUrl,
+        upiLink,
+        transactionId,
+        amount: plan.price
       });
 
     } catch (err) {

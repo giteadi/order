@@ -6,13 +6,13 @@ const router = Router();
 
 // Public routes
 router.get('/plans', SubscriptionController.getPlans);
+router.post('/subscribe', SubscriptionController.initiateSubscription);
 
 // Protected routes
 router.use(authenticate);
 
-router.get('/subscription', SubscriptionController.getMySubscription);
-router.get('/subscription/history', SubscriptionController.getMyHistory);
-router.post('/subscribe', SubscriptionController.initiateSubscription);
+router.get('/', SubscriptionController.getMySubscription);
+router.get('/history', SubscriptionController.getMyHistory);
 router.post('/payments/submit', SubscriptionController.submitPayment);
 
 // Admin only routes

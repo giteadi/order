@@ -17,7 +17,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurantId;
+      const userId = req.user?.restaurant_id;
       const restaurantId = tenantId || userId;
       const userRole = req.user?.role;
 
@@ -120,7 +120,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurantId;
+      const userId = req.user?.restaurant_id;
       const restaurantId = tenantId || userId;
       const { status, limit = 50, offset = 0 } = req.query;
 
@@ -176,7 +176,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurantId;
+      const userId = req.user?.restaurant_id;
       const restaurantId = tenantId || userId;
       const today = new Date().toISOString().split('T')[0];
 
@@ -226,7 +226,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurantId;
+      const userId = req.user?.restaurant_id;
       const restaurantId = tenantId || userId;
 
       const today = new Date().toISOString().split('T')[0];
@@ -317,7 +317,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurantId;
+      const userId = req.user?.restaurant_id;
       const restaurantId = tenantId || userId;
       const userRole = req.user?.role;
       const { role, limit = 50, offset = 0 } = req.query;
@@ -369,7 +369,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurantId;
+      const userId = req.user?.restaurant_id;
       const restaurantId = tenantId || userId;
       const userRole = req.user?.role;
 
@@ -407,7 +407,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurantId;
+      const userId = req.user?.restaurant_id;
       const restaurantId = tenantId || userId;
       const userRole = req.user?.role;
 
@@ -490,7 +490,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurantId;
+      const userId = req.user?.restaurant_id;
       const restaurantId = tenantId || userId;
 
       let query = `
@@ -526,7 +526,7 @@ export class AdminController {
     try {
       const db = getDB();
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurantId;
+      const userId = req.user?.restaurant_id;
       const restaurantId = tenantId || userId;
 
       let query = `
@@ -563,7 +563,7 @@ export class AdminController {
       const db = getDB();
       const { tableNumber, capacity, location, restaurantId: bodyRestaurantId } = req.body;
       const tenantRestaurantId = req.tenant?.restaurantId;
-      const userRestaurantId = req.user?.restaurantId;
+      const userRestaurantId = req.user?.restaurant_id;
       const restaurantId = tenantRestaurantId || bodyRestaurantId || userRestaurantId;
 
       // Get restaurant subdomain for QR code
