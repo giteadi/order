@@ -57,9 +57,14 @@ export const SubscriptionCatalog = () => {
   const fetchCurrentSubscription = async () => {
     try {
       const response = await apiClient.get('/subscription')
-      if (response.data.success) {
-        setCurrentSubscription(response.data.data)
+      if (response.data.success && response.data.data) {
+        // Active subscription hai — directly admin dashboard pe bhejo
+        const params = new URLSearchParams()
+        if (restaurant) params.set('restaurant', restaurant)
+        navigate(`/admin${params.toString() ? `?${params.toString()}` : ''}`)
+        return
       }
+      setCurrentSubscription(response.data.data)
     } catch (error) {
       console.error('Failed to fetch subscription:', error)
     }
