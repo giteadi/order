@@ -29,6 +29,12 @@ import {
 } from './store/slices/uiSlice'
 import { logout, selectIsAuthenticated, selectUser, selectToken, setUser } from './store/slices/authSlice'
 import { fetchRestaurantBySubdomain, selectCurrentRestaurant } from './store/slices/restaurantSlice'
+import { 
+  fetchCategories, fetchProducts, fetchMenu,
+  selectCategories, selectFullMenu, selectMenuLoading,
+  setSelectedCategory as setReduxCategory,
+  setSelectedSubcategory as setReduxSubcategory,
+} from './store/slices/menuSlice'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -75,111 +81,6 @@ import { RefundPolicy } from './components/RefundPolicy'
 import { useTableNumber } from './hooks/useTableNumber'
 import { useCursor } from './hooks/useCursor'
 
-const menuData = {
-  categories: [
-    { id: 2, name: 'Coffee/Beverage Menu', icon: '☕' },
-    { id: 3, name: 'Food Menu', icon: '🍽️' }
-  ],
-  subcategories: {
-    2: [
-      { id: 'espresso', name: 'Espresso Classics', count: 11 },
-      { id: 'artisan', name: 'Artisan Espresso', count: 8 },
-      { id: 'iced', name: 'Iced Classics', count: 10 },
-      { id: 'iced-tea', name: 'Iced Tea', count: 6 },
-      { id: 'signature', name: 'ArtHaus Signature', count: 7 },
-      { id: 'matcha', name: 'Matcha Collection', count: 5 },
-      { id: 'iced-brew', name: 'Signature Iced Brews', count: 9 },
-      { id: 'frappe', name: 'Frappes & Cold', count: 12 },
-      { id: 'dessert', name: 'Coffee Desserts', count: 8 },
-      { id: 'special', name: 'Special Frappes', count: 6 },
-      { id: 'milkshake', name: 'Milkshakes', count: 7 },
-      { id: 'coolers', name: 'Coolers & Refreshers', count: 5 },
-      { id: 'extras', name: 'Extras & Add-Ons', count: 15 }
-    ],
-    3: [
-      { id: 'breakfast', name: 'Breakfast', count: 8 },
-      { id: 'sandwiches', name: 'Sandwiches', count: 12 },
-      { id: 'pasta', name: 'Pasta', count: 10 },
-      { id: 'pizza', name: 'Pizza', count: 8 },
-      { id: 'burgers', name: 'Burgers', count: 6 },
-      { id: 'salads', name: 'Salads', count: 7 },
-      { id: 'desserts', name: 'Desserts', count: 10 }
-    ]
-  },
-  products: {
-    espresso: [
-      { id: 1, name: 'Espresso', price: 120, image: '☕', description: 'Pure, bold, intense' },
-      { id: 2, name: 'Americano', price: 140, image: '🫖', description: 'Smooth, diluted perfection' },
-      { id: 3, name: 'Macchiato', price: 150, image: '🥛', description: 'Espresso marked with foam' },
-      { id: 4, name: 'Cortado', price: 160, image: '🍶', description: 'Balanced espresso with milk' },
-      { id: 5, name: 'Doppio', price: 180, image: '☕', description: 'Double espresso shot' },
-      { id: 6, name: 'Lungo', price: 150, image: '🫖', description: 'Long-pulled espresso' },
-      { id: 7, name: 'Ristretto', price: 170, image: '☕', description: 'Short, concentrated shot' },
-      { id: 8, name: 'Flat White', price: 190, image: '🥛', description: 'Velvety microfoam' },
-      { id: 9, name: 'Piccolo', price: 160, image: '🥛', description: 'Small latte' },
-      { id: 10, name: 'Affogato', price: 220, image: '🍨', description: 'Espresso over ice cream' },
-      { id: 11, name: 'Red Eye', price: 200, image: '☕', description: 'Espresso with drip coffee' }
-    ],
-    breakfast: [
-      { id: 101, name: 'Pancakes', price: 180, image: '🥞', description: 'Fluffy with maple syrup' },
-      { id: 102, name: 'French Toast', price: 200, image: '🍞', description: 'Classic breakfast favorite' },
-      { id: 103, name: 'Omelette', price: 150, image: '🍳', description: 'Three eggs, your choice' },
-      { id: 104, name: 'Avocado Toast', price: 220, image: '🥑', description: 'Fresh avocado on sourdough' },
-      { id: 105, name: 'Waffles', price: 190, image: '🧇', description: 'Crispy golden waffles' },
-      { id: 106, name: 'Breakfast Burrito', price: 210, image: '🌯', description: 'Eggs, cheese, beans' },
-      { id: 107, name: 'Bagel & Cream Cheese', price: 140, image: '🥯', description: 'Toasted bagel' },
-      { id: 108, name: 'Eggs Benedict', price: 250, image: '🍳', description: 'Poached eggs, hollandaise' }
-    ],
-    sandwiches: [
-      { id: 201, name: 'Club Sandwich', price: 250, image: '🥪', description: 'Triple decker classic' },
-      { id: 202, name: 'Grilled Cheese', price: 180, image: '🧀', description: 'Melted cheese perfection' },
-      { id: 203, name: 'BLT', price: 220, image: '🥓', description: 'Bacon, lettuce, tomato' },
-      { id: 204, name: 'Veggie Delight', price: 200, image: '🥗', description: 'Fresh vegetables & hummus' },
-      { id: 205, name: 'Turkey Club', price: 260, image: '🥪', description: 'Turkey, bacon, cheese' },
-      { id: 206, name: 'Reuben', price: 240, image: '🥪', description: 'Corned beef, sauerkraut' },
-      { id: 207, name: 'Caprese', price: 210, image: '🥪', description: 'Mozzarella, tomato, basil' },
-      { id: 208, name: 'Tuna Melt', price: 195, image: '🥪', description: 'Tuna salad, melted cheese' }
-    ],
-    pasta: [
-      { id: 301, name: 'Spaghetti Carbonara', price: 320, image: '🍝', description: 'Creamy Italian classic' },
-      { id: 302, name: 'Penne Arrabbiata', price: 280, image: '🍝', description: 'Spicy tomato sauce' },
-      { id: 303, name: 'Fettuccine Alfredo', price: 340, image: '🍝', description: 'Rich cream sauce' },
-      { id: 304, name: 'Pesto Pasta', price: 300, image: '🍝', description: 'Fresh basil pesto' },
-      { id: 305, name: 'Lasagna', price: 350, image: '🍝', description: 'Layered meat & cheese' },
-      { id: 306, name: 'Ravioli', price: 330, image: '🍝', description: 'Stuffed pasta pillows' },
-      { id: 307, name: 'Mac & Cheese', price: 260, image: '🍝', description: 'Creamy comfort food' },
-      { id: 308, name: 'Bolognese', price: 310, image: '🍝', description: 'Meat tomato sauce' }
-    ],
-    pizza: [
-      { id: 401, name: 'Margherita', price: 350, image: '🍕', description: 'Classic tomato & mozzarella' },
-      { id: 402, name: 'Pepperoni', price: 400, image: '🍕', description: 'Loaded with pepperoni' },
-      { id: 403, name: 'Veggie Supreme', price: 380, image: '🍕', description: 'Garden fresh vegetables' },
-      { id: 404, name: 'BBQ Chicken', price: 420, image: '🍕', description: 'Smoky BBQ sauce & chicken' },
-      { id: 405, name: 'Hawaiian', price: 390, image: '🍕', description: 'Ham & pineapple' },
-      { id: 406, name: 'Meat Lovers', price: 450, image: '🍕', description: 'All the meats' },
-      { id: 407, name: 'Four Cheese', price: 410, image: '🍕', description: 'Cheese blend delight' },
-      { id: 408, name: 'Mushroom', price: 370, image: '🍕', description: 'Fresh mushroom topping' }
-    ],
-    burgers: [
-      { id: 501, name: 'Classic Burger', price: 280, image: '🍔', description: 'Beef patty with all fixings' },
-      { id: 502, name: 'Cheese Burger', price: 320, image: '🍔', description: 'Double cheese delight' },
-      { id: 503, name: 'Veggie Burger', price: 260, image: '🍔', description: 'Plant-based patty' },
-      { id: 504, name: 'Chicken Burger', price: 300, image: '🍔', description: 'Grilled chicken breast' }
-    ],
-    salads: [
-      { id: 601, name: 'Caesar Salad', price: 220, image: '🥗', description: 'Romaine, parmesan, croutons' },
-      { id: 602, name: 'Greek Salad', price: 240, image: '🥗', description: 'Feta, olives, cucumber' },
-      { id: 603, name: 'Garden Salad', price: 200, image: '🥗', description: 'Fresh mixed greens' },
-      { id: 604, name: 'Quinoa Bowl', price: 280, image: '🥗', description: 'Protein-packed quinoa' }
-    ],
-    desserts: [
-      { id: 701, name: 'Chocolate Cake', price: 180, image: '🍰', description: 'Rich chocolate layers' },
-      { id: 702, name: 'Cheesecake', price: 200, image: '🍰', description: 'Creamy New York style' },
-      { id: 703, name: 'Brownie', price: 150, image: '🍫', description: 'Fudgy chocolate brownie' },
-      { id: 704, name: 'Ice Cream', price: 120, image: '🍨', description: 'Three scoops, your choice' }
-    ]
-  }
-}
 
 function App() {
   const navigate = useNavigate()
@@ -196,8 +97,15 @@ function App() {
   const user = useSelector(selectUser)
   const token = useSelector(selectToken)
   
-  const [selectedCategory, setSelectedCategory] = useState(2)
-  const [selectedSubcategory, setSelectedSubcategory] = useState('espresso')
+  const [selectedCategory, setSelectedCategory] = useState(null)
+  const [selectedSubcategory, setSelectedSubcategory] = useState(null)
+  const [dynamicSubcategories, setDynamicSubcategories] = useState([])
+  const [dynamicProducts, setDynamicProducts] = useState([])
+  const [menuLoading, setMenuLoading] = useState(false)
+
+  // Dynamic menu from Redux
+  const apiCategories = useSelector(selectCategories)
+  const fullMenu = useSelector(selectFullMenu)
   const [isGroupOrderOpen, setIsGroupOrderOpen] = useState(false)
   const [isGroupOrderScreenOpen, setIsGroupOrderScreenOpen] = useState(false)
   const [groupOrderData, setGroupOrderData] = useState({
@@ -232,7 +140,59 @@ function App() {
     }
   }, [dispatch, restaurant?.subdomain])
   
-  // Redux action wrappers
+  // Fetch menu from API
+  useEffect(() => {
+    dispatch(fetchMenu())
+  }, [dispatch])
+
+  // When categories load, select first one
+  useEffect(() => {
+    if (apiCategories?.length > 0 && !selectedCategory) {
+      const firstCat = apiCategories[0]
+      setSelectedCategory(firstCat.id)
+    }
+  }, [apiCategories])
+
+  // When category changes, load subcategories
+  useEffect(() => {
+    if (!selectedCategory) return
+    const loadSubcategories = async () => {
+      try {
+        const { menuAPI } = await import('./services/api')
+        const res = await menuAPI.getSubcategories(selectedCategory)
+        if (res.data.success) {
+          const subs = res.data.data || []
+          setDynamicSubcategories(subs)
+          if (subs.length > 0) {
+            setSelectedSubcategory(subs[0].id)
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load subcategories', e)
+      }
+    }
+    loadSubcategories()
+  }, [selectedCategory])
+
+  // When subcategory changes, load products
+  useEffect(() => {
+    if (!selectedSubcategory) return
+    const loadProducts = async () => {
+      setMenuLoading(true)
+      try {
+        const { menuAPI } = await import('./services/api')
+        const res = await menuAPI.getProducts(selectedSubcategory)
+        if (res.data.success) {
+          setDynamicProducts(res.data.data || [])
+        }
+      } catch (e) {
+        console.error('Failed to load products', e)
+      } finally {
+        setMenuLoading(false)
+      }
+    }
+    loadProducts()
+  }, [selectedSubcategory])
   const handleAddToCart = (product, qty = 1) => {
     dispatch(addItem({ product, quantity: qty }))
     dispatch(closeProductModal())
@@ -328,7 +288,7 @@ function App() {
     }
   }
 
-  const filteredProducts = menuData.products[selectedSubcategory]?.filter(p =>
+  const filteredProducts = dynamicProducts.filter(p =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   ) || []
 
@@ -521,14 +481,14 @@ function App() {
               user={user}
             />
             <CategoryTabs 
-              categories={menuData.categories}
+              categories={apiCategories}
               selectedCategory={selectedCategory}
               onSelectCategory={setSelectedCategory}
             />
             <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6">
               <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] xl:grid-cols-[280px_1fr] gap-4 lg:gap-6">
                 <SubcategorySidebar 
-                  subcategories={menuData.subcategories[selectedCategory]}
+                  subcategories={dynamicSubcategories}
                   selectedSubcategory={selectedSubcategory}
                   onSelectSubcategory={setSelectedSubcategory}
                 />
@@ -541,9 +501,9 @@ function App() {
                       className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-900 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-900/10"
                       style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
                     >
-                      {menuData.subcategories[selectedCategory]?.map((sub) => (
+                      {dynamicSubcategories.map((sub) => (
                         <option key={sub.id} value={sub.id}>
-                          {sub.name} ({sub.count} items)
+                          {sub.name}
                         </option>
                       ))}
                     </select>
@@ -551,14 +511,20 @@ function App() {
 
                   {/* Desktop: Show heading */}
                   <h2 className="hidden lg:block text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">
-                    {menuData.subcategories[selectedCategory]?.find(s => s.id === selectedSubcategory)?.name}
+                    {dynamicSubcategories.find(s => s.id === selectedSubcategory)?.name}
                   </h2>
-                  <ProductGrid 
-                    products={filteredProducts}
-                    onAddToCart={handleAddToCart}
-                    onProductClick={handleProductClick}
-                    onCursorHover={setHovering}
-                  />
+                  {menuLoading ? (
+                    <div className="flex items-center justify-center py-20">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                    </div>
+                  ) : (
+                    <ProductGrid 
+                      products={filteredProducts}
+                      onAddToCart={handleAddToCart}
+                      onProductClick={handleProductClick}
+                      onCursorHover={setHovering}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -773,14 +739,14 @@ function App() {
               user={user}
             />
             <CategoryTabs 
-              categories={menuData.categories}
+              categories={apiCategories}
               selectedCategory={selectedCategory}
               onSelectCategory={setSelectedCategory}
             />
             <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6">
               <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] xl:grid-cols-[280px_1fr] gap-4 lg:gap-6">
                 <SubcategorySidebar 
-                  subcategories={menuData.subcategories[selectedCategory]}
+                  subcategories={dynamicSubcategories}
                   selectedSubcategory={selectedSubcategory}
                   onSelectSubcategory={setSelectedSubcategory}
                 />
@@ -792,22 +758,28 @@ function App() {
                       className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-900 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-900/10"
                       style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
                     >
-                      {menuData.subcategories[selectedCategory]?.map((sub) => (
+                      {dynamicSubcategories.map((sub) => (
                         <option key={sub.id} value={sub.id}>
-                          {sub.name} ({sub.count} items)
+                          {sub.name}
                         </option>
                       ))}
                     </select>
                   </div>
                   <h2 className="hidden lg:block text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">
-                    {menuData.subcategories[selectedCategory]?.find(s => s.id === selectedSubcategory)?.name}
+                    {dynamicSubcategories.find(s => s.id === selectedSubcategory)?.name}
                   </h2>
-                  <ProductGrid 
-                    products={filteredProducts}
-                    onAddToCart={handleAddToCart}
-                    onProductClick={handleProductClick}
-                    onCursorHover={setHovering}
-                  />
+                  {menuLoading ? (
+                    <div className="flex items-center justify-center py-20">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                    </div>
+                  ) : (
+                    <ProductGrid 
+                      products={filteredProducts}
+                      onAddToCart={handleAddToCart}
+                      onProductClick={handleProductClick}
+                      onCursorHover={setHovering}
+                    />
+                  )}
                 </div>
               </div>
             </div>

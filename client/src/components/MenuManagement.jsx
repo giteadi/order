@@ -63,9 +63,9 @@ export const MenuManagement = () => {
       }
 
       if (editingProduct) {
-        await apiClient.patch(`/menu/products/${editingProduct.id}`, data)
+        await apiClient.patch(`/menu/${editingProduct.id}`, data)
       } else {
-        await apiClient.post('/menu/products', data)
+        await apiClient.post('/menu', data)
       }
 
       setShowAddModal(false)
@@ -82,7 +82,7 @@ export const MenuManagement = () => {
     if (!confirm('Are you sure you want to delete this product?')) return
 
     try {
-      await apiClient.delete(`/menu/products/${id}`)
+      await apiClient.delete(`/menu/${id}`)
       fetchData()
     } catch (error) {
       console.error('Failed to delete product:', error)
