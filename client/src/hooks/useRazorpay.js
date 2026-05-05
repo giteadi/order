@@ -10,7 +10,7 @@
 import { useState, useEffect } from 'react'
 
 const RAZORPAY_SCRIPT = 'https://checkout.razorpay.com/v1/checkout.js'
-const KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_DUMMYKEYID123456'
+const KEY_ID = 'rzp_live_SlgegdggUFnkbP'
 
 function loadScript(src) {
   return new Promise((resolve) => {

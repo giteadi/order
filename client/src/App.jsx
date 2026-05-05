@@ -74,7 +74,6 @@ import { SubscriptionHistory } from './components/SubscriptionHistory'
 import { PaymentVerification } from './components/PaymentVerification'
 import { SuperAdminSubscriptions } from './components/SuperAdminSubscriptions'
 import { SubscriptionCatalog } from './components/SubscriptionCatalog'
-import { Footer } from './components/Footer'
 import { PrivacyPolicy } from './components/PrivacyPolicy'
 import { TermsAndConditions } from './components/TermsAndConditions'
 import { RefundPolicy } from './components/RefundPolicy'
@@ -848,7 +847,6 @@ function App() {
       />
 
       <BottomNav />
-      <Footer />
       <Toaster position="top-center" />
     </div>
   )
