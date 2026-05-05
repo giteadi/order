@@ -130,10 +130,39 @@ export class ProductController {
   static create(req, res) {
     try {
       const data = req.body;
-      
+
+      // Normalize fields to match DB column names
+      if (data.subcategoryId !== undefined && data.subcategory_id === undefined) {
+        data.subcategory_id = data.subcategoryId;
+      }
+
+      // Remove fields that don't exist on products table
+      delete data.subcategoryId;
+      delete data.categoryId;
+      delete data.category_id;
+
+      // Normalize boolean fields for SQLite (booleans are not valid bind types)
+      if (data.is_available !== undefined) data.is_available = data.is_available ? 1 : 0;
+      if (data.is_vegetarian !== undefined) data.is_vegetarian = data.is_vegetarian ? 1 : 0;
+      if (data.is_spicy !== undefined) data.is_spicy = data.is_spicy ? 1 : 0;
+
       // Parse JSON fields
       if (data.allergens) data.allergens = JSON.stringify(data.allergens);
       if (data.customizationOptions) data.customization_options = JSON.stringify(data.customizationOptions);
+      delete data.customizationOptions;
+
+      // Remove undefined values (SQLite bind doesn't accept undefined)
+      for (const key of Object.keys(data)) {
+        if (data[key] === undefined) {
+          delete data[key];
+        }
+      }
+
+      logger.info('Creating product - insert keys', {
+        keys: Object.keys(data),
+        hasCategoryId: Object.prototype.hasOwnProperty.call(data, 'categoryId'),
+        hasCategory_id: Object.prototype.hasOwnProperty.call(data, 'category_id'),
+      });
 
       const result = Product.create(data);
       const product = Product.findById(result.id);
@@ -161,9 +190,27 @@ export class ProductController {
         return notFound(res, 'Product');
       }
 
+      // Normalize fields to match DB column names
+      if (data.subcategoryId !== undefined && data.subcategory_id === undefined) {
+        data.subcategory_id = data.subcategoryId;
+      }
+
+      // Remove fields that don't exist on products table
+      delete data.subcategoryId;
+      delete data.categoryId;
+      delete data.category_id;
+
       // Parse JSON fields
       if (data.allergens) data.allergens = JSON.stringify(data.allergens);
       if (data.customizationOptions) data.customization_options = JSON.stringify(data.customizationOptions);
+      delete data.customizationOptions;
+
+      // Remove undefined values (SQLite bind doesn't accept undefined)
+      for (const key of Object.keys(data)) {
+        if (data[key] === undefined) {
+          delete data[key];
+        }
+      }
 
       Product.update(id, data);
       const product = Product.findById(id);

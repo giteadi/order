@@ -9,6 +9,7 @@ export const MenuManagement = () => {
   const navigate = useNavigateWithParams()
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
+  const [subcategories, setSubcategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
@@ -32,6 +33,26 @@ export const MenuManagement = () => {
   useEffect(() => {
     fetchData()
   }, [])
+
+  // Fetch subcategories when category is selected in form
+  useEffect(() => {
+    const fetchSubcategories = async () => {
+      if (formData.category_id) {
+        try {
+          const response = await menuAPI.getSubcategories(formData.category_id)
+          if (response.data.success) {
+            setSubcategories(response.data.data || [])
+          }
+        } catch (error) {
+          console.error('[MenuManagement] Failed to fetch subcategories:', error)
+          setSubcategories([])
+        }
+      } else {
+        setSubcategories([])
+      }
+    }
+    fetchSubcategories()
+  }, [formData.category_id])
 
   const fetchData = async () => {
     try {
@@ -79,11 +100,24 @@ export const MenuManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     console.log('[MenuManagement] Form submit - editingProduct:', editingProduct)
+
+    // Validate required fields
+    if (!formData.subcategory_id) {
+      alert('Please select a subcategory')
+      return
+    }
+
     try {
       const data = {
-        ...formData,
+        name: formData.name,
+        description: formData.description,
         price: parseFloat(formData.price),
         allergens: formData.allergens.split(',').map(a => a.trim()).filter(Boolean),
+        subcategoryId: parseInt(formData.subcategory_id),
+        image_url: formData.image_url || undefined,
+        is_available: formData.is_available,
+        is_vegetarian: formData.is_vegetarian,
+        is_spicy: formData.is_spicy,
       }
       console.log('[MenuManagement] Submitting data:', data)
 
@@ -133,7 +167,7 @@ export const MenuManagement = () => {
     }
   }
 
-  const handleEdit = (product) => {
+  const handleEdit = async (product) => {
     setEditingProduct(product)
     setFormData({
       name: product.name,
@@ -147,6 +181,20 @@ export const MenuManagement = () => {
       is_spicy: product.is_spicy,
       allergens: (product.allergens || []).join(', '),
     })
+
+    // Fetch subcategories for the product's category
+    if (product.category_id) {
+      try {
+        const response = await menuAPI.getSubcategories(product.category_id)
+        if (response.data.success) {
+          setSubcategories(response.data.data || [])
+        }
+      } catch (error) {
+        console.error('[MenuManagement] Failed to fetch subcategories for edit:', error)
+        setSubcategories([])
+      }
+    }
+
     setShowAddModal(true)
   }
 
@@ -163,6 +211,7 @@ export const MenuManagement = () => {
       is_spicy: false,
       allergens: '',
     })
+    setSubcategories([])
   }
 
   const filteredProducts = products.filter(product => {
@@ -399,6 +448,30 @@ export const MenuManagement = () => {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Subcategory *
+                </label>
+                <select
+                  required
+                  value={formData.subcategory_id}
+                  onChange={(e) => setFormData({ ...formData, subcategory_id: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-900 focus:outline-none"
+                  disabled={!formData.category_id || subcategories.length === 0}
+                >
+                  <option value="">
+                    {!formData.category_id
+                      ? 'Select a category first'
+                      : subcategories.length === 0
+                        ? 'No subcategories available'
+                        : 'Select Subcategory'}
+                  </option>
+                  {subcategories.map(sub => (
+                    <option key={sub.id} value={sub.id}>{sub.name}</option>
+                  ))}
+                </select>
               </div>
 
               <div>

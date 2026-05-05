@@ -139,8 +139,13 @@ export const validators = {
   // Product validations (Admin only)
   createProduct: [
     body('subcategoryId')
+      .optional({ nullable: true, checkFalsy: true })
       .isInt({ min: 1 })
       .withMessage('Invalid subcategory ID'),
+    body('categoryId')
+      .optional({ nullable: true, checkFalsy: true })
+      .isInt({ min: 1 })
+      .withMessage('Invalid category ID'),
     body('name')
       .trim()
       .isLength({ min: 2, max: 100 })
@@ -149,7 +154,7 @@ export const validators = {
       .isFloat({ min: 0.01 })
       .withMessage('Price must be greater than 0'),
     body('description')
-      .optional()
+      .optional({ nullable: true, checkFalsy: true })
       .isLength({ max: 500 })
       .withMessage('Description too long'),
     handleValidationErrors,
