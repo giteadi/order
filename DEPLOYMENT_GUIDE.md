@@ -171,7 +171,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 CORS_ORIGIN=https://vishnuhastkalakendra.com,https://www.vishnuhastkalakendra.com
 
 # Google OAuth
-GOOGLE_CLIENT_ID=144932328528-pt437uppkbiqdp7blb898gk7en2lsppn.apps.googleusercontent.com
+GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 
 # Logging
 LOG_LEVEL=info

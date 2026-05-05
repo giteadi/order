@@ -6,9 +6,12 @@ import { Logger } from '../utils/logger.js';
 
 const logger = Logger.getInstance();
 
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_DUMMYKEYID123456';
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'dummy_secret_key_replace_in_production';
+
 const razorpay = new Razorpay({
-  key_id: 'rzp_test_SkoqveP6asxSMq',
-  key_secret: 'EyjOjmhA76eCoQVxd50zn9sS',
+  key_id: RAZORPAY_KEY_ID,
+  key_secret: RAZORPAY_KEY_SECRET,
 });
 
 /**
@@ -92,7 +95,7 @@ export async function verifyRazorpayPayment(req, res) {
     // Verify signature
     const body = `${razorpay_order_id}|${razorpay_payment_id}`;
     const expectedSignature = crypto
-      .createHmac('sha256', 'EyjOjmhA76eCoQVxd50zn9sS')
+      .createHmac('sha256', RAZORPAY_KEY_SECRET)
       .update(body)
       .digest('hex');
 

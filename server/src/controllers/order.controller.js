@@ -122,9 +122,11 @@ export class OrderController {
       if (paymentMethod === 'razorpay') {
         try {
           const Razorpay = require('razorpay');
+          const razorpayKeyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_DUMMYKEYID123456';
+          const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET || 'dummy_secret_key_replace_in_production';
           const razorpay = new Razorpay({
-            key_id: 'rzp_test_SkoqveP6asxSMq',
-            key_secret: 'EyjOjmhA76eCoQVxd50zn9sS',
+            key_id: razorpayKeyId,
+            key_secret: razorpayKeySecret,
           });
 
           const razorpayOrder = await razorpay.orders.create({
@@ -148,7 +150,7 @@ export class OrderController {
               id: razorpayOrder.id,
               amount: razorpayOrder.amount,
               currency: razorpayOrder.currency,
-              key_id: 'rzp_test_SkoqveP6asxSMq',
+              key_id: razorpayKeyId,
             },
           }, 'Order placed successfully. Please complete payment.');
         } catch (razorpayError) {
