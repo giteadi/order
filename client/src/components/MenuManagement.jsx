@@ -16,6 +16,18 @@ export const MenuManagement = () => {
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
 
+  useEffect(() => {
+    if (showAddModal) {
+      document.body.setAttribute('data-lenis-stop', 'true')
+    } else {
+      document.body.removeAttribute('data-lenis-stop')
+    }
+
+    return () => {
+      document.body.removeAttribute('data-lenis-stop')
+    }
+  }, [showAddModal])
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -386,6 +398,7 @@ export const MenuManagement = () => {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            data-lenis-prevent
           >
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-xl font-bold text-gray-900">
