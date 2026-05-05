@@ -77,8 +77,8 @@ class DatabaseManager {
    */
   transaction(callback) {
     const db = this.getDB();
-    const tx = db.transaction(callback);
-    return tx(db);
+    const tx = db.transaction((...args) => callback(db, ...args));
+    return tx();
   }
 
   /**

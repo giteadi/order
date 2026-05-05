@@ -13,9 +13,9 @@ export class OrderController {
   /**
    * Create new order
    */
-  static create(req, res) {
+  static async create(req, res) {
     try {
-      const { tableId: bodyTableId, items, specialInstructions, restaurant, sessionId: bodySessionId } = req.body;
+      const { tableId: bodyTableId, items, specialInstructions, restaurant, sessionId: bodySessionId, paymentMethod = 'counter' } = req.body;
       let sessionId = req.headers['x-session-id'] || req.sessionID || bodySessionId;
 
 
@@ -113,9 +113,53 @@ export class OrderController {
         specialInstructions,
         sessionId,
         restaurantId,
+        paymentMethod,
       });
 
       const order = Order.getOrderWithItems(result.id);
+
+      // If payment method is 'razorpay', create Razorpay order
+      if (paymentMethod === 'razorpay') {
+        try {
+          const Razorpay = require('razorpay');
+          const razorpay = new Razorpay({
+            key_id: 'rzp_test_SkoqveP6asxSMq',
+            key_secret: 'EyjOjmhA76eCoQVxd50zn9sS',
+          });
+
+          const razorpayOrder = await razorpay.orders.create({
+            amount: order.total_amount * 100, // Convert to paise
+            currency: 'INR',
+            receipt: `order_${order.uuid}`,
+            notes: {
+              orderId: String(order.id),
+              orderUUID: order.uuid,
+            },
+          });
+
+          logger.info('Razorpay order created for order payment', {
+            orderId: order.id,
+            razorpayOrderId: razorpayOrder.id,
+          });
+
+          return created(res, {
+            order,
+            razorpayOrder: {
+              id: razorpayOrder.id,
+              amount: razorpayOrder.amount,
+              currency: razorpayOrder.currency,
+              key_id: 'rzp_test_SkoqveP6asxSMq',
+            },
+          }, 'Order placed successfully. Please complete payment.');
+        } catch (razorpayError) {
+          logger.error('Razorpay order creation failed', {
+            error: razorpayError.message,
+            orderId: order.id,
+          });
+          // Fallback: return order without Razorpay details
+          return created(res, order, 'Order placed successfully');
+        }
+      }
 
       logger.info('Order created successfully', { orderId: result.id, uuid: order.uuid });
 

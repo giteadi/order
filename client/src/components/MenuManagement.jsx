@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, Plus, Search, Edit2, Trash2, Image as ImageIcon, DollarSign, Tag, CheckCircle, XCircle } from 'lucide-react'
 import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 import apiClient from '../services/api'
+import { menuAPI } from '../services/api'
 
 export const MenuManagement = () => {
   const navigate = useNavigateWithParams()
@@ -35,19 +36,41 @@ export const MenuManagement = () => {
   const fetchData = async () => {
     try {
       setLoading(true)
+      console.log('[MenuManagement] Fetching menu data...')
       const [productsRes, categoriesRes] = await Promise.all([
-        apiClient.get('/menu'),
-        apiClient.get('/menu/categories'),
+        menuAPI.getMenu(),
+        menuAPI.getCategories(),
       ])
 
+      console.log('[MenuManagement] Products response:', productsRes.data)
+      console.log('[MenuManagement] Categories response:', categoriesRes.data)
+
       if (productsRes.data.success) {
-        setProducts(productsRes.data.data || [])
+        // Flatten hierarchical menu data to extract all products
+        const menuData = productsRes.data.data || []
+        const allProducts = []
+        menuData.forEach(category => {
+          if (category.subcategories) {
+            category.subcategories.forEach(subcategory => {
+              if (subcategory.products) {
+                subcategory.products.forEach(product => {
+                  allProducts.push({
+                    ...product,
+                    category_id: category.id,
+                    subcategory_id: subcategory.id
+                  })
+                })
+              }
+            })
+          }
+        })
+        setProducts(allProducts)
       }
       if (categoriesRes.data.success) {
         setCategories(categoriesRes.data.data || [])
       }
     } catch (error) {
-      console.error('Failed to fetch menu data:', error)
+      console.error('[MenuManagement] Failed to fetch menu data:', error)
     } finally {
       setLoading(false)
     }
@@ -55,17 +78,21 @@ export const MenuManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    console.log('[MenuManagement] Form submit - editingProduct:', editingProduct)
     try {
       const data = {
         ...formData,
         price: parseFloat(formData.price),
         allergens: formData.allergens.split(',').map(a => a.trim()).filter(Boolean),
       }
+      console.log('[MenuManagement] Submitting data:', data)
 
       if (editingProduct) {
-        await apiClient.patch(`/menu/${editingProduct.id}`, data)
+        console.log('[MenuManagement] Updating product:', editingProduct.id)
+        await menuAPI.updateProduct(editingProduct.id, data)
       } else {
-        await apiClient.post('/menu', data)
+        console.log('[MenuManagement] Creating new product')
+        await menuAPI.createProduct(data)
       }
 
       setShowAddModal(false)
@@ -73,20 +100,34 @@ export const MenuManagement = () => {
       resetForm()
       fetchData()
     } catch (error) {
-      console.error('Failed to save product:', error)
+      console.error('[MenuManagement] Failed to save product:', error)
       alert('Failed to save product')
     }
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this product?')) return
+    console.log('[MenuManagement] Delete clicked for product id:', id)
+    if (!confirm('Are you sure you want to delete this product?')) {
+      console.log('[MenuManagement] Delete cancelled by user')
+      return
+    }
 
     try {
-      await apiClient.delete(`/menu/${id}`)
+      console.log('[MenuManagement] Calling deleteProduct API for id:', id)
+      console.log('[MenuManagement] Delete URL:', `/menu/${id}`)
+      const response = await menuAPI.deleteProduct(id)
+      console.log('[MenuManagement] Delete API response:', response)
       fetchData()
     } catch (error) {
-      console.error('Failed to delete product:', error)
-      alert('Failed to delete product')
+      console.error('[MenuManagement] Failed to delete product:', error)
+      console.error('[MenuManagement] Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: error.config
+      })
+      alert(`Failed to delete product: ${error.response?.data?.message || error.message}`)
     }
   }
 

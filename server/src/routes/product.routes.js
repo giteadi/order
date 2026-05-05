@@ -32,9 +32,25 @@ router.patch('/:id',
 );
 
 router.delete('/:id',
+  (req, res, next) => {
+    console.log('[ProductRoutes] DELETE /:id received:', { id: req.params.id, path: req.path, user: req.user?.id, role: req.user?.role });
+    next();
+  },
   authenticate,
+  (req, res, next) => {
+    console.log('[ProductRoutes] After authenticate:', { user: req.user?.id, role: req.user?.role });
+    next();
+  },
   authorize('admin'),
+  (req, res, next) => {
+    console.log('[ProductRoutes] After authorize admin');
+    next();
+  },
   checkSubscriptionWithBypass,
+  (req, res, next) => {
+    console.log('[ProductRoutes] After subscription check');
+    next();
+  },
   asyncHandler(ProductController.delete)
 );
 

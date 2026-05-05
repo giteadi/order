@@ -16,7 +16,7 @@ export class OrderModel extends BaseModel {
   /**
    * Create new order with items (transaction)
    */
-  createOrder({ userId, tableId, tableNumber, items, specialInstructions, sessionId, restaurantId }) {
+  createOrder({ userId, tableId, tableNumber, items, specialInstructions, sessionId, restaurantId, paymentMethod = 'counter' }) {
     return this.transaction((db) => {
       const orderUUID = generateUUID();
       
@@ -40,14 +40,14 @@ export class OrderModel extends BaseModel {
 
       const totals = calculateOrderTotals(enrichedItems);
 
-      // Create order with restaurant_id
+      // Create order with restaurant_id and payment_method
       const orderSql = `
         INSERT INTO orders (uuid, user_id, table_id, table_number, session_id, restaurant_id,
-                           subtotal, tax_amount, total_amount, special_instructions, 
-                           status, order_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           subtotal, tax_amount, total_amount, special_instructions,
+                           status, order_type, payment_method)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
-      
+
       const orderResult = db.prepare(orderSql).run(
         orderUUID,
         userId || null,
@@ -60,7 +60,8 @@ export class OrderModel extends BaseModel {
         totals.total,
         specialInstructions || null,
         ORDER_STATUS.PENDING,
-        tableId ? 'dine_in' : 'takeaway'
+        tableId ? 'dine_in' : 'takeaway',
+        paymentMethod
       );
 
       const orderId = orderResult.lastInsertRowid;

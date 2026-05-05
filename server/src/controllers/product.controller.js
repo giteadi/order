@@ -1,7 +1,8 @@
 import { Product, Category, Subcategory } from '../models/product.model.js';
-import { success, created, error, notFound } from '../utils/response.js';
+import { success, created, error, notFound, paginated } from '../utils/response.js';
 import { HTTP_STATUS } from '../config/index.js';
 import { Logger } from '../utils/logger.js';
+import { transaction } from '../database/connection.js';
 
 const logger = Logger.getInstance();
 
@@ -62,7 +63,10 @@ export class ProductController {
    */
   static getProducts(req, res) {
     try {
-      const { subcategoryId } = req.params;
+      const subcategoryId = parseInt(req.params.subcategoryId, 10);
+      if (isNaN(subcategoryId)) {
+        return error(res, 'Invalid subcategory ID', HTTP_STATUS.BAD_REQUEST);
+      }
       const { page = 1, limit = 20 } = req.query;
 
       const result = Product.getBySubcategory(subcategoryId, {
@@ -70,9 +74,7 @@ export class ProductController {
         limit: parseInt(limit, 10),
       });
 
-      return success(res, result.data, null, {
-        pagination: result.pagination,
-      });
+      return paginated(res, result.data, result.pagination);
 
     } catch (err) {
       logger.error('Get products failed', { error: err.message });
@@ -182,20 +184,44 @@ export class ProductController {
   static delete(req, res) {
     try {
       const { id } = req.params;
+      logger.info('[ProductController] Delete request received', { productId: id, user: req.user?.id, tenant: req.tenant });
 
-      const existing = Product.findById(id);
-      if (!existing) {
-        return notFound(res, 'Product');
-      }
+      // Use transaction to handle foreign key constraints
+      transaction((db) => {
+        // Check if product exists using transaction db
+        logger.info('[ProductController] Checking if product exists:', { productId: id });
+        const existing = db.prepare('SELECT id FROM products WHERE id = ?').get(id);
+        logger.info('[ProductController] Product lookup result:', { productId: id, found: !!existing });
 
-      Product.delete(id);
+        if (!existing) {
+          throw new Error('Product not found');
+        }
 
-      logger.info('Product deleted', { productId: id });
+        // Remove from cart items
+        logger.info('[ProductController] Deleting cart items for product:', { productId: id });
+        const cartResult = db.prepare('DELETE FROM cart_items WHERE product_id = ?').run(id);
+        logger.info('[ProductController] Cart items deleted:', { productId: id, changes: cartResult.changes });
+
+        // Delete order_items (product_id is NOT NULL, cannot set to NULL)
+        logger.info('[ProductController] Deleting order items for product:', { productId: id });
+        const orderItemsResult = db.prepare('DELETE FROM order_items WHERE product_id = ?').run(id);
+        logger.info('[ProductController] Order items deleted:', { productId: id, changes: orderItemsResult.changes });
+
+        // Delete the product
+        logger.info('[ProductController] Deleting product:', { productId: id });
+        const productResult = db.prepare('DELETE FROM products WHERE id = ?').run(id);
+        logger.info('[ProductController] Product deleted:', { productId: id, changes: productResult.changes });
+      });
+
+      logger.info('[ProductController] Product deleted successfully', { productId: id });
 
       return success(res, null, 'Product deleted successfully');
 
     } catch (err) {
-      logger.error('Delete product failed', { error: err.message });
+      logger.error('[ProductController] Delete product failed', { error: err.message, stack: err.stack });
+      if (err.message === 'Product not found') {
+        return notFound(res, 'Product');
+      }
       return error(res, 'Failed to delete product');
     }
   }

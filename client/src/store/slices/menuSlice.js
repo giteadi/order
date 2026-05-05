@@ -6,9 +6,12 @@ export const fetchMenu = createAsyncThunk(
   'menu/fetchMenu',
   async (_, { rejectWithValue }) => {
     try {
+      console.log('[menuSlice] fetchMenu starting...')
       const response = await menuAPI.getMenu()
-      return response.data
+      console.log('[menuSlice] fetchMenu response:', response.data)
+      return response.data.data
     } catch (error) {
+      console.error('[menuSlice] fetchMenu error:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to load menu')
     }
   }
@@ -18,9 +21,12 @@ export const fetchCategories = createAsyncThunk(
   'menu/fetchCategories',
   async (_, { rejectWithValue }) => {
     try {
+      console.log('[menuSlice] fetchCategories starting...')
       const response = await menuAPI.getCategories()
-      return response.data
+      console.log('[menuSlice] fetchCategories response:', response.data)
+      return response.data.data
     } catch (error) {
+      console.error('[menuSlice] fetchCategories error:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to load categories')
     }
   }
@@ -30,9 +36,12 @@ export const fetchProducts = createAsyncThunk(
   'menu/fetchProducts',
   async ({ subcategoryId, page = 1, limit = 20 }, { rejectWithValue }) => {
     try {
+      console.log('[menuSlice] fetchProducts starting...', { subcategoryId, page, limit })
       const response = await menuAPI.getProducts(subcategoryId, { page, limit })
+      console.log('[menuSlice] fetchProducts response:', response.data)
       return { subcategoryId, ...response.data }
     } catch (error) {
+      console.error('[menuSlice] fetchProducts error:', error)
       return rejectWithValue(error.response?.data?.message || 'Failed to load products')
     }
   }
@@ -42,10 +51,13 @@ export const searchProducts = createAsyncThunk(
   'menu/searchProducts',
   async (query, { rejectWithValue }) => {
     try {
+      console.log('[menuSlice] searchProducts starting...', { query })
       const response = await menuAPI.search(query)
+      console.log('[menuSlice] searchProducts response:', response.data)
       return response.data
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Search failed')
+      console.error('[menuSlice] searchProducts error:', error)
+      return rejectWithValue('Search failed')
     }
   }
 )
@@ -90,11 +102,11 @@ const menuSlice = createSlice({
       .addCase(fetchMenu.fulfilled, (state, action) => {
         state.isLoading = false
         state.fullMenu = action.payload
-        // Extract categories
+        // Extract categories (handle both name/category_name formats)
         state.categories = action.payload.map(cat => ({
           id: cat.id,
-          name: cat.category_name,
-          icon: cat.category_icon,
+          name: cat.name || cat.category_name,
+          icon: cat.icon || cat.category_icon,
         }))
       })
       .addCase(fetchMenu.rejected, (state, action) => {

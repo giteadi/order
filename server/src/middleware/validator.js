@@ -111,6 +111,10 @@ export const validators = {
       .optional()
       .isLength({ max: 500 })
       .withMessage('Instructions too long (max 500 chars)'),
+    body('paymentMethod')
+      .optional()
+      .isIn(['counter', 'razorpay'])
+      .withMessage('Payment method must be either "counter" or "razorpay"'),
     handleValidationErrors,
   ],
   

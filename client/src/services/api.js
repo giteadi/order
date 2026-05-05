@@ -224,6 +224,13 @@ export const menuAPI = {
   search: (query, limit = 20) => apiClient.get('/menu/search', {
     params: { q: query, limit }
   }),
+
+  // Admin methods
+  createProduct: (data) => apiClient.post('/menu', data),
+  updateProduct: (id, data) => apiClient.patch(`/menu/${id}`, data),
+  deleteProduct: (id) => apiClient.delete(`/menu/${id}`),
+  toggleAvailability: (id, isAvailable) =>
+    apiClient.patch(`/menu/${id}/availability`, { isAvailable }),
 }
 
 // Cart API

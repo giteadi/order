@@ -229,7 +229,8 @@ export class BaseModel {
    * Raw query execution
    */
   query(sql, params = []) {
-    const stmt = this.db.prepare(sql);
+    const db = getDB();
+    const stmt = db.prepare(sql);
     return stmt.all(...params);
   }
 
@@ -237,7 +238,8 @@ export class BaseModel {
    * Raw get single row
    */
   queryOne(sql, params = []) {
-    const stmt = this.db.prepare(sql);
+    const db = getDB();
+    const stmt = db.prepare(sql);
     return stmt.get(...params);
   }
 
@@ -245,7 +247,8 @@ export class BaseModel {
    * Raw run (insert/update/delete)
    */
   run(sql, params = []) {
-    const stmt = this.db.prepare(sql);
+    const db = getDB();
+    const stmt = db.prepare(sql);
     return stmt.run(...params);
   }
 

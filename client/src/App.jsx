@@ -127,14 +127,17 @@ function App() {
     const urlParams = new URLSearchParams(window.location.search)
     const restaurantFromUrl = urlParams.get('restaurant')
     const restaurantFromRedux = restaurant?.subdomain
-    
+
     if (restaurantFromUrl) {
       // URL has restaurant - update Redux
       console.log('🌐 App: Restaurant from URL:', restaurantFromUrl)
       dispatch(fetchRestaurantBySubdomain(restaurantFromUrl))
     } else if (restaurantFromRedux) {
-      // No URL param but Redux has restaurant - use persisted one
-      console.log('💾 App: Using persisted restaurant:', restaurantFromRedux)
+      // No URL param but Redux has restaurant - redirect to add restaurant parameter
+      console.log('💾 App: Redirecting to add persisted restaurant:', restaurantFromRedux)
+      const currentUrl = new URL(window.location.href)
+      currentUrl.searchParams.set('restaurant', restaurantFromRedux)
+      window.location.href = currentUrl.toString()
     } else {
       console.log('⚠️ App: No restaurant specified')
     }
