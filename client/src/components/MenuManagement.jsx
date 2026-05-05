@@ -9,7 +9,6 @@ export const MenuManagement = () => {
   const navigate = useNavigateWithParams()
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
-  const [subcategories, setSubcategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
@@ -41,30 +40,33 @@ export const MenuManagement = () => {
     allergens: '',
   })
 
+  // Subcategories for selected category in form
+  const [formSubcategories, setFormSubcategories] = useState([])
+
+  // Load subcategories when category changes in form
+  useEffect(() => {
+    if (!formData.category_id) {
+      setFormSubcategories([])
+      return
+    }
+    const loadSubs = async () => {
+      try {
+        const res = await apiClient.get(`/menu/categories/${formData.category_id}/subcategories`)
+        if (res.data.success) {
+          setFormSubcategories(res.data.data || [])
+        }
+      } catch (e) {
+        console.error('Failed to load subcategories', e)
+      }
+    }
+    loadSubs()
+  }, [formData.category_id])
+
   // Fetch products and categories
   useEffect(() => {
     fetchData()
   }, [])
 
-  // Fetch subcategories when category is selected in form
-  useEffect(() => {
-    const fetchSubcategories = async () => {
-      if (formData.category_id) {
-        try {
-          const response = await menuAPI.getSubcategories(formData.category_id)
-          if (response.data.success) {
-            setSubcategories(response.data.data || [])
-          }
-        } catch (error) {
-          console.error('[MenuManagement] Failed to fetch subcategories:', error)
-          setSubcategories([])
-        }
-      } else {
-        setSubcategories([])
-      }
-    }
-    fetchSubcategories()
-  }, [formData.category_id])
 
   const fetchData = async () => {
     try {
@@ -113,19 +115,16 @@ export const MenuManagement = () => {
     e.preventDefault()
     console.log('[MenuManagement] Form submit - editingProduct:', editingProduct)
 
-    // Validate required fields
-    if (!formData.subcategory_id) {
-      alert('Please select a subcategory')
-      return
-    }
-
     try {
       const data = {
         name: formData.name,
         description: formData.description,
         price: parseFloat(formData.price),
-        allergens: formData.allergens.split(',').map(a => a.trim()).filter(Boolean),
-        subcategoryId: parseInt(formData.subcategory_id),
+        category_id: formData.category_id ? parseInt(formData.category_id) : undefined,
+        subcategory_id: formData.subcategory_id ? parseInt(formData.subcategory_id) : undefined,
+        allergens: typeof formData.allergens === 'string'
+          ? formData.allergens.split(',').map(a => a.trim()).filter(Boolean)
+          : formData.allergens || [],
         image_url: formData.image_url || undefined,
         is_available: formData.is_available,
         is_vegetarian: formData.is_vegetarian,
@@ -185,28 +184,14 @@ export const MenuManagement = () => {
       name: product.name,
       description: product.description || '',
       price: product.price.toString(),
-      category_id: product.category_id || '',
-      subcategory_id: product.subcategory_id || '',
-      image_url: product.image_url || '',
-      is_available: product.is_available,
-      is_vegetarian: product.is_vegetarian,
-      is_spicy: product.is_spicy,
+      category_id: product.category_id?.toString() || '',
+      subcategory_id: product.subcategory_id?.toString() || '',
+      image_url: product.image_url || product.imageUrl || '',
+      is_available: product.is_available ?? product.isAvailable ?? true,
+      is_vegetarian: product.is_vegetarian ?? product.isVegetarian ?? false,
+      is_spicy: product.is_spicy ?? product.isSpicy ?? false,
       allergens: (product.allergens || []).join(', '),
     })
-
-    // Fetch subcategories for the product's category
-    if (product.category_id) {
-      try {
-        const response = await menuAPI.getSubcategories(product.category_id)
-        if (response.data.success) {
-          setSubcategories(response.data.data || [])
-        }
-      } catch (error) {
-        console.error('[MenuManagement] Failed to fetch subcategories for edit:', error)
-        setSubcategories([])
-      }
-    }
-
     setShowAddModal(true)
   }
 
@@ -223,7 +208,7 @@ export const MenuManagement = () => {
       is_spicy: false,
       allergens: '',
     })
-    setSubcategories([])
+    setFormSubcategories([])
   }
 
   const filteredProducts = products.filter(product => {
@@ -300,7 +285,7 @@ export const MenuManagement = () => {
           <div className="bg-white rounded-xl p-6 shadow-sm">
             <p className="text-sm text-gray-500">Available</p>
             <p className="text-2xl font-bold text-green-600">
-              {products.filter(p => p.is_available).length}
+              {products.filter(p => p.is_available ?? p.isAvailable).length}
             </p>
           </div>
           <div className="bg-white rounded-xl p-6 shadow-sm">
@@ -323,9 +308,9 @@ export const MenuManagement = () => {
                 className="bg-white rounded-xl shadow-sm overflow-hidden"
               >
                 <div className="aspect-video bg-gray-100 relative">
-                  {product.image_url ? (
+                  {(product.image_url || product.imageUrl) ? (
                     <img
-                      src={product.image_url}
+                      src={product.image_url || product.imageUrl}
                       alt={product.name}
                       className="w-full h-full object-cover"
                     />
@@ -356,13 +341,6 @@ export const MenuManagement = () => {
                     {product.description || 'No description'}
                   </p>
                   <div className="flex items-center justify-between">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      product.is_available
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}>
-                      {product.is_available ? 'Available' : 'Unavailable'}
-                    </span>
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleEdit(product)}
@@ -448,11 +426,12 @@ export const MenuManagement = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category
+                    Category *
                   </label>
                   <select
+                    required
                     value={formData.category_id}
-                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value, subcategory_id: '' })}
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-900 focus:outline-none"
                   >
                     <option value="">Select Category</option>
@@ -463,41 +442,74 @@ export const MenuManagement = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Subcategory *
-                </label>
-                <select
-                  required
-                  value={formData.subcategory_id}
-                  onChange={(e) => setFormData({ ...formData, subcategory_id: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-900 focus:outline-none"
-                  disabled={!formData.category_id || subcategories.length === 0}
-                >
-                  <option value="">
-                    {!formData.category_id
-                      ? 'Select a category first'
-                      : subcategories.length === 0
-                        ? 'No subcategories available'
-                        : 'Select Subcategory'}
-                  </option>
-                  {subcategories.map(sub => (
-                    <option key={sub.id} value={sub.id}>{sub.name}</option>
-                  ))}
-                </select>
-              </div>
+              {/* Subcategory */}
+              {formSubcategories.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Subcategory *
+                  </label>
+                  <select
+                    required
+                    value={formData.subcategory_id}
+                    onChange={(e) => setFormData({ ...formData, subcategory_id: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-900 focus:outline-none"
+                  >
+                    <option value="">Select Subcategory</option>
+                    {formSubcategories.map(sub => (
+                      <option key={sub.id} value={sub.id}>{sub.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Image URL
+                  Product Image
                 </label>
-                <input
-                  type="url"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-900 focus:outline-none"
-                  placeholder="https://..."
-                />
+                <div className="space-y-2">
+                  {/* File Upload */}
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-gray-900 transition-colors bg-gray-50">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files[0]
+                        if (!file) return
+                        if (file.size > 2 * 1024 * 1024) {
+                          alert('Image must be less than 2MB')
+                          return
+                        }
+                        const reader = new FileReader()
+                        reader.onload = (ev) => {
+                          setFormData({ ...formData, image_url: ev.target.result })
+                        }
+                        reader.readAsDataURL(file)
+                      }}
+                    />
+                    {formData.image_url ? (
+                      <img
+                        src={formData.image_url}
+                        alt="Preview"
+                        className="h-full w-full object-cover rounded-xl"
+                      />
+                    ) : (
+                      <div className="text-center">
+                        <ImageIcon size={28} className="mx-auto text-gray-400 mb-1" />
+                        <p className="text-sm text-gray-500">Click to upload image</p>
+                        <p className="text-xs text-gray-400">PNG, JPG up to 2MB</p>
+                      </div>
+                    )}
+                  </label>
+                  {/* OR paste URL */}
+                  <input
+                    type="url"
+                    value={formData.image_url?.startsWith('data:') ? '' : formData.image_url}
+                    onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-gray-900 focus:outline-none text-sm"
+                    placeholder="Or paste image URL (https://...)"
+                  />
+                </div>
               </div>
 
               <div>

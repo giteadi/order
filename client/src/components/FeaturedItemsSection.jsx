@@ -1,21 +1,46 @@
-import { useRef } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
-
-const featuredItems = [
-  { id: 1, name: 'Espresso', price: 120, image: '☕', description: 'Pure, bold, intense', category: 'espresso' },
-  { id: 3, name: 'Cappuccino', price: 180, image: '☕', description: 'Rich espresso with frothy milk', category: 'espresso' },
-  { id: 101, name: 'Pancakes', price: 180, image: '🥞', description: 'Fluffy with maple syrup', category: 'breakfast' },
-  { id: 301, name: 'Spaghetti Carbonara', price: 320, image: '🍝', description: 'Creamy Italian classic', category: 'pasta' },
-  { id: 401, name: 'Margherita Pizza', price: 350, image: '🍕', description: 'Classic tomato & mozzarella', category: 'pizza' },
-  { id: 501, name: 'Classic Burger', price: 280, image: '🍔', description: 'Beef patty with all fixings', category: 'burgers' },
-  { id: 201, name: 'Club Sandwich', price: 250, image: '🥪', description: 'Triple decker classic', category: 'sandwiches' },
-  { id: 701, name: 'Chocolate Cake', price: 180, image: '🍰', description: 'Rich chocolate layers', category: 'desserts' },
-]
+import apiClient from '../services/api'
 
 export const FeaturedItemsSection = ({ onProductClick, onAddToCart, onCursorHover }) => {
   const navigate = useNavigateWithParams()
   const sectionRef = useRef(null)
+  const [featuredItems, setFeaturedItems] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchFeatured = async () => {
+      try {
+        // Fetch full menu and pick first 8 available products
+        const res = await apiClient.get('/menu')
+        if (res.data.success) {
+          const menuData = res.data.data || []
+          const allProducts = []
+          menuData.forEach(category => {
+            if (category.subcategories) {
+              category.subcategories.forEach(sub => {
+                if (sub.products) {
+                  sub.products.forEach(p => {
+                    allProducts.push({
+                      ...p,
+                      image: p.imageUrl || p.image_url || p.emojiIcon || p.emoji_icon || '🍽️',
+                    })
+                  })
+                }
+              })
+            }
+          })
+          setFeaturedItems(allProducts.slice(0, 8))
+        }
+      } catch (e) {
+        console.error('Failed to fetch featured items', e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchFeatured()
+  }, [])
 
   const handleItemClick = (item) => {
     onProductClick({
@@ -23,13 +48,47 @@ export const FeaturedItemsSection = ({ onProductClick, onAddToCart, onCursorHove
       name: item.name,
       price: item.price,
       image: item.image,
-      description: item.description
+      description: item.description,
+      productId: item.id,
     })
   }
 
-  const handleViewMenu = () => {
-    navigate('/menu')
+  const handleAddToCart = (e, item) => {
+    e.stopPropagation()
+    onAddToCart({
+      id: item.id,
+      productId: item.id,
+      name: item.name,
+      price: item.price,
+      image: item.image,
+      description: item.description,
+    })
   }
+
+  const renderImage = (item) => {
+    const src = item.imageUrl || item.image_url
+    if (src && !src.startsWith('data:') && src.startsWith('http')) {
+      return <img src={src} alt={item.name} className="w-full h-full object-cover" />
+    }
+    if (src && src.startsWith('data:')) {
+      return <img src={src} alt={item.name} className="w-full h-full object-cover" />
+    }
+    // emoji or fallback
+    const emoji = item.emojiIcon || item.emoji_icon || item.image || '🍽️'
+    return <span className="text-5xl">{emoji}</span>
+  }
+
+  if (loading) {
+    return (
+      <section className="py-12 sm:py-16 lg:py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-900 mx-auto"></div>
+        </div>
+      </section>
+    )
+  }
+
+  if (featuredItems.length === 0) return null
 
   return (
     <section ref={sectionRef} className="py-12 sm:py-16 lg:py-20 bg-white">
@@ -67,8 +126,8 @@ export const FeaturedItemsSection = ({ onProductClick, onAddToCart, onCursorHove
               onClick={() => handleItemClick(item)}
               className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg border border-gray-100 cursor-pointer transition-shadow"
             >
-              <div className="aspect-square bg-gradient-to-br from-amber-50 to-orange-50 grid place-items-center text-5xl">
-                {item.image}
+              <div className="aspect-square bg-gradient-to-br from-amber-50 to-orange-50 grid place-items-center overflow-hidden">
+                {renderImage(item)}
               </div>
               <div className="p-4">
                 <h3 className="font-semibold text-base text-gray-900 mb-1 truncate">{item.name}</h3>
@@ -76,16 +135,7 @@ export const FeaturedItemsSection = ({ onProductClick, onAddToCart, onCursorHove
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-lg font-bold text-gray-900">₹{item.price}</span>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onAddToCart({
-                        id: item.id,
-                        name: item.name,
-                        price: item.price,
-                        image: item.image,
-                        description: item.description
-                      })
-                    }}
+                    onClick={(e) => handleAddToCart(e, item)}
                     className="w-9 h-9 rounded-full bg-gray-900 text-white grid place-items-center hover:bg-gray-800 transition-colors"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -112,8 +162,8 @@ export const FeaturedItemsSection = ({ onProductClick, onAddToCart, onCursorHove
               className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 cursor-pointer active:bg-gray-50"
             >
               <div className="flex items-center gap-3 p-3">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl grid place-items-center text-2xl">
-                  {item.image}
+                <div className="w-16 h-16 flex-shrink-0 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl grid place-items-center overflow-hidden">
+                  {renderImage(item)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-sm text-gray-900 truncate">{item.name}</h3>
@@ -121,16 +171,7 @@ export const FeaturedItemsSection = ({ onProductClick, onAddToCart, onCursorHove
                   <span className="text-base font-bold text-gray-900 mt-1 block">₹{item.price}</span>
                 </div>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onAddToCart({
-                      id: item.id,
-                      name: item.name,
-                      price: item.price,
-                      image: item.image,
-                      description: item.description
-                    })
-                  }}
+                  onClick={(e) => handleAddToCart(e, item)}
                   className="w-10 h-10 rounded-full bg-gray-900 text-white grid place-items-center flex-shrink-0 active:scale-90 transition-transform"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,7 +191,7 @@ export const FeaturedItemsSection = ({ onProductClick, onAddToCart, onCursorHove
           className="text-center mt-10 sm:mt-12"
         >
           <button
-            onClick={handleViewMenu}
+            onClick={() => navigate('/menu')}
             className="inline-flex items-center gap-2 px-8 py-3 bg-gray-900 text-white rounded-full font-medium hover:bg-gray-800 transition-colors"
           >
             View Full Menu
