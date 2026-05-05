@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, Plus, Search, Edit2, Trash2, Image as ImageIcon, DollarSign, Tag, CheckCircle, XCircle } from 'lucide-react'
 import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 import apiClient from '../services/api'
-import { menuAPI } from '../services/api'
+import { menuAPI, clearCache } from '../services/api'
 
 export const MenuManagement = () => {
   const navigate = useNavigateWithParams()
@@ -117,6 +117,8 @@ export const MenuManagement = () => {
       console.log('[MenuManagement] Delete URL:', `/menu/${id}`)
       const response = await menuAPI.deleteProduct(id)
       console.log('[MenuManagement] Delete API response:', response)
+      // Clear cache to ensure fresh data fetch
+      clearCache()
       fetchData()
     } catch (error) {
       console.error('[MenuManagement] Failed to delete product:', error)

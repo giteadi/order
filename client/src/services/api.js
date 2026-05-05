@@ -20,6 +20,12 @@ const getResponseCache = new Map()
 const GET_CACHE_TTL_MS = 5000
 let globalRateLimitUntil = 0
 
+// Clear cache function
+export const clearCache = () => {
+  getResponseCache.clear()
+  inFlightGetRequests.clear()
+}
+
 // Request Interceptor - Add auth token and session ID
 apiClient.interceptors.request.use(
   (config) => {
