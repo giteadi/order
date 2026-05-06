@@ -799,13 +799,16 @@ function App() {
               cartTotal={cartTotal}
               onPlaceOrder={handlePlaceOrder}
               isAuthenticated={isAuthenticated}
-              onNavigateToLogin={() => navigateWithParams('/login')}
+              onNavigateToLogin={() => {
+                handleCloseCart()
+                navigateWithParams('/login')
+              }}
             />
           </>
         } />
       </Routes>
 
-      <CartSidebar 
+      <CartSidebar
         isOpen={isCartOpen}
         onClose={handleCloseCart}
         cart={cart}
@@ -815,7 +818,10 @@ function App() {
         cartTotal={cartTotal}
         onPlaceOrder={handlePlaceOrder}
         isAuthenticated={isAuthenticated}
-        onNavigateToLogin={() => navigateWithParams('/login')}
+        onNavigateToLogin={() => {
+          handleCloseCart()
+          navigateWithParams('/login')
+        }}
       />
 
       <ProductModal 
