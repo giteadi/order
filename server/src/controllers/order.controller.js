@@ -23,22 +23,23 @@ export class OrderController {
         return badRequest(res, 'Order must contain at least one item');
       }
 
-      // Get restaurant_id - priority: request body > tenant middleware > user's default
+      // Get restaurant_id - priority: tenant middleware > request body > user's default
+      // Tenant middleware identifies restaurant from subdomain, which is most reliable
       let restaurantId = null;
       
-      // First: try to get from subdomain in request body (user's current selection)
-      if (restaurant) {
+      // First: try tenant middleware (from subdomain in URL/host header)
+      if (req.tenant?.restaurantId) {
+        restaurantId = req.tenant?.restaurantId;
+      }
+      
+      // Second: try to get from subdomain in request body (fallback)
+      if (!restaurantId && restaurant) {
         const restaurantRecord = Order.db.prepare(
           'SELECT id FROM restaurants WHERE subdomain = ?'
         ).get(restaurant);
         if (restaurantRecord) {
           restaurantId = restaurantRecord.id;
         }
-      }
-      
-      // Second: try tenant middleware (from subdomain in URL)
-      if (!restaurantId) {
-        restaurantId = req.tenant?.restaurantId;
       }
 
       // Final fallback: use user's default restaurant_id

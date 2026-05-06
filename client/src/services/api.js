@@ -59,12 +59,18 @@ apiClient.interceptors.request.use(
       config.headers['X-Session-ID'] = sessionId
     }
 
-    // Send current subdomain as header for tenant identification
-    // This helps backend identify restaurant even when accessed via IP or behind proxy
-    const hostname = window.location.hostname
-    const subdomain = hostname.split('.')[0]
-    if (subdomain && subdomain !== 'www' && subdomain !== 'localhost' && subdomain !== '127') {
-      config.headers['X-Restaurant-Subdomain'] = subdomain
+    // Send current restaurant subdomain as header for tenant identification
+    // Uses Redux store's current restaurant instead of window.location.hostname
+    // This ensures correct restaurant context even when on base domain or IP
+    const restaurantSubdomain = state.restaurant?.subdomain
+    if (restaurantSubdomain) {
+      config.headers['X-Restaurant-Subdomain'] = restaurantSubdomain
+    }
+
+    // Also add restaurant query param for non-GET requests (POST/PUT/DELETE)
+    // Backend uses this as fallback for tenant identification
+    if (restaurantSubdomain && config.method !== 'get') {
+      config.params = { ...config.params, restaurant: restaurantSubdomain }
     }
 
     return config
