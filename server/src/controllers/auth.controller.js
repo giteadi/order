@@ -111,17 +111,19 @@ export class AuthController {
         return validationError(res, [{ field: 'email', message: 'Email or phone is required' }]);
       }
 
-      // Get restaurant_id if provided
-      let restaurantId = null;
-      if (restaurant) {
+      // First, find the user by email/phone only (without restaurant context)
+      // This allows super admins to login without restaurant context
+      let user = await User.verifyCredentials(email, phone, password, null);
+      
+      // If not found globally and restaurant context provided, try with restaurant context
+      // This is for regular admins/staff who belong to a specific restaurant
+      if (!user && restaurant) {
         const restaurantRecord = User.db.prepare('SELECT id FROM restaurants WHERE subdomain = ?').get(restaurant);
         if (restaurantRecord) {
-          restaurantId = restaurantRecord.id;
+          const restaurantId = restaurantRecord.id;
+          user = await User.verifyCredentials(email, phone, password, restaurantId);
         }
       }
-
-      // Verify credentials with restaurant context
-      const user = await User.verifyCredentials(email, phone, password, restaurantId);
 
       if (!user) {
         logger.warn('Login failed - invalid credentials', { email, phone, restaurant });
