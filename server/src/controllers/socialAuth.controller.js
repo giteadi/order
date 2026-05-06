@@ -9,9 +9,8 @@ import { generateUUID } from '../utils/helpers.js';
 const logger = Logger.getInstance();
 
 // Google OAuth Client
-const googleClient = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID || 'your-google-client-id.apps.googleusercontent.com'
-);
+const GOOGLE_CLIENT_ID = '144932328528-pt437uppkbiqdp7blb898gk7en2lsppn.apps.googleusercontent.com'
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 /**
  * Social Authentication Controller
@@ -28,7 +27,7 @@ export class SocialAuthController {
 
       logger.info('Google auth attempt', { 
         hasToken: !!idToken,
-        clientId: process.env.GOOGLE_CLIENT_ID?.substring(0, 20) + '...',
+        clientId: GOOGLE_CLIENT_ID.substring(0, 20) + '...',
         restaurant
       });
 
@@ -39,7 +38,7 @@ export class SocialAuthController {
       // Verify Google token
       const ticket = await googleClient.verifyIdToken({
         idToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
+        audience: GOOGLE_CLIENT_ID,
       });
 
       const payload = ticket.getPayload();
