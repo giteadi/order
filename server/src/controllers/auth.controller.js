@@ -130,7 +130,36 @@ export class AuthController {
         return error(res, 'Invalid credentials', HTTP_STATUS.UNAUTHORIZED);
       }
 
-      logger.info('User found', { userId: user.id, role: user.role, restaurantId: user.restaurant_id });
+      logger.info('User found', { userId: user.id, role: user.role, userRestaurantId: user.restaurant_id, loginRestaurant: restaurant });
+
+      // STRICT RESTAURANT MATCH: User can only login on their own restaurant's subdomain
+      // Get the restaurant being accessed (from subdomain)
+      let currentRestaurantId = user.restaurant_id;
+      let currentRestaurantName = null;
+      let currentRestaurantSubdomain = null;
+      
+      if (restaurant) {
+        const restaurantRecord = User.db.prepare('SELECT id, name, subdomain FROM restaurants WHERE subdomain = ?').get(restaurant);
+        if (restaurantRecord) {
+          currentRestaurantId = restaurantRecord.id;
+          currentRestaurantName = restaurantRecord.name;
+          currentRestaurantSubdomain = restaurantRecord.subdomain;
+        }
+      }
+      
+      // RESTRICTED ACCESS: Admins and staff can only login on their own restaurant's subdomain
+      // Customers can login from any subdomain
+      if ((user.role === 'admin' || user.role === 'staff') && user.role !== 'super_admin' && user.restaurant_id !== currentRestaurantId) {
+        logger.warn('Login blocked - admin/staff restaurant mismatch', { 
+          userId: user.id,
+          userEmail: user.email,
+          userRole: user.role,
+          userRestaurantId: user.restaurant_id,
+          loginRestaurantId: currentRestaurantId,
+          loginSubdomain: restaurant
+        });
+        return error(res, 'Access denied. Admins can only login from their restaurant\'s subdomain.', HTTP_STATUS.FORBIDDEN);
+      }
 
       // Note: Subscription check moved to middleware - allow login, block dashboard access
       // Users can login to view plans and subscribe, but cannot access protected routes without subscription
@@ -139,7 +168,7 @@ export class AuthController {
       const token = generateToken({ id: user.id, role: user.role });
       const refreshToken = generateRefreshToken(user.id);
 
-      logger.info('User logged in', { userId: user.id, role: user.role });
+      logger.info('User logged in', { userId: user.id, role: user.role, currentRestaurantId });
 
       const responseData = {
         user: {
@@ -149,7 +178,11 @@ export class AuthController {
           phone: user.phone,
           name: user.name,
           role: user.role,
-          restaurantId: user.restaurant_id,
+          restaurantId: currentRestaurantId,
+          restaurantName: currentRestaurantName,
+          restaurantSubdomain: currentRestaurantSubdomain,
+          // Keep original restaurant_id for ownership checks on backend
+          originalRestaurantId: user.restaurant_id,
         },
         token,
         refreshToken,
