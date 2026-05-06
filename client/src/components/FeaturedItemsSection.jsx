@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
-import apiClient from '../services/api'
+import apiClient, { menuAPI } from '../services/api'
 
 export const FeaturedItemsSection = ({ onProductClick, onAddToCart, onCursorHover }) => {
   const navigate = useNavigateWithParams()
@@ -13,7 +13,7 @@ export const FeaturedItemsSection = ({ onProductClick, onAddToCart, onCursorHove
     const fetchFeatured = async () => {
       try {
         // Fetch full menu and pick first 8 available products
-        const res = await apiClient.get('/menu')
+        const res = await menuAPI.getMenu()
         if (res.data.success) {
           const menuData = res.data.data || []
           const allProducts = []

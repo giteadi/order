@@ -11,7 +11,18 @@ export class ProductModel extends BaseModel {
   /**
    * Get full menu hierarchy with categories and products
    */
-  getFullMenu() {
+  getFullMenu(restaurantId = null) {
+    const params = []
+    let catFilter = ''
+    let subFilter = ''
+    let prodFilter = ''
+    if (restaurantId) {
+      catFilter = 'AND (c.restaurant_id = ? OR c.restaurant_id IS NULL)'
+      subFilter = 'AND (sc.restaurant_id = ? OR sc.restaurant_id IS NULL)'
+      prodFilter = 'AND (p.restaurant_id = ? OR p.restaurant_id IS NULL)'
+      params.push(restaurantId, restaurantId, restaurantId)
+    }
+
     const sql = `
       SELECT 
         c.id as category_id,
@@ -34,13 +45,13 @@ export class ProductModel extends BaseModel {
         p.customization_options,
         p.preparation_time
       FROM categories c
-      LEFT JOIN subcategories sc ON sc.category_id = c.id
-      LEFT JOIN products p ON p.subcategory_id = sc.id AND p.is_available = 1
-      WHERE c.is_active = 1 AND sc.is_active = 1
+      LEFT JOIN subcategories sc ON sc.category_id = c.id ${subFilter}
+      LEFT JOIN products p ON p.subcategory_id = sc.id AND p.is_available = 1 ${prodFilter}
+      WHERE c.is_active = 1 ${catFilter}
       ORDER BY c.sort_order, sc.sort_order, p.sort_order
-    `;
+    `
 
-    const rows = this.query(sql);
+    const rows = this.query(sql, params)
     
     // Transform to nested structure
     const menu = {};
@@ -91,7 +102,7 @@ export class ProductModel extends BaseModel {
   /**
    * Get products by subcategory with pagination
    */
-  getBySubcategory(subcategoryId, { page = 1, limit = 20, availableOnly = true }) {
+  getBySubcategory(subcategoryId, { page = 1, limit = 20, availableOnly = true, restaurantId = null } = {}) {
     const offset = (page - 1) * limit;
     
     let sql = `
@@ -102,6 +113,11 @@ export class ProductModel extends BaseModel {
       WHERE subcategory_id = ?
     `;
     const params = [subcategoryId];
+
+    if (restaurantId) {
+      sql += ` AND (restaurant_id = ? OR restaurant_id IS NULL)`;
+      params.push(restaurantId);
+    }
 
     if (availableOnly) {
       sql += ` AND is_available = 1`;
@@ -131,7 +147,7 @@ export class ProductModel extends BaseModel {
   /**
    * Search products
    */
-  search(query, { limit = 20, availableOnly = true } = {}) {
+  search(query, { limit = 20, availableOnly = true, restaurantId = null } = {}) {
     let sql = `
       SELECT p.*, sc.name as subcategory_name, c.name as category_name
       FROM ${this.table} p
@@ -140,6 +156,11 @@ export class ProductModel extends BaseModel {
       WHERE (p.name LIKE ? OR p.description LIKE ?)
     `;
     const params = [`%${query}%`, `%${query}%`];
+
+    if (restaurantId) {
+      sql += ` AND (p.restaurant_id = ? OR p.restaurant_id IS NULL)`;
+      params.push(restaurantId);
+    }
 
     if (availableOnly) {
       sql += ` AND p.is_available = 1`;
@@ -187,6 +208,7 @@ export class ProductModel extends BaseModel {
       preparationTime: row.preparation_time,
       category: row.category_name,
       subcategory: row.subcategory_name,
+      restaurantId: row.restaurant_id || null,
     };
   }
 
@@ -209,6 +231,23 @@ export class CategoryModel extends BaseModel {
   constructor() {
     super('categories');
   }
+
+  getAll({ restaurantId = null, isActive = true } = {}) {
+    let sql = `SELECT id, name, icon, sort_order FROM ${this.table} WHERE 1=1`
+    const params = []
+
+    if (isActive) {
+      sql += ` AND is_active = 1`
+    }
+
+    if (restaurantId) {
+      sql += ` AND (restaurant_id = ? OR restaurant_id IS NULL)`
+      params.push(restaurantId)
+    }
+
+    sql += ` ORDER BY sort_order`
+    return this.query(sql, params)
+  }
 }
 
 // Subcategories Model
@@ -217,11 +256,17 @@ export class SubcategoryModel extends BaseModel {
     super('subcategories');
   }
 
-  getByCategory(categoryId) {
-    return this.findAll({
-      where: { category_id: categoryId, is_active: 1 },
-      orderBy: 'sort_order',
-    });
+  getByCategory(categoryId, { restaurantId = null } = {}) {
+    let sql = `SELECT id, name, icon, sort_order FROM ${this.table} WHERE category_id = ? AND is_active = 1`
+    const params = [categoryId]
+
+    if (restaurantId) {
+      sql += ` AND (restaurant_id = ? OR restaurant_id IS NULL)`
+      params.push(restaurantId)
+    }
+
+    sql += ` ORDER BY sort_order`
+    return this.query(sql, params)
   }
 }
 

@@ -102,8 +102,14 @@ export class AdminController {
       stats.totalTables = tableResult.total || 0;
       stats.occupiedTables = tableResult.occupied || 0;
 
-      // Menu items
-      const menuResult = db.prepare('SELECT COUNT(*) as count FROM products').get();
+      // Menu items (filtered by restaurant)
+      let menuQuery = 'SELECT COUNT(*) as count FROM products';
+      let menuParams = [];
+      if (restaurantId) {
+        menuQuery += ' WHERE restaurant_id = ? OR restaurant_id IS NULL';
+        menuParams.push(restaurantId);
+      }
+      const menuResult = db.prepare(menuQuery).get(...menuParams);
       stats.menuItems = menuResult.count;
 
       return success(res, stats, 'Dashboard stats retrieved');
@@ -286,10 +292,25 @@ export class AdminController {
       const db = getDB();
       const { id } = req.params;
       const { status, estimatedReadyAt } = req.body;
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
+      const userRole = req.user?.role;
 
       const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'served', 'completed', 'cancelled'];
       if (!validStatuses.includes(status)) {
         return error(res, 'Invalid status', HTTP_STATUS.BAD_REQUEST);
+      }
+
+      // Verify order belongs to admin's restaurant (super_admin bypasses)
+      if (userRole !== 'super_admin' && restaurantId) {
+        const order = db.prepare('SELECT restaurant_id FROM orders WHERE id = ?').get(id);
+        if (!order) {
+          return error(res, 'Order not found', HTTP_STATUS.NOT_FOUND);
+        }
+        if (order.restaurant_id !== restaurantId) {
+          return error(res, 'Unauthorized - Order belongs to another restaurant', HTTP_STATUS.FORBIDDEN);
+        }
       }
 
       const updateData = { status, updated_at: new Date().toISOString() };
@@ -446,16 +467,46 @@ export class AdminController {
       const db = getDB();
       const { id } = req.params;
       const { role } = req.body;
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
+      const userRole = req.user?.role;
+      const currentUserId = req.user?.id;
 
       const validRoles = ['customer', 'staff', 'admin', 'super_admin'];
       if (!validRoles.includes(role)) {
         return error(res, 'Invalid role', HTTP_STATUS.BAD_REQUEST);
       }
 
+      // Prevent self-demotion if current user is the target
+      if (parseInt(id) === currentUserId && role !== userRole) {
+        return error(res, 'Cannot change your own role', HTTP_STATUS.FORBIDDEN);
+      }
+
+      // Only super_admin can assign super_admin role
+      if (role === 'super_admin' && userRole !== 'super_admin') {
+        return error(res, 'Unauthorized - Only super admin can assign super admin role', HTTP_STATUS.FORBIDDEN);
+      }
+
+      // Verify target user belongs to admin's restaurant (super_admin bypasses)
+      if (userRole !== 'super_admin' && restaurantId) {
+        const targetUser = db.prepare('SELECT restaurant_id, role FROM users WHERE id = ?').get(id);
+        if (!targetUser) {
+          return error(res, 'User not found', HTTP_STATUS.NOT_FOUND);
+        }
+        // Cannot modify super_admins or users from other restaurants
+        if (targetUser.role === 'super_admin') {
+          return error(res, 'Unauthorized - Cannot modify super admin', HTTP_STATUS.FORBIDDEN);
+        }
+        if (targetUser.restaurant_id !== restaurantId) {
+          return error(res, 'Unauthorized - User belongs to another restaurant', HTTP_STATUS.FORBIDDEN);
+        }
+      }
+
       db.prepare('UPDATE users SET role = ?, updated_at = ? WHERE id = ?')
         .run(role, new Date().toISOString(), id);
 
-      logger.info('User role updated', { userId: id, role, by: req.user?.id });
+      logger.info('User role updated', { userId: id, role, by: currentUserId });
       return success(res, { id, role }, 'User role updated');
     } catch (err) {
       logger.error('Update user role error', { error: err.message });
@@ -471,11 +522,36 @@ export class AdminController {
       const db = getDB();
       const { id } = req.params;
       const { isActive } = req.body;
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
+      const userRole = req.user?.role;
+      const currentUserId = req.user?.id;
+
+      // Prevent self-deactivation
+      if (parseInt(id) === currentUserId && !isActive) {
+        return error(res, 'Cannot deactivate your own account', HTTP_STATUS.FORBIDDEN);
+      }
+
+      // Verify target user belongs to admin's restaurant (super_admin bypasses)
+      if (userRole !== 'super_admin' && restaurantId) {
+        const targetUser = db.prepare('SELECT restaurant_id, role FROM users WHERE id = ?').get(id);
+        if (!targetUser) {
+          return error(res, 'User not found', HTTP_STATUS.NOT_FOUND);
+        }
+        // Cannot modify super_admins or users from other restaurants
+        if (targetUser.role === 'super_admin') {
+          return error(res, 'Unauthorized - Cannot modify super admin', HTTP_STATUS.FORBIDDEN);
+        }
+        if (targetUser.restaurant_id !== restaurantId) {
+          return error(res, 'Unauthorized - User belongs to another restaurant', HTTP_STATUS.FORBIDDEN);
+        }
+      }
 
       db.prepare('UPDATE users SET is_active = ?, updated_at = ? WHERE id = ?')
         .run(isActive ? 1 : 0, new Date().toISOString(), id);
 
-      logger.info('User status updated', { userId: id, isActive, by: req.user?.id });
+      logger.info('User status updated', { userId: id, isActive, by: currentUserId });
       return success(res, { id, isActive }, 'User status updated');
     } catch (err) {
       logger.error('Update user status error', { error: err.message });
@@ -600,10 +676,25 @@ export class AdminController {
       const db = getDB();
       const { id } = req.params;
       const { status } = req.body;
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
+      const userRole = req.user?.role;
 
       const validStatuses = ['available', 'occupied', 'reserved', 'cleaning'];
       if (!validStatuses.includes(status)) {
         return error(res, 'Invalid status', HTTP_STATUS.BAD_REQUEST);
+      }
+
+      // Verify table belongs to admin's restaurant
+      if (userRole !== 'super_admin' && restaurantId) {
+        const table = db.prepare('SELECT restaurant_id FROM restaurant_tables WHERE id = ?').get(id);
+        if (!table) {
+          return error(res, 'Table not found', HTTP_STATUS.NOT_FOUND);
+        }
+        if (table.restaurant_id !== restaurantId) {
+          return error(res, 'Unauthorized - Table belongs to another restaurant', HTTP_STATUS.FORBIDDEN);
+        }
       }
 
       db.prepare('UPDATE restaurant_tables SET status = ? WHERE id = ?')
@@ -625,10 +716,25 @@ export class AdminController {
       const db = getDB();
       const { id } = req.params;
       const { capacity, location, status } = req.body;
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
+      const userRole = req.user?.role;
 
       const validStatuses = ['available', 'occupied', 'reserved', 'cleaning'];
       if (status && !validStatuses.includes(status)) {
         return error(res, 'Invalid status', HTTP_STATUS.BAD_REQUEST);
+      }
+
+      // Verify table belongs to admin's restaurant
+      if (userRole !== 'super_admin' && restaurantId) {
+        const table = db.prepare('SELECT restaurant_id FROM restaurant_tables WHERE id = ?').get(id);
+        if (!table) {
+          return error(res, 'Table not found', HTTP_STATUS.NOT_FOUND);
+        }
+        if (table.restaurant_id !== restaurantId) {
+          return error(res, 'Unauthorized - Table belongs to another restaurant', HTTP_STATUS.FORBIDDEN);
+        }
       }
 
       let updates = [];
@@ -671,11 +777,19 @@ export class AdminController {
     try {
       const db = getDB();
       const { id } = req.params;
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
+      const userRole = req.user?.role;
 
-      // Check if table has active orders
-      const table = db.prepare('SELECT status FROM restaurant_tables WHERE id = ?').get(id);
+      // Check if table exists and belongs to admin's restaurant
+      const table = db.prepare('SELECT status, restaurant_id FROM restaurant_tables WHERE id = ?').get(id);
       if (!table) {
         return error(res, 'Table not found', HTTP_STATUS.NOT_FOUND);
+      }
+
+      if (userRole !== 'super_admin' && restaurantId && table.restaurant_id !== restaurantId) {
+        return error(res, 'Unauthorized - Table belongs to another restaurant', HTTP_STATUS.FORBIDDEN);
       }
 
       if (table.status === 'occupied') {
@@ -706,27 +820,54 @@ export class AdminController {
         mostOrderedItems: [],
       };
 
-      // Count products
-      const productsResult = db.prepare('SELECT COUNT(*) as count FROM products').get();
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
+
+      // Count products (filtered by restaurant)
+      let productQuery = 'SELECT COUNT(*) as count FROM products';
+      let productParams = [];
+      if (restaurantId) {
+        productQuery += ' WHERE restaurant_id = ? OR restaurant_id IS NULL';
+        productParams.push(restaurantId);
+      }
+      const productsResult = db.prepare(productQuery).get(...productParams);
       stats.totalProducts = productsResult.count;
 
-      // Count categories
-      const categoriesResult = db.prepare('SELECT COUNT(*) as count FROM categories').get();
+      // Count categories (filtered by restaurant)
+      let catQuery = 'SELECT COUNT(*) as count FROM categories';
+      let catParams = [];
+      if (restaurantId) {
+        catQuery += ' WHERE restaurant_id = ? OR restaurant_id IS NULL';
+        catParams.push(restaurantId);
+      }
+      const categoriesResult = db.prepare(catQuery).get(...catParams);
       stats.totalCategories = categoriesResult.count;
 
-      // Count subcategories
-      const subcategoriesResult = db.prepare('SELECT COUNT(*) as count FROM subcategories').get();
+      // Count subcategories (filtered by restaurant)
+      let subQuery = 'SELECT COUNT(*) as count FROM subcategories';
+      let subParams = [];
+      if (restaurantId) {
+        subQuery += ' WHERE restaurant_id = ? OR restaurant_id IS NULL';
+        subParams.push(restaurantId);
+      }
+      const subcategoriesResult = db.prepare(subQuery).get(...subParams);
       stats.totalSubcategories = subcategoriesResult.count;
 
-      // Most ordered items
-      const mostOrdered = db.prepare(`
+      // Most ordered items (filtered by restaurant orders)
+      let mostOrderedQuery = `
         SELECT p.id, p.name, p.image_url, SUM(oi.quantity) as total_ordered
         FROM order_items oi
         JOIN products p ON oi.product_id = p.id
-        GROUP BY p.id
-        ORDER BY total_ordered DESC
-        LIMIT 5
-      `).all();
+        JOIN orders o ON oi.order_id = o.id
+      `;
+      let mostOrderedParams = [];
+      if (restaurantId) {
+        mostOrderedQuery += ' WHERE o.restaurant_id = ?';
+        mostOrderedParams.push(restaurantId);
+      }
+      mostOrderedQuery += ' GROUP BY p.id ORDER BY total_ordered DESC LIMIT 5';
+      const mostOrdered = db.prepare(mostOrderedQuery).all(...mostOrderedParams);
       stats.mostOrderedItems = mostOrdered;
 
       return success(res, stats, 'Menu stats retrieved');

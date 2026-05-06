@@ -258,7 +258,17 @@ export class SubscriptionController {
         return error(res, 'Unauthorized', HTTP_STATUS.FORBIDDEN);
       }
 
-      const payments = Subscription.getPendingPayments();
+      let payments = Subscription.getPendingPayments();
+
+      // Filter by restaurant for non-super-admins
+      if (req.user.role !== 'super_admin' && req.user.restaurant_id) {
+        const db = getDB();
+        const restaurantUserIds = db.prepare(
+          'SELECT id FROM users WHERE restaurant_id = ?'
+        ).all(req.user.restaurant_id).map(u => u.id);
+        payments = payments.filter(p => restaurantUserIds.includes(p.user_id));
+      }
+
       return success(res, payments);
     } catch (err) {
       logger.error('Get pending payments failed', { error: err.message });
@@ -308,7 +318,28 @@ export class SubscriptionController {
         return error(res, 'Unauthorized', HTTP_STATUS.FORBIDDEN);
       }
 
-      const stats = Subscription.getRevenueStats();
+      let stats = Subscription.getRevenueStats();
+
+      // For non-super-admins, restrict to their restaurant's revenue
+      if (req.user.role !== 'super_admin' && req.user.restaurant_id) {
+        const db = getDB();
+        const restaurantUserIds = db.prepare(
+          'SELECT id FROM users WHERE restaurant_id = ?'
+        ).all(req.user.restaurant_id).map(u => u.id);
+        // Recalculate stats from filtered subscriptions
+        const allSubs = db.prepare(`
+          SELECT us.status, sp.price
+          FROM user_subscriptions us
+          JOIN subscription_plans sp ON us.plan_id = sp.id
+          WHERE us.user_id IN (${restaurantUserIds.map(() => '?').join(',')})
+        `).all(...restaurantUserIds);
+
+        stats = {
+          active_subscriptions: allSubs.filter(s => s.status === 'active').length,
+          total_revenue: allSubs.reduce((sum, s) => sum + (s.price || 0), 0),
+        };
+      }
+
       return success(res, stats);
     } catch (err) {
       logger.error('Get revenue stats failed', { error: err.message });
@@ -326,7 +357,17 @@ export class SubscriptionController {
       }
 
       const { days = 7 } = req.query;
-      const subscriptions = Subscription.getExpiringSoon(parseInt(days));
+      let subscriptions = Subscription.getExpiringSoon(parseInt(days));
+
+      // Filter by restaurant for non-super-admins
+      if (req.user.role !== 'super_admin' && req.user.restaurant_id) {
+        const db = getDB();
+        const restaurantUserIds = db.prepare(
+          'SELECT id FROM users WHERE restaurant_id = ?'
+        ).all(req.user.restaurant_id).map(u => u.id);
+        subscriptions = subscriptions.filter(s => restaurantUserIds.includes(s.user_id));
+      }
+
       return success(res, subscriptions);
     } catch (err) {
       logger.error('Get expiring soon failed', { error: err.message });

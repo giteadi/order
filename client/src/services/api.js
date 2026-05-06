@@ -219,16 +219,28 @@ export const authAPI = {
   facebookLogin: (accessToken) => apiClient.post('/auth/facebook', { accessToken }),
 }
 
+// Helper to get restaurant subdomain from URL for multi-tenant menu calls
+const getRestaurantParam = () => {
+  const params = new URLSearchParams(window.location.search)
+  return params.get('restaurant') || undefined
+}
+
 // Menu API
 export const menuAPI = {
-  getMenu: () => apiClient.get('/menu'),
-  getCategories: () => apiClient.get('/menu/categories'),
-  getSubcategories: (categoryId) => apiClient.get(`/menu/categories/${categoryId}/subcategories`),
+  getMenu: () => apiClient.get('/menu', { params: { restaurant: getRestaurantParam() } }),
+  getCategories: () => apiClient.get('/menu/categories', { params: { restaurant: getRestaurantParam() } }),
+  getSubcategories: (categoryId) => apiClient.get(`/menu/categories/${categoryId}/subcategories`, {
+    params: { restaurant: getRestaurantParam() }
+  }),
   getProducts: (subcategoryId, { page = 1, limit = 20 } = {}) =>
-    apiClient.get(`/menu/products/${subcategoryId}`, { params: { page, limit } }),
-  getProduct: (id) => apiClient.get(`/menu/product/${id}`),
+    apiClient.get(`/menu/products/${subcategoryId}`, {
+      params: { page, limit, restaurant: getRestaurantParam() }
+    }),
+  getProduct: (id) => apiClient.get(`/menu/product/${id}`, {
+    params: { restaurant: getRestaurantParam() }
+  }),
   search: (query, limit = 20) => apiClient.get('/menu/search', {
-    params: { q: query, limit }
+    params: { q: query, limit, restaurant: getRestaurantParam() }
   }),
 
   // Admin methods

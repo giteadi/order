@@ -11,15 +11,29 @@ const logger = Logger.getInstance();
  */
 export class ProductController {
   /**
+   * Resolve restaurantId from tenant middleware or query param
+   */
+  static _getRestaurantId(req) {
+    let restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || null
+    if (!restaurantId && req.query.restaurant) {
+      const db = Product.db
+      const r = db.prepare('SELECT id FROM restaurants WHERE subdomain = ?').get(req.query.restaurant)
+      if (r) restaurantId = r.id
+    }
+    return restaurantId
+  }
+
+  /**
    * Get full menu hierarchy
    */
   static getMenu(req, res) {
     try {
-      const menu = Product.getFullMenu();
-      return success(res, menu);
+      const restaurantId = ProductController._getRestaurantId(req)
+      const menu = Product.getFullMenu(restaurantId)
+      return success(res, menu)
     } catch (err) {
-      logger.error('Get menu failed', { error: err.message });
-      return error(res, 'Failed to load menu');
+      logger.error('Get menu failed', { error: err.message })
+      return error(res, 'Failed to load menu')
     }
   }
 
@@ -28,11 +42,8 @@ export class ProductController {
    */
   static getCategories(req, res) {
     try {
-      const categories = Category.findAll({
-        where: { is_active: 1 },
-        orderBy: 'sort_order',
-        select: 'id, name, icon',
-      });
+      const restaurantId = ProductController._getRestaurantId(req)
+      const categories = Category.getAll({ restaurantId, isActive: true })
       return success(res, categories);
     } catch (err) {
       logger.error('Get categories failed', { error: err.message });
@@ -46,11 +57,19 @@ export class ProductController {
   static getSubcategories(req, res) {
     try {
       const { categoryId } = req.params;
-      const subcategories = Subcategory.getByCategory(categoryId);
-      
+      const restaurantId = ProductController._getRestaurantId(req)
+      const subcategories = Subcategory.getByCategory(categoryId, { restaurantId });
+
+      const db = Product.db;
+      const countStmt = db.prepare(`
+        SELECT COUNT(*) as count FROM products
+        WHERE subcategory_id = ? AND is_available = 1
+        AND (restaurant_id = ? OR restaurant_id IS NULL)
+      `);
+
       return success(res, subcategories.map(sc => ({
         ...sc,
-        productCount: Product.count({ subcategory_id: sc.id, is_available: 1 }),
+        productCount: countStmt.get(sc.id, restaurantId).count,
       })));
     } catch (err) {
       logger.error('Get subcategories failed', { error: err.message });
@@ -68,10 +87,12 @@ export class ProductController {
         return error(res, 'Invalid subcategory ID', HTTP_STATUS.BAD_REQUEST);
       }
       const { page = 1, limit = 20 } = req.query;
+      const restaurantId = ProductController._getRestaurantId(req)
 
       const result = Product.getBySubcategory(subcategoryId, {
         page: parseInt(page, 10),
         limit: parseInt(limit, 10),
+        restaurantId,
       });
 
       return paginated(res, result.data, result.pagination);
@@ -88,9 +109,16 @@ export class ProductController {
   static getProduct(req, res) {
     try {
       const { id } = req.params;
+      const restaurantId = ProductController._getRestaurantId(req)
       const product = Product.getDetails(id);
 
       if (!product) {
+        return notFound(res, 'Product');
+      }
+
+      // If restaurant filter is active, ensure product belongs to that restaurant
+      // or is a shared product (restaurant_id IS NULL)
+      if (restaurantId && product.restaurantId && product.restaurantId !== restaurantId) {
         return notFound(res, 'Product');
       }
 
@@ -113,7 +141,11 @@ export class ProductController {
         return success(res, []);
       }
 
-      const products = Product.search(q.trim(), { limit: parseInt(limit, 10) });
+      const restaurantId = ProductController._getRestaurantId(req)
+      const products = Product.search(q.trim(), {
+        limit: parseInt(limit, 10),
+        restaurantId,
+      });
       return success(res, products);
 
     } catch (err) {
@@ -140,6 +172,17 @@ export class ProductController {
       delete data.subcategoryId;
       delete data.categoryId;
       delete data.category_id;
+
+      // Determine and require restaurant_id
+      let restaurantId = req.user?.restaurant_id || req.tenant?.restaurantId || null
+      if (!restaurantId && req.query.restaurant) {
+        const r = Product.db.prepare('SELECT id FROM restaurants WHERE subdomain = ?').get(req.query.restaurant)
+        if (r) restaurantId = r.id
+      }
+      if (!restaurantId) {
+        return error(res, 'Unable to determine restaurant. Product must belong to a restaurant.', HTTP_STATUS.BAD_REQUEST)
+      }
+      data.restaurant_id = restaurantId
 
       // Normalize boolean fields for SQLite (booleans are not valid bind types)
       if (data.is_available !== undefined) data.is_available = data.is_available ? 1 : 0;
@@ -184,9 +227,16 @@ export class ProductController {
     try {
       const { id } = req.params;
       const data = req.body;
+      const restaurantId = req.user?.restaurant_id || req.tenant?.restaurantId || null;
+      const userRole = req.user?.role;
 
       const existing = Product.findById(id);
       if (!existing) {
+        return notFound(res, 'Product');
+      }
+
+      // Verify product belongs to admin's restaurant (super_admin bypasses)
+      if (userRole !== 'super_admin' && restaurantId && existing.restaurant_id !== restaurantId) {
         return notFound(res, 'Product');
       }
 
@@ -231,11 +281,22 @@ export class ProductController {
   static delete(req, res) {
     try {
       const { id } = req.params;
+      const restaurantId = req.user?.restaurant_id || req.tenant?.restaurantId || null;
+      const userRole = req.user?.role;
       logger.info('[ProductController] Delete request received', { productId: id, user: req.user?.id, tenant: req.tenant });
+
+      // Check ownership before transaction
+      const productCheck = Product.findById(id);
+      if (!productCheck) {
+        return notFound(res, 'Product');
+      }
+      if (userRole !== 'super_admin' && restaurantId && productCheck.restaurant_id !== restaurantId) {
+        return notFound(res, 'Product');
+      }
 
       // Use transaction to handle foreign key constraints
       transaction((db) => {
-        // Check if product exists using transaction db
+        // Re-check inside transaction
         logger.info('[ProductController] Checking if product exists:', { productId: id });
         const existing = db.prepare('SELECT id FROM products WHERE id = ?').get(id);
         logger.info('[ProductController] Product lookup result:', { productId: id, found: !!existing });
@@ -280,9 +341,16 @@ export class ProductController {
     try {
       const { id } = req.params;
       const { isAvailable } = req.body;
+      const restaurantId = req.user?.restaurant_id || req.tenant?.restaurantId || null;
+      const userRole = req.user?.role;
 
       const existing = Product.findById(id);
       if (!existing) {
+        return notFound(res, 'Product');
+      }
+
+      // Verify product belongs to admin's restaurant (super_admin bypasses)
+      if (userRole !== 'super_admin' && restaurantId && existing.restaurant_id !== restaurantId) {
         return notFound(res, 'Product');
       }
 

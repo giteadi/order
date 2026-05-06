@@ -270,12 +270,12 @@ export class OrderModel extends BaseModel {
   /**
    * Get order statistics
    */
-  getStats({ dateFrom, dateTo, groupBy = 'day' }) {
-    const format = groupBy === 'hour' ? '%Y-%m-%d %H:00' : 
+  getStats({ dateFrom, dateTo, groupBy = 'day', restaurantId = null }) {
+    const format = groupBy === 'hour' ? '%Y-%m-%d %H:00' :
                    groupBy === 'month' ? '%Y-%m' : '%Y-%m-%d';
-    
-    const sql = `
-      SELECT 
+
+    let sql = `
+      SELECT
         strftime('${format}', created_at) as period,
         COUNT(*) as order_count,
         SUM(total_amount) as total_revenue,
@@ -283,11 +283,17 @@ export class OrderModel extends BaseModel {
         SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_count
       FROM ${this.table}
       WHERE DATE(created_at) BETWEEN ? AND ?
-      GROUP BY period
-      ORDER BY period
     `;
-    
-    return this.query(sql, [dateFrom, dateTo]);
+    const params = [dateFrom, dateTo];
+
+    if (restaurantId) {
+      sql += ` AND restaurant_id = ?`;
+      params.push(restaurantId);
+    }
+
+    sql += ` GROUP BY period ORDER BY period`;
+
+    return this.query(sql, params);
   }
 }
 

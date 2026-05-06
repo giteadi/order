@@ -51,7 +51,7 @@ export const MenuManagement = () => {
     }
     const loadSubs = async () => {
       try {
-        const res = await apiClient.get(`/menu/categories/${formData.category_id}/subcategories`)
+        const res = await menuAPI.getSubcategories(formData.category_id)
         if (res.data.success) {
           setFormSubcategories(res.data.data || [])
         }

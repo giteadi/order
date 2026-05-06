@@ -81,33 +81,40 @@ const SCHEMA = {
   [TABLES.CATEGORIES]: `
     CREATE TABLE IF NOT EXISTS ${TABLES.CATEGORIES} (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      restaurant_id INTEGER,
       name TEXT NOT NULL,
       icon TEXT,
       sort_order INTEGER DEFAULT 0,
       is_active INTEGER DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
     );
+    CREATE INDEX IF NOT EXISTS idx_categories_restaurant ON ${TABLES.CATEGORIES}(restaurant_id);
   `,
 
   // Subcategories (Espresso, Breakfast, etc.)
   [TABLES.SUBCATEGORIES]: `
     CREATE TABLE IF NOT EXISTS ${TABLES.SUBCATEGORIES} (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      restaurant_id INTEGER,
       category_id INTEGER NOT NULL,
       name TEXT NOT NULL,
       icon TEXT,
       sort_order INTEGER DEFAULT 0,
       is_active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE,
       FOREIGN KEY (category_id) REFERENCES ${TABLES.CATEGORIES}(id) ON DELETE CASCADE
     );
     CREATE INDEX IF NOT EXISTS idx_subcat_category ON ${TABLES.SUBCATEGORIES}(category_id);
+    CREATE INDEX IF NOT EXISTS idx_subcat_restaurant ON ${TABLES.SUBCATEGORIES}(restaurant_id);
   `,
 
   // Products/Menu items
   [TABLES.PRODUCTS]: `
     CREATE TABLE IF NOT EXISTS ${TABLES.PRODUCTS} (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      restaurant_id INTEGER,
       subcategory_id INTEGER NOT NULL,
       name TEXT NOT NULL,
       description TEXT,
@@ -124,8 +131,10 @@ const SCHEMA = {
       sort_order INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE,
       FOREIGN KEY (subcategory_id) REFERENCES ${TABLES.SUBCATEGORIES}(id) ON DELETE CASCADE
     );
+    CREATE INDEX IF NOT EXISTS idx_products_restaurant ON ${TABLES.PRODUCTS}(restaurant_id);
     CREATE INDEX IF NOT EXISTS idx_products_subcategory ON ${TABLES.PRODUCTS}(subcategory_id);
     CREATE INDEX IF NOT EXISTS idx_products_available ON ${TABLES.PRODUCTS}(is_available);
     CREATE INDEX IF NOT EXISTS idx_products_price ON ${TABLES.PRODUCTS}(price);
@@ -347,6 +356,9 @@ export async function initializeDatabase() {
       { table: 'restaurants', column: 'currency_symbol', type: 'TEXT' },
       { table: 'restaurants', column: 'payment_methods', type: 'TEXT' },
       { table: 'restaurants', column: 'features', type: 'TEXT' },
+      { table: TABLES.CATEGORIES, column: 'restaurant_id', type: 'INTEGER' },
+      { table: TABLES.SUBCATEGORIES, column: 'restaurant_id', type: 'INTEGER' },
+      { table: TABLES.PRODUCTS, column: 'restaurant_id', type: 'INTEGER' },
       { table: TABLES.ORDERS, column: 'restaurant_id', type: 'INTEGER' },
       { table: TABLES.TABLES, column: 'restaurant_id', type: 'INTEGER' },
       { table: TABLES.CAROUSEL_IMAGES, column: 'carousel_type', type: 'TEXT' },

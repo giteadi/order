@@ -185,9 +185,16 @@ export class OrderController {
         return notFound(res, 'Order');
       }
 
-      // Check ownership (user can see own orders, staff can see all)
+      // Check ownership (user can see own orders, staff can see all orders in their restaurant)
       if (req.user.role === 'customer' && order.user_id !== req.user.id) {
         return error(res, 'Not authorized', HTTP_STATUS.FORBIDDEN);
+      }
+
+      // For staff/admin, verify order belongs to their restaurant
+      const restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || null;
+      const userRole = req.user?.role;
+      if (userRole !== 'customer' && userRole !== 'super_admin' && restaurantId && order.restaurant_id !== restaurantId) {
+        return error(res, 'Not authorized - Order belongs to another restaurant', HTTP_STATUS.FORBIDDEN);
       }
 
       return success(res, order);
@@ -274,20 +281,23 @@ export class OrderController {
    */
   static listOrders(req, res) {
     try {
-      const { 
-        page = 1, 
-        limit = 20, 
-        status, 
+      const {
+        page = 1,
+        limit = 20,
+        status,
         tableId,
         dateFrom,
         dateTo,
       } = req.query;
+
+      const restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || null;
 
       const result = Order.listOrders({
         status,
         tableId: tableId ? parseInt(tableId, 10) : null,
         dateFrom,
         dateTo,
+        restaurantId,
         page: parseInt(page, 10),
         limit: parseInt(limit, 10),
       });
@@ -307,10 +317,17 @@ export class OrderController {
     try {
       const { id } = req.params;
       const { status, estimatedReadyAt } = req.body;
+      const restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || null;
+      const userRole = req.user?.role;
 
-      const order = Order.findById(id, 'id, status');
+      const order = Order.findById(id, 'id, status, restaurant_id');
       if (!order) {
         return notFound(res, 'Order');
+      }
+
+      // Verify order belongs to admin's restaurant (super_admin bypasses)
+      if (userRole !== 'super_admin' && restaurantId && order.restaurant_id !== restaurantId) {
+        return error(res, 'Unauthorized - Order belongs to another restaurant', HTTP_STATUS.FORBIDDEN);
       }
 
       const updateData = { status };
@@ -335,6 +352,24 @@ export class OrderController {
     try {
       const { itemId } = req.params;
       const { status } = req.body;
+      const restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || null;
+      const userRole = req.user?.role;
+
+      // Verify item belongs to an order in admin's restaurant
+      if (userRole !== 'super_admin' && restaurantId) {
+        const db = Order.db;
+        const itemOrder = db.prepare(`
+          SELECT o.restaurant_id FROM order_items oi
+          JOIN orders o ON oi.order_id = o.id
+          WHERE oi.id = ?
+        `).get(itemId);
+        if (!itemOrder) {
+          return notFound(res, 'Order item');
+        }
+        if (itemOrder.restaurant_id !== restaurantId) {
+          return error(res, 'Unauthorized - Item belongs to another restaurant', HTTP_STATUS.FORBIDDEN);
+        }
+      }
 
       Order.updateItemStatus(itemId, status);
 
@@ -352,8 +387,10 @@ export class OrderController {
   static cancel(req, res) {
     try {
       const { id } = req.params;
+      const restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || null;
+      const userRole = req.user?.role;
 
-      const order = Order.findById(id, 'id, status, user_id');
+      const order = Order.findById(id, 'id, status, user_id, restaurant_id');
       if (!order) {
         return notFound(res, 'Order');
       }
@@ -361,6 +398,11 @@ export class OrderController {
       // Check ownership
       if (req.user.role === 'customer' && order.user_id !== req.user.id) {
         return error(res, 'Not authorized', HTTP_STATUS.FORBIDDEN);
+      }
+
+      // For admins/staff, verify order belongs to their restaurant
+      if (userRole !== 'customer' && userRole !== 'super_admin' && restaurantId && order.restaurant_id !== restaurantId) {
+        return error(res, 'Unauthorized - Order belongs to another restaurant', HTTP_STATUS.FORBIDDEN);
       }
 
       // Only allow cancellation of pending/confirmed orders
@@ -389,11 +431,13 @@ export class OrderController {
   static getStats(req, res) {
     try {
       const { dateFrom, dateTo, groupBy = 'day' } = req.query;
+      const restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || null;
 
       const stats = Order.getStats({
         dateFrom: dateFrom || new Date().toISOString().split('T')[0],
         dateTo: dateTo || new Date().toISOString().split('T')[0],
         groupBy,
+        restaurantId,
       });
 
       return success(res, stats);
