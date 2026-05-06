@@ -65,10 +65,11 @@ export class CarouselController {
   static async getCarouselImages(req, res) {
     try {
       const db = getDB();
-      let restaurantId = req.user?.restaurant_id || req.query.restaurant_id || req.tenant?.restaurantId;
+      // Get restaurant context - prioritize tenant (subdomain) over user's default
+      const restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || req.query.restaurant_id || null;
       const carouselType = req.query.type || 'highlights';
 
-      // ✅ Validate carousel type
+      // Validate carousel type
       const allowedTypes = ['hero', 'highlights', 'collection', 'parallax'];
       if (!allowedTypes.includes(carouselType)) {
         return error(res, `Invalid carousel type. Allowed: ${allowedTypes.join(', ')}`, HTTP_STATUS.BAD_REQUEST);
@@ -97,20 +98,27 @@ export class CarouselController {
       }
 
       const images = db.prepare(`
-        SELECT 
-          id, uuid, carousel_type, title, subtitle, 
-          image_base64, image_thumbnail, display_order, is_active
+        SELECT
+          id, uuid, carousel_type, title, subtitle,
+          display_order, is_active, created_at
         FROM carousel_images
         WHERE restaurant_id = ? AND carousel_type = ? AND is_active = 1
         ORDER BY display_order ASC, created_at DESC
       `).all(restaurantId, carouselType);
 
-      // For optimization, send thumbnails first if available
+      // Fetch thumbnails separately for images that have them
+      const thumbnails = db.prepare(`
+        SELECT id, image_thumbnail as thumbnail
+        FROM carousel_images
+        WHERE restaurant_id = ? AND carousel_type = ? AND is_active = 1 AND image_thumbnail IS NOT NULL
+      `).all(restaurantId, carouselType);
+      const thumbnailMap = new Map(thumbnails.map(t => [t.id, t.thumbnail]));
+
+      // Build lightweight response - no full base64 in list
       const optimizedImages = images.map(img => ({
         ...img,
-        // Use thumbnail for faster initial load
-        image: img.image_thumbnail || img.image_base64,
-        fullImage: img.image_base64 // Full image available on demand
+        thumbnail: thumbnailMap.get(img.id) || null,
+        // Full image available via getCarouselImage endpoint
       }));
 
       return success(res, optimizedImages, 'Carousel images retrieved');
@@ -127,10 +135,11 @@ export class CarouselController {
     try {
       const db = getDB();
       const { id } = req.params;
+      const restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || req.query.restaurant_id || null;
 
       const image = db.prepare(`
-        SELECT * FROM carousel_images WHERE id = ?
-      `).get(id);
+        SELECT * FROM carousel_images WHERE id = ? AND restaurant_id = ?
+      `).get(id, restaurantId);
 
       if (!image) {
         return error(res, 'Image not found', HTTP_STATUS.NOT_FOUND);
@@ -156,10 +165,11 @@ export class CarouselController {
     try {
       const db = getDB();
       const { title, subtitle, image_base64, display_order, carousel_type } = req.body;
-      const restaurantId = req.user?.restaurant_id;
+      // Tenant context first, then user's default restaurant
+      const restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || req.query.restaurant_id || null;
       const carouselType = carousel_type || 'highlights';
 
-      // ✅ Validate carousel type
+      // Validate carousel type
       const allowedTypes = ['hero', 'highlights', 'collection', 'parallax'];
       if (!allowedTypes.includes(carouselType)) {
         return error(res, `Invalid carousel type. Allowed: ${allowedTypes.join(', ')}`, HTTP_STATUS.BAD_REQUEST);
@@ -178,7 +188,13 @@ export class CarouselController {
         return error(res, 'Invalid image format', HTTP_STATUS.BAD_REQUEST);
       }
 
-      // Optimize image
+      // Validate image size (base64 ~ 33% overhead: 2MB file = ~2.67MB base64)
+      const MAX_BASE64_SIZE = 2.8 * 1024 * 1024; // ~2MB file max
+      if (image_base64.length > MAX_BASE64_SIZE) {
+        return error(res, 'Image too large. Max file size: 2MB', HTTP_STATUS.BAD_REQUEST);
+      }
+
+      // Optimize image (stub - install sharp for real compression)
       const compressedImage = ImageOptimizer.compressBase64(image_base64);
       const thumbnail = ImageOptimizer.generateThumbnail(image_base64);
 
@@ -227,17 +243,18 @@ export class CarouselController {
       const db = getDB();
       const { id } = req.params;
       const { title, subtitle, image_base64, display_order, is_active, carousel_type } = req.body;
+      const restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || null;
 
-      // Check if image exists
-      const existing = db.prepare('SELECT * FROM carousel_images WHERE id = ?').get(id);
+      // Check if image exists in this restaurant
+      const existing = db.prepare('SELECT * FROM carousel_images WHERE id = ? AND restaurant_id = ?').get(id, restaurantId);
       if (!existing) {
         return error(res, 'Image not found', HTTP_STATUS.NOT_FOUND);
       }
 
       // Check restaurant access
-      if (req.user?.role !== 'super_admin' && 
-          req.user?.restaurant_id !== existing.restaurant_id) {
-        return error(res, 'Unauthorized', HTTP_STATUS.FORBIDDEN);
+      if (req.user?.role !== 'super_admin' &&
+          restaurantId !== existing.restaurant_id) {
+        return error(res, 'Unauthorized - image belongs to another restaurant', HTTP_STATUS.FORBIDDEN);
       }
 
       // Build update object
@@ -248,10 +265,15 @@ export class CarouselController {
       if (display_order !== undefined) updates.display_order = display_order;
       if (is_active !== undefined) updates.is_active = is_active;
 
-      // If new image provided, optimize it
+      // If new image provided, validate and optimize
       if (image_base64) {
         if (!image_base64.startsWith('data:image/')) {
           return error(res, 'Invalid image format', HTTP_STATUS.BAD_REQUEST);
+        }
+        // Validate image size (base64 ~ 33% overhead: 2MB file = ~2.67MB base64)
+        const MAX_BASE64_SIZE = 2.8 * 1024 * 1024;
+        if (image_base64.length > MAX_BASE64_SIZE) {
+          return error(res, 'Image too large. Max file size: 2MB', HTTP_STATUS.BAD_REQUEST);
         }
         updates.image_base64 = ImageOptimizer.compressBase64(image_base64);
         updates.image_thumbnail = ImageOptimizer.generateThumbnail(image_base64);
@@ -261,19 +283,19 @@ export class CarouselController {
         return error(res, 'No fields to update', HTTP_STATUS.BAD_REQUEST);
       }
 
-      // Execute update
+      // Execute update - scoped to restaurant_id
       const setClause = Object.keys(updates).map(k => `${k} = ?`).join(', ');
       const values = Object.values(updates);
-      values.push(id);
+      values.push(id, restaurantId);
 
       db.prepare(`
-        UPDATE carousel_images 
+        UPDATE carousel_images
         SET ${setClause}
-        WHERE id = ?
+        WHERE id = ? AND restaurant_id = ?
       `).run(...values);
 
-      const updated = db.prepare('SELECT * FROM carousel_images WHERE id = ?').get(id);
-      logger.info('Carousel image updated', { id });
+      const updated = db.prepare('SELECT * FROM carousel_images WHERE id = ? AND restaurant_id = ?').get(id, restaurantId);
+      logger.info('Carousel image updated', { id, restaurantId });
       return success(res, updated, 'Carousel image updated');
     } catch (err) {
       logger.error('Update carousel image error', { error: err.message });
@@ -288,23 +310,24 @@ export class CarouselController {
     try {
       const db = getDB();
       const { id } = req.params;
+      const restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || null;
 
-      // Check if image exists
-      const existing = db.prepare('SELECT * FROM carousel_images WHERE id = ?').get(id);
+      // Check if image exists in this restaurant
+      const existing = db.prepare('SELECT * FROM carousel_images WHERE id = ? AND restaurant_id = ?').get(id, restaurantId);
       if (!existing) {
         return error(res, 'Image not found', HTTP_STATUS.NOT_FOUND);
       }
 
       // Check restaurant access
-      if (req.user?.role !== 'super_admin' && 
-          req.user?.restaurant_id !== existing.restaurant_id) {
-        return error(res, 'Unauthorized', HTTP_STATUS.FORBIDDEN);
+      if (req.user?.role !== 'super_admin' &&
+          restaurantId !== existing.restaurant_id) {
+        return error(res, 'Unauthorized - image belongs to another restaurant', HTTP_STATUS.FORBIDDEN);
       }
 
-      // Soft delete (set is_active = 0)
-      db.prepare('UPDATE carousel_images SET is_active = 0 WHERE id = ?').run(id);
+      // Soft delete - scoped to restaurant_id
+      db.prepare('UPDATE carousel_images SET is_active = 0 WHERE id = ? AND restaurant_id = ?').run(id, restaurantId);
 
-      logger.info('Carousel image deleted', { id });
+      logger.info('Carousel image deleted', { id, restaurantId });
       return success(res, null, 'Carousel image deleted');
     } catch (err) {
       logger.error('Delete carousel image error', { error: err.message });
@@ -319,7 +342,7 @@ export class CarouselController {
     try {
       const db = getDB();
       const { imageIds, carousel_type } = req.body; // Array of image IDs in new order
-      const restaurantId = req.user?.restaurant_id;
+      const restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || null;
       const carouselType = carousel_type || 'highlights';
 
       if (!restaurantId) {
