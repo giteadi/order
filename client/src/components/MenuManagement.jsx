@@ -712,12 +712,12 @@ export const MenuManagement = () => {
             className="bg-white rounded-2xl w-full max-w-xl max-h-[85vh] overflow-y-auto"
             data-lenis-prevent
           >
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900">
+            <div className="p-4 sm:p-6 border-b border-gray-100">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900">
                 {editingProduct ? 'Edit Product' : 'Add Product'}
               </h2>
             </div>
-            <form id="productForm" onSubmit={handleSubmit} className="p-6 space-y-3 pb-6">
+            <form id="productForm" onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-3 pb-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Name *
@@ -743,7 +743,7 @@ export const MenuManagement = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Price (₹) *
@@ -991,7 +991,7 @@ export const MenuManagement = () => {
 
             </form>
             {/* Sticky footer */}
-            <div className="sticky bottom-0 bg-white border-t border-gray-100 p-6 pt-4">
+            <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 sm:p-6 pt-4">
               <div className="flex gap-3">
                 <button
                   type="button"

@@ -51,7 +51,7 @@ const persistConfig = {
   key: 'arthaus-root',
   version: 1,
   storage,
-  whitelist: ['auth', 'cart', 'restaurant'], // Persist auth, cart, and restaurant
+  whitelist: ['auth', 'restaurant'], // Persist auth and restaurant only (cart is session-based)
   blacklist: ['ui'], // Don't persist UI state
 }
 

@@ -823,10 +823,13 @@ function App() {
         onAddToCart={handleAddToCart}
       />
 
-      <FloatingCartButton 
-        cartCount={cartCount}
-        onClick={handleOpenCart}
-      />
+      {/* Show cart button only for customers, not admin/staff/manager */}
+      {(!user?.role || ['customer', 'guest'].includes(user?.role)) && (
+        <FloatingCartButton 
+          cartCount={cartCount}
+          onClick={handleOpenCart}
+        />
+      )}
 
       <GroupOrderSheet
         isOpen={isGroupOrderOpen}
