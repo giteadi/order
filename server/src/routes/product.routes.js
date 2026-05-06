@@ -61,4 +61,48 @@ router.patch('/:id/availability',
   asyncHandler(ProductController.toggleAvailability)
 );
 
+// Category management (admin only)
+router.post('/categories',
+  authenticate,
+  authorize('admin'),
+  checkSubscriptionWithBypass,
+  asyncHandler(ProductController.createCategory)
+);
+
+router.patch('/categories/:id',
+  authenticate,
+  authorize('admin'),
+  checkSubscriptionWithBypass,
+  asyncHandler(ProductController.updateCategory)
+);
+
+router.delete('/categories/:id',
+  authenticate,
+  authorize('admin'),
+  checkSubscriptionWithBypass,
+  asyncHandler(ProductController.deleteCategory)
+);
+
+// Subcategory management (admin only)
+router.post('/subcategories',
+  authenticate,
+  authorize('admin'),
+  checkSubscriptionWithBypass,
+  asyncHandler(ProductController.createSubcategory)
+);
+
+router.patch('/subcategories/:id',
+  authenticate,
+  authorize('admin'),
+  checkSubscriptionWithBypass,
+  asyncHandler(ProductController.updateSubcategory)
+);
+
+router.delete('/subcategories/:id',
+  authenticate,
+  authorize('admin'),
+  checkSubscriptionWithBypass,
+  asyncHandler(ProductController.deleteSubcategory)
+);
+
 export default router;

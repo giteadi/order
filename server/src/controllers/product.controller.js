@@ -363,4 +363,217 @@ export class ProductController {
       return error(res, 'Failed to update availability');
     }
   }
+
+  // ============ Category & Subcategory Management (Admin) ============
+
+  /**
+   * Create category (Admin)
+   */
+  static createCategory(req, res) {
+    try {
+      const { name, icon, sort_order } = req.body;
+      const restaurantId = req.user?.restaurant_id || req.tenant?.restaurantId || null;
+
+      if (!name || name.trim().length === 0) {
+        return error(res, 'Category name is required', HTTP_STATUS.BAD_REQUEST);
+      }
+
+      const data = {
+        name: name.trim(),
+        icon: icon || '',
+        sort_order: sort_order || 0,
+        is_active: 1,
+      };
+
+      if (restaurantId) {
+        data.restaurant_id = restaurantId;
+      }
+
+      const result = Category.create(data);
+      const category = Category.findById(result.id);
+
+      return created(res, category, 'Category created successfully');
+    } catch (err) {
+      logger.error('Create category failed', { error: err.message });
+      return error(res, 'Failed to create category');
+    }
+  }
+
+  /**
+   * Update category (Admin)
+   */
+  static updateCategory(req, res) {
+    try {
+      const { id } = req.params;
+      const { name, icon, sort_order, is_active } = req.body;
+      const restaurantId = req.user?.restaurant_id || req.tenant?.restaurantId || null;
+      const userRole = req.user?.role;
+
+      const existing = Category.findById(id);
+      if (!existing) {
+        return notFound(res, 'Category');
+      }
+
+      // Verify category belongs to admin's restaurant (super_admin bypasses)
+      if (userRole !== 'super_admin' && restaurantId && existing.restaurant_id && existing.restaurant_id !== restaurantId) {
+        return notFound(res, 'Category');
+      }
+
+      const data = {};
+      if (name !== undefined) data.name = name.trim();
+      if (icon !== undefined) data.icon = icon;
+      if (sort_order !== undefined) data.sort_order = sort_order;
+      if (is_active !== undefined) data.is_active = is_active ? 1 : 0;
+
+      Category.update(id, data);
+      const category = Category.findById(id);
+
+      return success(res, category, 'Category updated successfully');
+    } catch (err) {
+      logger.error('Update category failed', { error: err.message });
+      return error(res, 'Failed to update category');
+    }
+  }
+
+  /**
+   * Delete category (Admin)
+   */
+  static deleteCategory(req, res) {
+    try {
+      const { id } = req.params;
+      const restaurantId = req.user?.restaurant_id || req.tenant?.restaurantId || null;
+      const userRole = req.user?.role;
+
+      const existing = Category.findById(id);
+      if (!existing) {
+        return notFound(res, 'Category');
+      }
+
+      // Verify category belongs to admin's restaurant (super_admin bypasses)
+      if (userRole !== 'super_admin' && restaurantId && existing.restaurant_id && existing.restaurant_id !== restaurantId) {
+        return notFound(res, 'Category');
+      }
+
+      // Soft delete - set is_active = 0
+      Category.update(id, { is_active: 0 });
+
+      return success(res, null, 'Category deleted successfully');
+    } catch (err) {
+      logger.error('Delete category failed', { error: err.message });
+      return error(res, 'Failed to delete category');
+    }
+  }
+
+  /**
+   * Create subcategory (Admin)
+   */
+  static createSubcategory(req, res) {
+    try {
+      const { name, icon, sort_order, category_id } = req.body;
+      const restaurantId = req.user?.restaurant_id || req.tenant?.restaurantId || null;
+
+      if (!name || name.trim().length === 0) {
+        return error(res, 'Subcategory name is required', HTTP_STATUS.BAD_REQUEST);
+      }
+      if (!category_id) {
+        return error(res, 'Category ID is required', HTTP_STATUS.BAD_REQUEST);
+      }
+
+      // Verify category exists and belongs to admin's restaurant
+      const category = Category.findById(category_id);
+      if (!category) {
+        return error(res, 'Invalid category', HTTP_STATUS.BAD_REQUEST);
+      }
+      const userRole = req.user?.role;
+      if (userRole !== 'super_admin' && restaurantId && category.restaurant_id && category.restaurant_id !== restaurantId) {
+        return error(res, 'Category does not belong to your restaurant', HTTP_STATUS.FORBIDDEN);
+      }
+
+      const data = {
+        name: name.trim(),
+        category_id: parseInt(category_id, 10),
+        icon: icon || '',
+        sort_order: sort_order || 0,
+        is_active: 1,
+      };
+
+      if (restaurantId) {
+        data.restaurant_id = restaurantId;
+      }
+
+      const result = Subcategory.create(data);
+      const subcategory = Subcategory.findById(result.id);
+
+      return created(res, subcategory, 'Subcategory created successfully');
+    } catch (err) {
+      logger.error('Create subcategory failed', { error: err.message });
+      return error(res, 'Failed to create subcategory');
+    }
+  }
+
+  /**
+   * Update subcategory (Admin)
+   */
+  static updateSubcategory(req, res) {
+    try {
+      const { id } = req.params;
+      const { name, icon, sort_order, category_id, is_active } = req.body;
+      const restaurantId = req.user?.restaurant_id || req.tenant?.restaurantId || null;
+      const userRole = req.user?.role;
+
+      const existing = Subcategory.findById(id);
+      if (!existing) {
+        return notFound(res, 'Subcategory');
+      }
+
+      // Verify subcategory belongs to admin's restaurant (super_admin bypasses)
+      if (userRole !== 'super_admin' && restaurantId && existing.restaurant_id && existing.restaurant_id !== restaurantId) {
+        return notFound(res, 'Subcategory');
+      }
+
+      const data = {};
+      if (name !== undefined) data.name = name.trim();
+      if (icon !== undefined) data.icon = icon;
+      if (sort_order !== undefined) data.sort_order = sort_order;
+      if (category_id !== undefined) data.category_id = parseInt(category_id, 10);
+      if (is_active !== undefined) data.is_active = is_active ? 1 : 0;
+
+      Subcategory.update(id, data);
+      const subcategory = Subcategory.findById(id);
+
+      return success(res, subcategory, 'Subcategory updated successfully');
+    } catch (err) {
+      logger.error('Update subcategory failed', { error: err.message });
+      return error(res, 'Failed to update subcategory');
+    }
+  }
+
+  /**
+   * Delete subcategory (Admin)
+   */
+  static deleteSubcategory(req, res) {
+    try {
+      const { id } = req.params;
+      const restaurantId = req.user?.restaurant_id || req.tenant?.restaurantId || null;
+      const userRole = req.user?.role;
+
+      const existing = Subcategory.findById(id);
+      if (!existing) {
+        return notFound(res, 'Subcategory');
+      }
+
+      // Verify subcategory belongs to admin's restaurant (super_admin bypasses)
+      if (userRole !== 'super_admin' && restaurantId && existing.restaurant_id && existing.restaurant_id !== restaurantId) {
+        return notFound(res, 'Subcategory');
+      }
+
+      // Soft delete - set is_active = 0
+      Subcategory.update(id, { is_active: 0 });
+
+      return success(res, null, 'Subcategory deleted successfully');
+    } catch (err) {
+      logger.error('Delete subcategory failed', { error: err.message });
+      return error(res, 'Failed to delete subcategory');
+    }
+  }
 }

@@ -249,6 +249,16 @@ export const menuAPI = {
   deleteProduct: (id) => apiClient.delete(`/menu/${id}`),
   toggleAvailability: (id, isAvailable) =>
     apiClient.patch(`/menu/${id}/availability`, { isAvailable }),
+
+  // Category management
+  createCategory: (data) => apiClient.post('/menu/categories', data),
+  updateCategory: (id, data) => apiClient.patch(`/menu/categories/${id}`, data),
+  deleteCategory: (id) => apiClient.delete(`/menu/categories/${id}`),
+
+  // Subcategory management
+  createSubcategory: (data) => apiClient.post('/menu/subcategories', data),
+  updateSubcategory: (id, data) => apiClient.patch(`/menu/subcategories/${id}`, data),
+  deleteSubcategory: (id) => apiClient.delete(`/menu/subcategories/${id}`),
 }
 
 // Cart API
