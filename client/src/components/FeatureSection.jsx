@@ -44,7 +44,7 @@ export const FeatureSection = ({ title, description, icon, images: propImages = 
         setLoading(true)
         const response = await apiClient.get(`/carousel?type=${carouselType}`)
         if (response.data.success && response.data.data.length > 0) {
-          const images = response.data.data.map(img => img.image || img.image_base64)
+          const images = response.data.data.map(img => img.thumbnail).filter(Boolean)
           setApiImages(images)
         }
       } catch (error) {

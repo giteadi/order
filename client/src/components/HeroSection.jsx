@@ -65,11 +65,12 @@ export const HeroSection = () => {
         setLoading(true)
         const response = await apiClient.get('/carousel?type=hero')
         if (response.data.success && response.data.data.length > 0) {
-          // Use API images - extract the image field (can be thumbnail or full image)
-          const apiImages = response.data.data.map(img => img.image || img.image_base64)
-          setHeroImages(apiImages)
+          // thumbnail field is what the list API returns (optimized, small)
+          const apiImages = response.data.data
+            .map(img => img.thumbnail)
+            .filter(Boolean)
+          setHeroImages(apiImages.length > 0 ? apiImages : fallbackImages)
         } else {
-          // Fallback to default images if no API images
           setHeroImages(fallbackImages)
         }
       } catch (error) {

@@ -71,7 +71,7 @@ export const MultiLayerParallax = () => {
       try {
         const response = await apiClient.get('/carousel?type=parallax')
         if (response.data.success && response.data.data.length > 0) {
-          const images = response.data.data.map(img => img.image || img.image_base64)
+          const images = response.data.data.map(img => img.thumbnail).filter(Boolean)
           setParallaxImages(images)
         }
       } catch (error) {

@@ -49,8 +49,8 @@ export const HighlightsStrip = ({
         const formattedImages = carouselRes.data.data.map(img => ({
           title: img.title,
           subtitle: img.subtitle || '',
-          image: img.image // Using optimized thumbnail/full image
-        }))
+          image: img.thumbnail || img.image_base64  // thumbnail from API
+        })).filter(img => img.image)
         setCarouselImages(formattedImages)
       }
     }
