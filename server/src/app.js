@@ -22,6 +22,9 @@ import { expireSubscriptions, getSubscriptionStats } from './cron/expireSubscrip
 const logger = Logger.getInstance();
 const app = express();
 
+// Trust proxy when behind nginx (required for express-rate-limit to work correctly)
+app.set('trust proxy', 1);
+
 /**
  * Security Middleware
  */

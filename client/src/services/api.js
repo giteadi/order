@@ -59,6 +59,14 @@ apiClient.interceptors.request.use(
       config.headers['X-Session-ID'] = sessionId
     }
 
+    // Send current subdomain as header for tenant identification
+    // This helps backend identify restaurant even when accessed via IP or behind proxy
+    const hostname = window.location.hostname
+    const subdomain = hostname.split('.')[0]
+    if (subdomain && subdomain !== 'www' && subdomain !== 'localhost' && subdomain !== '127') {
+      config.headers['X-Restaurant-Subdomain'] = subdomain
+    }
+
     return config
   },
   (error) => {
