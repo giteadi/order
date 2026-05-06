@@ -3,55 +3,9 @@ import { success, error } from '../utils/response.js';
 import { HTTP_STATUS } from '../config/index.js';
 import { Logger } from '../utils/logger.js';
 import { generateUUID } from '../utils/helpers.js';
+import { ImageOptimizer } from '../utils/imageOptimizer.js';
 
 const logger = Logger.getInstance();
-
-/**
- * Image optimization utilities
- * Compress base64 images and generate thumbnails
- */
-class ImageOptimizer {
-  /**
-   * Compress base64 image by reducing quality
-   */
-  static compressBase64(base64String, quality = 0.7) {
-    try {
-      // Extract the base64 data (remove data:image/xxx;base64, prefix)
-      const matches = base64String.match(/^data:image\/([a-zA-Z]+);base64,(.+)$/);
-      if (!matches) return base64String;
-
-      const mimeType = matches[1];
-      const base64Data = matches[2];
-
-      // For now, return original - in production use sharp or similar
-      // This is a placeholder for proper image compression
-      return base64String;
-    } catch (err) {
-      logger.warn('Image compression failed', { error: err.message });
-      return base64String;
-    }
-  }
-
-  /**
-   * Generate thumbnail from base64 image
-   */
-  static generateThumbnail(base64String, maxWidth = 300) {
-    try {
-      // Validate base64 format - handle all image types
-      if (!base64String || !base64String.startsWith('data:image/')) {
-        logger.warn('Invalid base64 format for thumbnail');
-        return null;
-      }
-
-      // For now, return original - in production use sharp to resize
-      // This is a placeholder for proper thumbnail generation
-      return base64String;
-    } catch (err) {
-      logger.warn('Thumbnail generation failed', { error: err.message });
-      return null;
-    }
-  }
-}
 
 /**
  * Carousel Images Controller
@@ -217,9 +171,9 @@ export class CarouselController {
         return error(res, 'Image too large. Max file size: 2MB', HTTP_STATUS.BAD_REQUEST);
       }
 
-      // Optimize image (stub - install sharp for real compression)
-      const compressedImage = ImageOptimizer.compressBase64(image_base64);
-      const thumbnail = ImageOptimizer.generateThumbnail(image_base64);
+      // Optimize image using sharp (real compression + thumbnail)
+      const compressedImage = await ImageOptimizer.compressBase64(image_base64);
+      const thumbnail = await ImageOptimizer.generateThumbnail(image_base64);
 
       // Get next display order if not provided
       let order = display_order || 0;
@@ -298,8 +252,8 @@ export class CarouselController {
         if (image_base64.length > MAX_BASE64_SIZE) {
           return error(res, 'Image too large. Max file size: 2MB', HTTP_STATUS.BAD_REQUEST);
         }
-        updates.image_base64 = ImageOptimizer.compressBase64(image_base64);
-        updates.image_thumbnail = ImageOptimizer.generateThumbnail(image_base64);
+        updates.image_base64 = await ImageOptimizer.compressBase64(image_base64);
+        updates.image_thumbnail = await ImageOptimizer.generateThumbnail(image_base64);
       }
 
       if (Object.keys(updates).length === 0) {
