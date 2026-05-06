@@ -243,3 +243,62 @@ export const storage = {
 export function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
+
+/**
+ * Compress image using Canvas API before uploading as base64
+ * @param {File} file - Image file
+ * @param {Object} options - { maxWidth, maxHeight, quality, type }
+ * @returns {Promise<string>} - Compressed base64 data URL
+ */
+export function compressImage(file, options = {}) {
+  const {
+    maxWidth = 800,
+    maxHeight = 800,
+    quality = 0.75,
+    type = 'image/jpeg',
+  } = options
+
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const reader = new FileReader()
+
+    reader.onload = (e) => {
+      img.src = e.target.result
+    }
+
+    img.onload = () => {
+      let { width, height } = img
+
+      // Calculate new dimensions while maintaining aspect ratio
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height)
+        width = Math.round(width * ratio)
+        height = Math.round(height * ratio)
+      }
+
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(img, 0, 0, width, height)
+
+      // Convert to compressed base64
+      const compressed = canvas.toDataURL(type, quality)
+      resolve(compressed)
+    }
+
+    img.onerror = reject
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+/**
+ * Get compressed image size in KB from base64 string
+ */
+export function getBase64SizeKB(base64String) {
+  if (!base64String || !base64String.startsWith('data:')) return 0
+  const base64 = base64String.split(',')[1]
+  const bytes = (base64.length * 3) / 4
+  return Math.round(bytes / 1024)
+}

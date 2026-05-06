@@ -6,6 +6,38 @@ import { transaction } from '../database/connection.js';
 
 const logger = Logger.getInstance();
 
+// Simple in-memory TTL cache for menu reads (reduces DB load for multi-user scenarios)
+const menuCache = new Map()
+const CACHE_TTL_MS = 30 * 1000 // 30 seconds
+
+function getCacheKey(method, restaurantId) {
+  return `${method}:${restaurantId || 'global'}`
+}
+
+function getCached(key) {
+  const entry = menuCache.get(key)
+  if (!entry) return null
+  if (Date.now() > entry.expiresAt) {
+    menuCache.delete(key)
+    return null
+  }
+  return entry.data
+}
+
+function setCached(key, data) {
+  menuCache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS })
+}
+
+function invalidateMenuCache(restaurantId) {
+  // Invalidate all menu-related caches for this restaurant
+  for (const key of menuCache.keys()) {
+    if (key.endsWith(`:${restaurantId || 'global'}`)) {
+      menuCache.delete(key)
+    }
+  }
+  logger.info('Menu cache invalidated', { restaurantId })
+}
+
 /**
  * Product Controller - Menu management
  */
@@ -29,7 +61,13 @@ export class ProductController {
   static getMenu(req, res) {
     try {
       const restaurantId = ProductController._getRestaurantId(req)
+      const cacheKey = getCacheKey('menu', restaurantId)
+      const cached = getCached(cacheKey)
+      if (cached) {
+        return success(res, cached)
+      }
       const menu = Product.getFullMenu(restaurantId)
+      setCached(cacheKey, menu)
       return success(res, menu)
     } catch (err) {
       logger.error('Get menu failed', { error: err.message })
@@ -43,7 +81,13 @@ export class ProductController {
   static getCategories(req, res) {
     try {
       const restaurantId = ProductController._getRestaurantId(req)
+      const cacheKey = getCacheKey('categories', restaurantId)
+      const cached = getCached(cacheKey)
+      if (cached) {
+        return success(res, cached)
+      }
       const categories = Category.getAll({ restaurantId, isActive: true })
+      setCached(cacheKey, categories)
       return success(res, categories);
     } catch (err) {
       logger.error('Get categories failed', { error: err.message });
@@ -58,6 +102,11 @@ export class ProductController {
     try {
       const { categoryId } = req.params;
       const restaurantId = ProductController._getRestaurantId(req)
+      const cacheKey = getCacheKey(`subcategories:${categoryId}`, restaurantId)
+      const cached = getCached(cacheKey)
+      if (cached) {
+        return success(res, cached)
+      }
       const subcategories = Subcategory.getByCategory(categoryId, { restaurantId });
 
       const db = Product.db;
@@ -67,10 +116,12 @@ export class ProductController {
         AND (restaurant_id = ? OR restaurant_id IS NULL)
       `);
 
-      return success(res, subcategories.map(sc => ({
+      const result = subcategories.map(sc => ({
         ...sc,
         productCount: countStmt.get(sc.id, restaurantId).count,
-      })));
+      }));
+      setCached(cacheKey, result)
+      return success(res, result);
     } catch (err) {
       logger.error('Get subcategories failed', { error: err.message });
       return error(res, 'Failed to load subcategories');
@@ -210,6 +261,9 @@ export class ProductController {
       const result = Product.create(data);
       const product = Product.findById(result.id);
 
+      // Invalidate menu cache for this restaurant
+      invalidateMenuCache(restaurantId)
+
       logger.info('Product created', { productId: result.id, name: data.name });
 
       return created(res, product, 'Product created successfully');
@@ -264,6 +318,9 @@ export class ProductController {
 
       Product.update(id, data);
       const product = Product.findById(id);
+
+      // Invalidate menu cache for this restaurant
+      invalidateMenuCache(restaurantId || product.restaurant_id)
 
       logger.info('Product updated', { productId: id });
 
@@ -321,6 +378,9 @@ export class ProductController {
         logger.info('[ProductController] Product deleted:', { productId: id, changes: productResult.changes });
       });
 
+      // Invalidate menu cache for this restaurant
+      invalidateMenuCache(restaurantId || productCheck.restaurant_id)
+
       logger.info('[ProductController] Product deleted successfully', { productId: id });
 
       return success(res, null, 'Product deleted successfully');
@@ -355,6 +415,9 @@ export class ProductController {
       }
 
       Product.update(id, { is_available: isAvailable ? 1 : 0 });
+
+      // Invalidate menu cache for this restaurant
+      invalidateMenuCache(restaurantId || existing.restaurant_id)
 
       return success(res, { id, isAvailable }, 'Availability updated');
 
@@ -392,6 +455,9 @@ export class ProductController {
       const result = Category.create(data);
       const category = Category.findById(result.id);
 
+      // Invalidate menu cache for this restaurant
+      invalidateMenuCache(restaurantId)
+
       return created(res, category, 'Category created successfully');
     } catch (err) {
       logger.error('Create category failed', { error: err.message });
@@ -428,6 +494,9 @@ export class ProductController {
       Category.update(id, data);
       const category = Category.findById(id);
 
+      // Invalidate menu cache for this restaurant
+      invalidateMenuCache(restaurantId || category.restaurant_id)
+
       return success(res, category, 'Category updated successfully');
     } catch (err) {
       logger.error('Update category failed', { error: err.message });
@@ -456,6 +525,9 @@ export class ProductController {
 
       // Soft delete - set is_active = 0
       Category.update(id, { is_active: 0 });
+
+      // Invalidate menu cache for this restaurant
+      invalidateMenuCache(restaurantId || existing.restaurant_id)
 
       return success(res, null, 'Category deleted successfully');
     } catch (err) {
@@ -504,6 +576,9 @@ export class ProductController {
       const result = Subcategory.create(data);
       const subcategory = Subcategory.findById(result.id);
 
+      // Invalidate menu cache for this restaurant
+      invalidateMenuCache(restaurantId)
+
       return created(res, subcategory, 'Subcategory created successfully');
     } catch (err) {
       logger.error('Create subcategory failed', { error: err.message });
@@ -541,6 +616,9 @@ export class ProductController {
       Subcategory.update(id, data);
       const subcategory = Subcategory.findById(id);
 
+      // Invalidate menu cache for this restaurant
+      invalidateMenuCache(restaurantId || subcategory.restaurant_id)
+
       return success(res, subcategory, 'Subcategory updated successfully');
     } catch (err) {
       logger.error('Update subcategory failed', { error: err.message });
@@ -569,6 +647,9 @@ export class ProductController {
 
       // Soft delete - set is_active = 0
       Subcategory.update(id, { is_active: 0 });
+
+      // Invalidate menu cache for this restaurant
+      invalidateMenuCache(restaurantId || existing.restaurant_id)
 
       return success(res, null, 'Subcategory deleted successfully');
     } catch (err) {

@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Search, Edit2, Trash2, Image as ImageIcon, DollarSign,
 import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 import apiClient from '../services/api'
 import { menuAPI, clearCache } from '../services/api'
+import { compressImage, getBase64SizeKB } from '../utils/helpers'
 
 export const MenuManagement = () => {
   const navigate = useNavigateWithParams()
@@ -549,6 +550,8 @@ export const MenuManagement = () => {
                       src={product.image_url || product.imageUrl}
                       alt={product.name}
                       className="w-full h-full object-cover"
+                      loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
@@ -907,18 +910,32 @@ export const MenuManagement = () => {
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files[0]
                         if (!file) return
                         if (file.size > 2 * 1024 * 1024) {
                           alert('Image must be less than 2MB')
                           return
                         }
-                        const reader = new FileReader()
-                        reader.onload = (ev) => {
-                          setFormData({ ...formData, image_url: ev.target.result })
+                        try {
+                          const compressed = await compressImage(file, {
+                            maxWidth: 800,
+                            maxHeight: 800,
+                            quality: 0.75,
+                            type: file.type || 'image/jpeg',
+                          })
+                          const sizeKB = getBase64SizeKB(compressed)
+                          console.log(`[MenuManagement] Image compressed: ${Math.round(file.size / 1024)}KB → ${sizeKB}KB`)
+                          setFormData({ ...formData, image_url: compressed })
+                        } catch (err) {
+                          console.error('Image compression failed', err)
+                          // Fallback: read original
+                          const reader = new FileReader()
+                          reader.onload = (ev) => {
+                            setFormData({ ...formData, image_url: ev.target.result })
+                          }
+                          reader.readAsDataURL(file)
                         }
-                        reader.readAsDataURL(file)
                       }}
                     />
                     {formData.image_url ? (
@@ -926,6 +943,7 @@ export const MenuManagement = () => {
                         src={formData.image_url}
                         alt="Preview"
                         className="h-full w-full object-cover rounded-xl"
+                        loading="eager"
                       />
                     ) : (
                       <div className="text-center">

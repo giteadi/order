@@ -68,10 +68,10 @@ export const FeaturedItemsSection = ({ onProductClick, onAddToCart, onCursorHove
   const renderImage = (item) => {
     const src = item.imageUrl || item.image_url
     if (src && !src.startsWith('data:') && src.startsWith('http')) {
-      return <img src={src} alt={item.name} className="w-full h-full object-cover" />
+      return <img src={src} alt={item.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
     }
     if (src && src.startsWith('data:')) {
-      return <img src={src} alt={item.name} className="w-full h-full object-cover" />
+      return <img src={src} alt={item.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
     }
     // emoji or fallback
     const emoji = item.emojiIcon || item.emoji_icon || item.image || '🍽️'
