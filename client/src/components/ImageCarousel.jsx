@@ -41,7 +41,24 @@ export const ImageCarousel = ({
       try {
         const response = await apiClient.get(`/carousel?type=${carouselType}`)
         if (response.data.success && response.data.data.length > 0) {
-          const images = response.data.data.map(img => img.image || img.image_base64)
+          // Backend now returns thumbnail in list, fetch full image for carousel
+          const imagePromises = response.data.data.map(async (img) => {
+            // If thumbnail exists, use it. Otherwise fetch full image
+            if (img.thumbnail) {
+              return img.thumbnail
+            }
+            // Fetch full image by ID
+            try {
+              const fullRes = await apiClient.get(`/carousel/${img.id}`)
+              if (fullRes.data.success) {
+                return fullRes.data.data.image_base64
+              }
+            } catch (err) {
+              console.error('Failed to fetch full image:', err)
+            }
+            return null
+          })
+          const images = (await Promise.all(imagePromises)).filter(Boolean)
           setApiImages(images)
         }
       } catch (error) {

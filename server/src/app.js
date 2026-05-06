@@ -41,6 +41,7 @@ const limiter = rateLimit({
   max: CONFIG.RATE_LIMIT.MAX_REQUESTS,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false }, // Disable validation for proxy
   handler: (req, res) => {
     res.status(429).json({
       success: false,

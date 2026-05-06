@@ -1,697 +1,359 @@
 # Vishnu Hastkala Kendra - Complete Deployment Guide
 
 ## 📋 Overview
-This guide provides complete instructions for deploying the Vishnu Hastkala Kendra Restaurant Management System to production server.
+Multi-restaurant ordering system deployed at `vishnuhastkalakendra.com`
+
+---
 
 ## 🖥️ Server Information
-- **Domain:** `vishnuhastkalakendra.com`
-- **IP Address:** `195.35.45.17`
-- **SSH Access:** `ssh -i ~/.ssh/id_ed25519 aditya@195.35.45.17`
-- **SSH Key:** `~/.ssh/id_ed25519` (passphrase: `1234`)
-- **Sudo Password:** `RuhiRiya@12345`
-- **Operating System:** Ubuntu 24.04 LTS
-- **Web Server:** Nginx 1.24.0
-- **Process Manager:** PM2
-- **Database:** SQLite 3.45.1
-- **Node.js Version:** 18.20.8
-- **SSL Provider:** Let's Encrypt (Valid until July 27, 2026)
 
-## 📁 Folder Structure
+| Item | Value |
+|------|-------|
+| Domain | `vishnuhastkalakendra.com` |
+| IP Address | `195.35.45.17` |
+| SSH User | `aditya` |
+| SSH Key | `~/.ssh/id_ed25519` |
+| SSH Passphrase | `1234` |
+| Sudo Password | `RuhiRiya@12345` |
+| OS | Ubuntu 24.04 LTS |
+| Web Server | Nginx 1.24.0 |
+| Process Manager | PM2 (process name: `arthaus`) |
+| Backend Port | `4002` |
+| Database | SQLite — `/root/vishnuhastkalakendra/server/data/arthaus.db` |
+| Node.js | 18.20.8 |
+| SSL | Let's Encrypt (expires July 27, 2026) |
+
+---
+
+## 📁 Server Folder Structure
+
 ```
-/root/vishnuhastkalakendra/          # Main project directory
-├── server/                          # Node.js backend application
+/root/vishnuhastkalakendra/
+├── server/
 │   ├── src/
-│   │   ├── app.js                   # Main application file (PORT 4002)
-│   │   ├── config/                  # Configuration files
-│   │   ├── controllers/             # API controllers
-│   │   ├── database/                # Database connection & initialization
-│   │   ├── middleware/              # Auth, tenant, error handling
-│   │   ├── models/                  # Database models
-│   │   ├── routes/                  # API routes
-│   │   └── utils/                   # Helper functions
-│   ├── data/                        # SQLite database files
-│   │   ├── arthaus.db               # Main database
-│   │   ├── arthaus.db-shm           # Shared memory file
-│   │   └── arthaus.db-wal           # Write-ahead log
-│   ├── logs/                        # Application logs
-│   ├── scripts/                     # Database seeding scripts
-│   │   ├── createAdmin.js           # Create admin user
-│   │   ├── createRestaurant.js      # Create restaurant
-│   │   └── seedMenu.js              # Seed menu items
-│   ├── package.json                 # Dependencies
-│   └── .env                         # Environment variables
-├── client/                          # React frontend (source)
-│   ├── src/
-│   │   ├── components/
-│   │   ├── hooks/
-│   │   ├── assets/
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   ├── dist/                        # Build output (served by Nginx)
-│   ├── .env                         # Frontend environment
-│   └── package.json
-└── logs/                            # Additional logs
+│   │   ├── app.js                  # Entry point (PORT 4002)
+│   │   ├── controllers/            # API controllers
+│   │   ├── middleware/             # Auth, tenant, subscription
+│   │   ├── models/                 # DB models
+│   │   ├── routes/                 # API routes
+│   │   └── utils/
+│   ├── data/
+│   │   └── arthaus.db              # SQLite database
+│   ├── logs/
+│   ├── scripts/
+│   └── .env                        # Server environment variables
 
-# Nginx Configuration
-/etc/nginx/sites-available/vishnuhastkalakendra.com
-/etc/nginx/sites-enabled/vishnuhastkalakendra.com
-
-# SSL Certificates
-/etc/letsencrypt/live/vishnuhastkalakendra.com/
-├── fullchain.pem
-├── privkey.pem
-├── cert.pem
-└── chain.pem
-
-# PM2 Logs
-/root/.pm2/logs/
-├── arthaus-out.log
-└── arthaus-error.log
+/var/www/vishnuhastkalakendra/      # Frontend build (served by Nginx)
 ```
 
-## 🚀 Deployment Steps
+---
 
-### 1. Local Development Setup
+## 🔑 SSH Access
+
 ```bash
-# Navigate to project
-cd /Users/adityasharma/Desktop/order
-
-# Install backend dependencies
-cd server && npm install
-
-# Install frontend dependencies
-cd ../client && npm install
-
-# Configure environment
-# server/.env already configured
-# client/.env already configured with PORT 4002
-```
-
-### 2. Create Deployment Archive
-```bash
-# Navigate to project root
-cd /Users/adityasharma/Desktop/order
-
-# Create zip including .env, excluding unnecessary files
-zip -r server-upload-with-env.zip server/ -x "server/node_modules/*" "server/data/*" "server/logs/*" "server/tests/*"
-```
-
-### 3. Upload to Server
-```bash
-# Upload zip to server using SSH key
-scp -i ~/.ssh/id_ed25519 server-upload-with-env.zip aditya@195.35.45.17:/tmp/
-# Enter passphrase when prompted: 1234
-```
-
-### 4. Server Setup
-```bash
-# SSH into server
+# Connect to server
 ssh -i ~/.ssh/id_ed25519 aditya@195.35.45.17
+# Passphrase: 1234
+
+# Switch to root (required for file operations)
+sudo -i
+# Password: RuhiRiya@12345
+```
+
+---
+
+## 📤 Uploading Single Files (Most Common)
+
+Use this pattern to upload any single backend file:
+
+```bash
+# STEP 1 — Upload from local Mac to server /tmp/
+scp -i ~/.ssh/id_ed25519 /Users/adityasharma/Desktop/order/server/src/controllers/FILENAME.js aditya@195.35.45.17:/tmp/FILENAME.js
 # Enter passphrase: 1234
 
-# Switch to root
+# STEP 2 — SSH into server
+ssh -i ~/.ssh/id_ed25519 aditya@195.35.45.17
+# Passphrase: 1234
+
+# STEP 3 — Switch to root
 sudo -i
 # Password: RuhiRiya@12345
 
-# Create project directory
-mkdir -p /root/vishnuhastkalakendra
+# STEP 4 — Copy from /tmp/ to correct location
+cp /tmp/FILENAME.js /root/vishnuhastkalakendra/server/src/controllers/FILENAME.js
 
-# Move zip to project directory
-mv /tmp/server-upload-with-env.zip /root/vishnuhastkalakendra/
+# STEP 5 — Restart backend
+pm2 restart arthaus
 
-# Go into directory
-cd /root/vishnuhastkalakendra
-
-# Extract the zip
-unzip server-upload-with-env.zip
-
-# Remove zip file
-rm server-upload-with-env.zip
-
-# Go into server directory
-cd server
-
-# Install dependencies
-npm install
-
-# Create necessary directories
-mkdir -p data logs
-
-# Set permissions
-chmod 755 data logs
+# STEP 6 — Check logs
+pm2 logs arthaus --lines 10
 ```
 
-### 5. Environment Configuration
+### Common File Paths (Local → Server)
+
+| File | Local Path | Server Path |
+|------|-----------|-------------|
+| Any controller | `server/src/controllers/X.js` | `/root/vishnuhastkalakendra/server/src/controllers/X.js` |
+| Any model | `server/src/models/X.js` | `/root/vishnuhastkalakendra/server/src/models/X.js` |
+| Any middleware | `server/src/middleware/X.js` | `/root/vishnuhastkalakendra/server/src/middleware/X.js` |
+| Any route | `server/src/routes/X.js` | `/root/vishnuhastkalakendra/server/src/routes/X.js` |
+
+---
+
+## 🚀 Frontend Build & Deploy
+
+Run all commands from your Mac:
+
 ```bash
-# Create .env file
-nano /root/vishnuhastkalakendra/server/.env
-```
-
-Add the following configuration:
-```env
-# Server Configuration
-NODE_ENV=production
-PORT=4002
-API_VERSION=v1
-
-# Database
-DB_PATH=./data/arthaus.db
-DB_BUSY_TIMEOUT=5000
-
-# Security
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-JWT_EXPIRES_IN=7d
-BCRYPT_ROUNDS=12
-
-# Rate Limiting
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX_REQUESTS=100
-
-# CORS
-CORS_ORIGIN=https://vishnuhastkalakendra.com,https://www.vishnuhastkalakendra.com
-
-# Google OAuth
-GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-
-# Logging
-LOG_LEVEL=info
-LOG_FILE=./logs/app.log
-```
-
-### 6. Database Initialization
-```bash
-# Go to server directory
-cd /root/vishnuhastkalakendra/server
-
-# Initialize database (will create arthaus.db)
-node -e "require('./src/database/init.js')"
-
-# Create super admin
-node scripts/createAdmin.js
-
-# Create a restaurant (example)
-node scripts/createRestaurant.js
-
-# Seed menu items (optional)
-node scripts/seedMenu.js
-```
-
-### 7. Backend Deployment with PM2
-```bash
-# Start with PM2
-pm2 start src/app.js --name arthaus --cwd /root/vishnuhastkalakendra/server
-
-# Save PM2 configuration
-pm2 save
-
-# Setup PM2 to start on boot
-pm2 startup
-# Follow the instructions displayed
-```
-
-### 8. Frontend Build & Deployment
-```bash
-# On local machine
+# STEP 1 — Build frontend
 cd /Users/adityasharma/Desktop/order/client
-
-# Build for production
 npm run build
 
-# Create tar archive
+# STEP 2 — Create archive
 tar -czf /tmp/arthaus-dist.tar.gz -C dist .
 
-# Upload to server
+# STEP 3 — Upload to server
 scp -i ~/.ssh/id_ed25519 /tmp/arthaus-dist.tar.gz aditya@195.35.45.17:/tmp/
+# Passphrase: 1234
+```
 
-# On server
-# Create frontend directory
-mkdir -p /var/www/vishnuhastkalakendra
+Then on server:
 
-# Extract with proper permissions
+```bash
+ssh -i ~/.ssh/id_ed25519 aditya@195.35.45.17
+# Passphrase: 1234
+
+sudo -i
+# Password: RuhiRiya@12345
+
 rm -rf /var/www/vishnuhastkalakendra/*
 tar -xzf /tmp/arthaus-dist.tar.gz -C /var/www/vishnuhastkalakendra/
 chown -R www-data:www-data /var/www/vishnuhastkalakendra
-chmod -R 755 /var/www/vishnuhastkalakendra
 ```
 
-### 9. Nginx Configuration
-Create `/etc/nginx/sites-available/vishnuhastkalakendra`:
+---
 
-```nginx
-# Main domain (Super Admin)
-server {
-    if ($host = vishnuhastkalakendra.com) {
-        return 301 https://$host$request_uri;
-    }
+## 🔄 Quick Update Cheatsheet
 
-    if ($host = www.vishnuhastkalakendra.com) {
-        return 301 https://$host$request_uri;
-    }
+### Update a single backend file
 
-    listen 80;
-    server_name vishnuhastkalakendra.com www.vishnuhastkalakendra.com;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name vishnuhastkalakendra.com www.vishnuhastkalakendra.com;
-    
-    ssl_certificate /etc/letsencrypt/live/vishnuhastkalakendra.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/vishnuhastkalakendra.com/privkey.pem;
-
-    root /var/www/vishnuhastkalakendra;
-    index index.html;
-
-    access_log /var/log/nginx/vishnuhastkalakendra-access.log;
-    error_log /var/log/nginx/vishnuhastkalakendra-error.log;
-
-    client_max_body_size 50M;
-
-    # API proxy
-    location /api/ {
-        proxy_pass http://127.0.0.1:4002;
-        proxy_http_version 1.1;
-
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        proxy_buffering off;
-    }
-
-    # Frontend files
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # Static assets caching
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-}
-
-# Wildcard subdomain for multi-tenant restaurants
-server {
-    listen 80;
-    server_name *.vishnuhastkalakendra.com;
-    return 301 https://$host$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name *.vishnuhastkalakendra.com;
-    
-    ssl_certificate /etc/letsencrypt/live/vishnuhastkalakendra.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/vishnuhastkalakendra.com/privkey.pem;
-
-    root /var/www/vishnuhastkalakendra;
-    index index.html;
-
-    access_log /var/log/nginx/vishnuhastkalakendra-subdomain-access.log;
-    error_log /var/log/nginx/vishnuhastkalakendra-subdomain-error.log;
-
-    client_max_body_size 50M;
-
-    # API proxy (subdomain-based tenant routing)
-    location /api/ {
-        proxy_pass http://127.0.0.1:4002;
-        proxy_http_version 1.1;
-
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        proxy_buffering off;
-    }
-
-    # Frontend files
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # Static assets caching
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-}
-```
-
-Enable the site:
 ```bash
-# Create symlink
-ln -s /etc/nginx/sites-available/vishnuhastkalakendra /etc/nginx/sites-enabled/
+# Local Mac — upload file
+scp -i ~/.ssh/id_ed25519 /Users/adityasharma/Desktop/order/server/src/controllers/order.controller.js aditya@195.35.45.17:/tmp/order.controller.js
 
-# Test configuration
-nginx -t
-
-# Reload nginx
-systemctl reload nginx
-```
-
-### 10. SSL Certificate (Let's Encrypt)
-```bash
-# Install certbot
-apt update
-apt install certbot python3-certbot-nginx
-
-# Obtain certificate for main domain
-certbot --nginx -d vishnuhastkalakendra.com -d www.vishnuhastkalakendra.com
-
-# For wildcard subdomain (requires DNS challenge)
-certbot certonly --manual --preferred-challenges dns -d "*.vishnuhastkalakendra.com" -d "vishnuhastkalakendra.com"
-
-# Test renewal
-certbot renew --dry-run
-
-# Setup auto-renewal
-certbot renew --quiet
-```
-
-## 🔧 SSH Commands Reference
-
-### File Operations
-```bash
-# Upload files from local
-scp -i ~/.ssh/id_ed25519 file.txt aditya@195.35.45.17:/tmp/
-
-# Download files from server
-scp -i ~/.ssh/id_ed25519 aditya@195.35.45.17:/path/file.txt .
-
-# Upload directory
-zip -r archive.zip folder/
-scp -i ~/.ssh/id_ed25519 archive.zip aditya@195.35.45.17:/tmp/
-
-# On server: unzip archive.zip -d /destination/
-```
-
-### Server Access
-```bash
-# SSH into server with key
-ssh -i ~/.ssh/id_ed25519 aditya@195.35.45.17
-# Enter passphrase: 1234
-
-# Switch to root
+# Server — copy and restart
 sudo -i
-# Password: RuhiRiya@12345
-```
-
-### Server Management
-```bash
-# Check PM2 status
-pm2 status
-pm2 logs arthaus
-pm2 monit
-
-# Restart services
+cp /tmp/order.controller.js /root/vishnuhastkalakendra/server/src/controllers/order.controller.js
 pm2 restart arthaus
-systemctl reload nginx
-
-# Check disk space
-df -h
-du -sh /root/vishnuhastkalakendra
-du -sh /var/www/vishnuhastkalakendra
+pm2 logs arthaus --lines 5
 ```
 
-### Database Operations (SQLite)
+### Update multiple backend files
+
 ```bash
-# Connect to database
+# Local Mac — upload each file separately
+scp -i ~/.ssh/id_ed25519 /Users/adityasharma/Desktop/order/server/src/controllers/product.controller.js aditya@195.35.45.17:/tmp/product.controller.js
+scp -i ~/.ssh/id_ed25519 /Users/adityasharma/Desktop/order/server/src/models/product.model.js aditya@195.35.45.17:/tmp/product.model.js
+
+# Server — copy all and restart once
+sudo -i
+cp /tmp/product.controller.js /root/vishnuhastkalakendra/server/src/controllers/product.controller.js
+cp /tmp/product.model.js /root/vishnuhastkalakendra/server/src/models/product.model.js
+pm2 restart arthaus
+pm2 logs arthaus --lines 5
+```
+
+### Update frontend only
+
+```bash
+# Local Mac
+cd /Users/adityasharma/Desktop/order/client
+npm run build
+tar -czf /tmp/arthaus-dist.tar.gz -C dist .
+scp -i ~/.ssh/id_ed25519 /tmp/arthaus-dist.tar.gz aditya@195.35.45.17:/tmp/
+
+# Server
+sudo -i
+rm -rf /var/www/vishnuhastkalakendra/*
+tar -xzf /tmp/arthaus-dist.tar.gz -C /var/www/vishnuhastkalakendra/
+chown -R www-data:www-data /var/www/vishnuhastkalakendra
+```
+
+### Update both backend + frontend
+
+```bash
+# Local Mac — upload backend files
+scp -i ~/.ssh/id_ed25519 /Users/adityasharma/Desktop/order/server/src/controllers/FILENAME.js aditya@195.35.45.17:/tmp/FILENAME.js
+
+# Local Mac — build and upload frontend
+cd /Users/adityasharma/Desktop/order/client
+npm run build
+tar -czf /tmp/arthaus-dist.tar.gz -C dist .
+scp -i ~/.ssh/id_ed25519 /tmp/arthaus-dist.tar.gz aditya@195.35.45.17:/tmp/
+
+# Server — deploy everything
+sudo -i
+cp /tmp/FILENAME.js /root/vishnuhastkalakendra/server/src/controllers/FILENAME.js
+pm2 restart arthaus
+rm -rf /var/www/vishnuhastkalakendra/*
+tar -xzf /tmp/arthaus-dist.tar.gz -C /var/www/vishnuhastkalakendra/
+chown -R www-data:www-data /var/www/vishnuhastkalakendra
+pm2 logs arthaus --lines 5
+```
+
+---
+
+## 🗄️ Database Operations
+
+```bash
+# Connect to database (on server as root)
 sqlite3 /root/vishnuhastkalakendra/server/data/arthaus.db
+
+# Run a single SQL command
+sqlite3 /root/vishnuhastkalakendra/server/data/arthaus.db "SELECT * FROM restaurants;"
 
 # Backup database
 cp /root/vishnuhastkalakendra/server/data/arthaus.db /root/arthaus-backup-$(date +%Y%m%d).db
 
-# Restore database
-cp /root/arthaus-backup.db /root/vishnuhastkalakendra/server/data/arthaus.db
-```
-
-## 🛠️ Troubleshooting
-
-### Backend Issues
-```bash
-# Check if backend is running
-curl http://localhost:4002/api/v1/health
-
-# Check PM2 logs
-pm2 logs arthaus --lines 50
-
-# Restart backend
-pm2 restart arthaus
-
-# Check port
-netstat -tlnp | grep 4002
-```
-
-### Database Issues
-```bash
-# Check database file exists
-ls -la /root/vishnuhastkalakendra/server/data/
-
-# Check database permissions
-chmod 644 /root/vishnuhastkalakendra/server/data/arthaus.db
-chmod 755 /root/vishnuhastkalakendra/server/data
-
-# Test database connection
-sqlite3 /root/vishnuhastkalakendra/server/data/arthaus.db "SELECT * FROM restaurants;"
-```
-
-### Frontend Issues
-```bash
-# Check nginx configuration
-nginx -t
-
-# Check frontend files exist
-ls -la /var/www/vishnuhastkalakendra/
-
-# Check permissions
-chown -R www-data:www-data /var/www/vishnuhastkalakendra
-chmod -R 755 /var/www/vishnuhastkalakendra
-```
-
-### Subdomain Issues
-```bash
-# Check DNS records
-dig subdomain.vishnuhastkalakendra.com
-
-# Test subdomain access
-curl -H "Host: arthaus.vishnuhastkalakendra.com" http://localhost/api/v1/health
-```
-
-## 📊 Monitoring & Logs
-
-### Application Logs
-```bash
-# PM2 logs
-pm2 logs arthaus
-pm2 logs arthaus --lines 100
-
-# Nginx logs
-tail -f /var/log/nginx/vishnuhastkalakendra-access.log
-tail -f /var/log/nginx/vishnuhastkalakendra-error.log
-
-# Application logs
-tail -f /root/vishnuhastkalakendra/server/logs/app.log
-```
-
-### Performance Monitoring
-```bash
-# Check resource usage
-htop
-df -h
-free -h
-
-# PM2 monitoring
-pm2 monit
-pm2 show arthaus
-```
-
-### Health Checks
-```bash
-# API health check
-curl -I https://vishnuhastkalakendra.com/api/v1/health
-
-# Frontend health check
-curl -I https://vishnuhastkalakendra.com/
-
-# Subdomain health check
-curl -H "Host: arthaus.vishnuhastkalakendra.com" -I https://arthaus.vishnuhastkalakendra.com/api/v1/health
-```
-
-## 🔄 Update Procedures
-
-### Backend Updates
-```bash
-# On local machine
-cd /Users/adityasharma/Desktop/order
-zip -r server-update.zip server/ -x "server/node_modules/*" "server/data/*" "server/logs/*" "server/tests/*" "server/.env"
-scp server-update.zip root@195.35.4:/tmp/
-
-# On server
-cd /root/vishnuhastkalakendra
-rm -rf server/*
-unzip /tmp/server-update.zip -d server/
-cd server
-npm install
-pm2 restart arthaus
-```
-
-### Frontend Updates
-```bash
-# On local machine
-cd /Users/adityasharma/Desktop/order/client
-npm run build
-tar -czf /tmp/arthaus-dist.tar.gz -C dist .
-scp -i ~/.ssh/id_ed25519 /tmp/arthaus-dist.tar.gz aditya@195.35.45.17:/tmp/
-
-# On server
-rm -rf /var/www/vishnuhastkalakendra/*
-tar -xzf /tmp/arthaus-dist.tar.gz -C /var/www/vishnuhastkalakendra/
-chown -R www-data:www-data /var/www/vishnuhastkalakendra
-```
-
-### Database Updates
-```bash
-# Backup current database
-cp /root/vishnuhastkalakendra/server/data/arthaus.db /root/arthaus-backup-$(date +%Y%m%d).db
-
-# Upload new database
-scp -i ~/.ssh/id_ed25519 arthaus.db aditya@195.35.45.17:/tmp/
-ssh -i ~/.ssh/id_ed25519 aditya@195.35.45.17 "sudo -i"
+# Upload local database to server
+scp -i ~/.ssh/id_ed25519 /Users/adityasharma/Desktop/order/server/data/arthaus.db aditya@195.35.45.17:/tmp/arthaus.db
+# Then on server:
+sudo -i
 cp /tmp/arthaus.db /root/vishnuhastkalakendra/server/data/arthaus.db
 pm2 restart arthaus
 ```
 
-## 🚀 Quick Deployment Checklist
+---
 
-### Initial Deployment
+## 🛠️ Server Management
+
 ```bash
-# 1. Create and upload server zip
-cd /Users/adityasharma/Desktop/order
-zip -r server-upload-with-env.zip server/ -x "server/node_modules/*" "server/data/*" "server/logs/*" "server/tests/*"
-scp -i ~/.ssh/id_ed25519 server-upload-with-env.zip aditya@195.35.45.17:/tmp/
+# PM2 commands (run as root on server)
+pm2 status                    # Check all processes
+pm2 restart arthaus           # Restart backend
+pm2 logs arthaus --lines 20   # View recent logs
+pm2 logs arthaus --lines 5    # Quick log check
 
-# 2. Server setup (on server)
-ssh -i ~/.ssh/id_ed25519 aditya@195.35.45.17
-sudo -i
-mkdir -p /root/vishnuhastkalakendra
-mv /tmp/server-upload-with-env.zip /root/vishnuhastkalakendra/
-cd /root/vishnuhastkalakendra
-unzip server-upload-with-env.zip
-rm server-upload-with-env.zip
-cd server
-npm install
-mkdir -p data logs
-node -e "require('./src/database/init.js')"
-node scripts/createAdmin.js
-pm2 start src/app.js --name arthaus
-pm2 save
+# Nginx commands
+nginx -t                      # Test config
+systemctl reload nginx        # Reload nginx
 
-# 3. Frontend build and deploy
-cd /Users/adityasharma/Desktop/order/client
-npm run build
-tar -czf /tmp/arthaus-dist.tar.gz -C dist .
-scp -i ~/.ssh/id_ed25519 /tmp/arthaus-dist.tar.gz aditya@195.35.45.17:/tmp/
-
-# 4. On server
-mkdir -p /var/www/vishnuhastkalakendra
-rm -rf /var/www/vishnuhastkalakendra/*
-tar -xzf /tmp/arthaus-dist.tar.gz -C /var/www/vishnuhastkalakendra/
-chown -R www-data:www-data /var/www/vishnuhastkalakendra
-
-# 5. Configure Nginx and SSL
-nano /etc/nginx/sites-available/vishnuhastkalakendra
-ln -s /etc/nginx/sites-available/vishnuhastkalakendra /etc/nginx/sites-enabled/
-nginx -t
-systemctl reload nginx
-certbot --nginx -d vishnuhastkalakendra.com -d www.vishnuhastkalakendra.com
+# Health check
+curl http://localhost:4002/api/v1/health
+curl -I https://vishnuhastkalakendra.com
 ```
 
-### Quick Backend Update
-```bash
-# Local
-cd /Users/adityasharma/Desktop/order
-zip -r server-update.zip server/ -x "server/node_modules/*" "server/data/*" "server/logs/*" "server/tests/*"
-scp -i ~/.ssh/id_ed25519 server-update.zip aditya@195.35.45.17:/tmp/
+---
 
-# Server
-ssh -i ~/.ssh/id_ed25519 aditya@195.35.45.17
-sudo -i
-cd /root/vishnuhastkalakendra && rm -rf server/* && unzip /tmp/server-update.zip -d server/
-cd server && npm install && pm2 restart arthaus
+## 🏢 Restaurant Management
+
+### Current Restaurants
+
+| ID | Name | Subdomain | Admin Email |
+|----|------|-----------|-------------|
+| 1 | Vishnu Hastkala Kendra | vishnuhastkalakendra | superadmin@arthaus.com |
+| 2 | Hotel Adarsh | adarsh | admin@adarsh.com |
+| 3 | Hotal River View | riverview | — |
+| 4 | Hotel Osho | osho | — |
+
+### Restaurant URLs
+```
+https://vishnuhastkalakendra.com/?restaurant=adarsh
+https://vishnuhastkalakendra.com/?restaurant=riverview
+https://vishnuhastkalakendra.com/?restaurant=osho
 ```
 
-### Quick Frontend Update
-```bash
-# Local
-cd /Users/adityasharma/Desktop/order/client
-npm run build
-tar -czf /tmp/arthaus-dist.tar.gz -C dist .
-scp -i ~/.ssh/id_ed25519 /tmp/arthaus-dist.tar.gz aditya@195.35.45.17:/tmp/
-
-# Server
-rm -rf /var/www/vishnuhastkalakendra/* && tar -xzf /tmp/arthaus-dist.tar.gz -C /var/www/vishnuhastkalakendra/ && chown -R www-data:www-data /var/www/vishnuhastkalakendra
+### Admin Login URLs
+```
+https://vishnuhastkalakendra.com/login?restaurant=adarsh
+https://vishnuhastkalakendra.com/login?restaurant=riverview
 ```
 
-## 🏢 Multi-Tenant Setup
-
-### Creating a New Restaurant
-```bash
-# SSH into server
-ssh root@195.35.4
-
-# Run restaurant creation script
-cd /root/vishnuhastkalakendra/server
-node scripts/createRestaurant.js
-
-# Follow prompts to enter:
-# - Restaurant name
-# - Subdomain (e.g., arthaus)
-# - Admin email
-# - Admin password
-```
-
-### DNS Configuration for Subdomains
-For each restaurant, create a CNAME record:
-```
-arthaus.vishnuhastkalakendra.com → vishnuhastkalakendra.com
-```
-
-Or an A record:
-```
-arthaus.vishnuhastkalakendra.com → 195.35.4
-```
+---
 
 ## 👥 Current Credentials
 
 ### Super Admin
-- **Email:** superadmin@arthaus.com
-- **Password:** Admin@123
-- **URL:** https://vishnuhastkalakendra.com/login
-- **Dashboard:** /super-admin
+- **Email:** `superadmin@arthaus.com`
+- **Password:** `Admin@123`
+- **URL:** `https://vishnuhastkalakendra.com/login`
+- **Dashboard:** `/super-admin`
 
-### Restaurant Admins
-
-#### Bhedaghat Cafe (ArtHaus)
-- **Email:** admin@arthaus.com
-- **Password:** Admin@123
-- **URL:** https://vishnuhastkalakendra.com/login?restaurant=arthaus
-- **Dashboard:** /admin
-
-#### Hotel Adarsh
-- **Email:** admin@adarsh.com
-- **Password:** Admin@123
-- **URL:** https://vishnuhastkalakendra.com/login?restaurant=adarsh
-- **Dashboard:** /admin
-
-**⚠️ IMPORTANT:** Change these passwords after first login!
+### Hotel Adarsh Admin
+- **Email:** `admin@adarsh.com`
+- **Password:** `Admin@123`
+- **URL:** `https://vishnuhastkalakendra.com/login?restaurant=adarsh`
+- **Dashboard:** `/admin`
 
 ---
 
-**Last Updated:** April 28, 2026  
-**Version:** 1.0  
-**Status:** Production Ready  
+## 🔧 Nginx Configuration
+
+Config file: `/etc/nginx/sites-available/vishnuhastkalakendra.com`
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name vishnuhastkalakendra.com www.vishnuhastkalakendra.com;
+
+    ssl_certificate /etc/letsencrypt/live/vishnuhastkalakendra.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/vishnuhastkalakendra.com/privkey.pem;
+
+    root /var/www/vishnuhastkalakendra;
+    index index.html;
+
+    client_max_body_size 50M;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:4002;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+---
+
+## 🚨 Troubleshooting
+
+### Backend not responding
+```bash
+pm2 logs arthaus --lines 20
+pm2 restart arthaus
+curl http://localhost:4002/api/v1/health
+```
+
+### Frontend showing old version
+```bash
+# Hard refresh browser: Cmd+Shift+R (Mac) / Ctrl+Shift+R (Windows)
+# Or redeploy frontend
+```
+
+### 502 Bad Gateway
+```bash
+# Backend crashed — check logs
+pm2 logs arthaus --lines 30
+pm2 restart arthaus
+```
+
+### Database issues
+```bash
+ls -la /root/vishnuhastkalakendra/server/data/
+chmod 644 /root/vishnuhastkalakendra/server/data/arthaus.db
+pm2 restart arthaus
+```
+
+---
+
+**Last Updated:** May 2026
+**Version:** 2.0
+**Status:** Production Ready
 **SSL Valid Until:** July 27, 2026

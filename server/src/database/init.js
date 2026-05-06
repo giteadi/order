@@ -248,7 +248,7 @@ const SCHEMA = {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       uuid TEXT UNIQUE NOT NULL,
       restaurant_id INTEGER NOT NULL,
-      carousel_type TEXT DEFAULT 'highlights' CHECK(carousel_type IN ('hero', 'highlights', 'collection')),
+      carousel_type TEXT DEFAULT 'highlights' CHECK(carousel_type IN ('hero', 'highlights', 'collection', 'parallax')),
       title TEXT NOT NULL,
       subtitle TEXT,
       image_base64 TEXT NOT NULL,

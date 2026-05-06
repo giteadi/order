@@ -37,12 +37,11 @@ class ImageOptimizer {
    */
   static generateThumbnail(base64String, maxWidth = 300) {
     try {
-      // Extract the base64 data
-      const matches = base64String.match(/^data:image\/([a-zA-Z]+);base64,(.+)$/);
-      if (!matches) return null;
-
-      const mimeType = matches[1];
-      const base64Data = matches[2];
+      // Validate base64 format - handle all image types
+      if (!base64String || !base64String.startsWith('data:image/')) {
+        logger.warn('Invalid base64 format for thumbnail');
+        return null;
+      }
 
       // For now, return original - in production use sharp to resize
       // This is a placeholder for proper thumbnail generation
@@ -66,7 +65,7 @@ export class CarouselController {
     try {
       const db = getDB();
       // Get restaurant context - prioritize tenant (subdomain) over user's default
-      const restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || req.query.restaurant_id || null;
+      let restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || req.query.restaurant_id || null;
       const carouselType = req.query.type || 'highlights';
 
       // Validate carousel type
@@ -106,20 +105,35 @@ export class CarouselController {
         ORDER BY display_order ASC, created_at DESC
       `).all(restaurantId, carouselType);
 
-      // Fetch thumbnails separately for images that have them
-      const thumbnails = db.prepare(`
-        SELECT id, image_thumbnail as thumbnail
+      // Fetch thumbnails and base64 images for fallback
+      const imageData = db.prepare(`
+        SELECT id, image_thumbnail, image_base64
         FROM carousel_images
-        WHERE restaurant_id = ? AND carousel_type = ? AND is_active = 1 AND image_thumbnail IS NOT NULL
+        WHERE restaurant_id = ? AND carousel_type = ? AND is_active = 1
       `).all(restaurantId, carouselType);
-      const thumbnailMap = new Map(thumbnails.map(t => [t.id, t.thumbnail]));
+      const imageDataMap = new Map(imageData.map(d => [d.id, {
+        thumbnail: d.image_thumbnail,
+        base64: d.image_base64
+      }]));
 
-      // Build lightweight response - no full base64 in list
-      const optimizedImages = images.map(img => ({
-        ...img,
-        thumbnail: thumbnailMap.get(img.id) || null,
-        // Full image available via getCarouselImage endpoint
-      }));
+      // Build response with thumbnail fallback to full image
+      const optimizedImages = images.map(img => {
+        const data = imageDataMap.get(img.id);
+        return {
+          ...img,
+          thumbnail: data?.thumbnail || data?.base64 || null,
+        };
+      });
+
+      // Debug: Log response data structure
+      logger.info('Carousel response debug', {
+        count: optimizedImages.length,
+        firstImage: optimizedImages[0] ? {
+          id: optimizedImages[0].id,
+          hasThumbnail: !!optimizedImages[0].thumbnail,
+          thumbnailLength: optimizedImages[0].thumbnail ? optimizedImages[0].thumbnail.length : 0
+        } : null
+      });
 
       return success(res, optimizedImages, 'Carousel images retrieved');
     } catch (err) {
@@ -165,6 +179,15 @@ export class CarouselController {
     try {
       const db = getDB();
       const { title, subtitle, image_base64, display_order, carousel_type } = req.body;
+      // Debug: Log incoming request
+      logger.info('Carousel create request', {
+        bodyKeys: Object.keys(req.body),
+        hasImageBase64: !!image_base64,
+        imageBase64Length: image_base64 ? image_base64.length : 0,
+        restaurantId: req.tenant?.restaurantId || req.user?.restaurant_id,
+        tenant: req.tenant?.restaurantId
+      });
+
       // Tenant context first, then user's default restaurant
       const restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || req.query.restaurant_id || null;
       const carouselType = carousel_type || 'highlights';

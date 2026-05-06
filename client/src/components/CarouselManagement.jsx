@@ -17,6 +17,7 @@ export const CarouselManagement = () => {
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingImage, setEditingImage] = useState(null)
   const [previewImage, setPreviewImage] = useState(null)
+  const [fullImages, setFullImages] = useState({}) // Cache full images by ID
   
   const [newImage, setNewImage] = useState({
     title: '',
@@ -32,6 +33,21 @@ export const CarouselManagement = () => {
     fetchImages()
   }, [activeTab])
 
+  // Fetch full image by ID (for edit modal)
+  const fetchFullImage = async (id) => {
+    if (fullImages[id]) return fullImages[id]
+    try {
+      const response = await apiClient.get(`/carousel/${id}`)
+      if (response.data.success) {
+        setFullImages(prev => ({ ...prev, [id]: response.data.data.image_base64 }))
+        return response.data.data.image_base64
+      }
+    } catch (error) {
+      console.error('Failed to fetch full image:', error)
+    }
+    return null
+  }
+
   const fetchImages = async () => {
     try {
       setLoading(true)
@@ -42,6 +58,14 @@ export const CarouselManagement = () => {
         apiClient.get('/carousel/admin/all?type=collection'),
         apiClient.get('/carousel/admin/all?type=parallax')
       ])
+
+      // Debug: Log API responses
+      console.log('Carousel API responses:', {
+        hero: heroRes.data,
+        highlights: highlightsRes.data,
+        collection: collectionRes.data,
+        parallax: parallaxRes.data
+      })
 
       if (heroRes.data.success) {
         setHeroImages(heroRes.data.data)
@@ -94,14 +118,15 @@ export const CarouselManagement = () => {
     const files = Array.from(e.target.files)
     if (files.length === 0) return
 
-    // Validate all files
+    // Validate all files - backend limit is 2MB
+    const MAX_FILE_SIZE = 2 * 1024 * 1024
     for (const file of files) {
       if (!file.type.startsWith('image/')) {
         alert(`"${file.name}" is not an image file`)
         return
       }
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`"${file.name}" is larger than 5MB`)
+      if (file.size > MAX_FILE_SIZE) {
+        alert(`"${file.name}" is larger than 2MB (backend limit)`)
         return
       }
     }
@@ -232,6 +257,12 @@ export const CarouselManagement = () => {
       console.error('Failed to update carousel image:', error)
       alert('Failed to update carousel image')
     }
+  }
+
+  // Handle edit click - fetch full image
+  const handleEditClick = async (image) => {
+    const fullImageBase64 = await fetchFullImage(image.id)
+    setEditingImage({ ...image, image_base64: fullImageBase64 })
   }
 
   // Delete carousel image
@@ -405,13 +436,16 @@ export const CarouselManagement = () => {
             >
               <div className="relative aspect-video">
                 <img
-                  src={image.image}
+                  src={image.thumbnail || '/placeholder-image.png'}
                   alt={image.title}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.src = '/placeholder-image.png'
+                  }}
                 />
                 <div className="absolute top-2 right-2 flex gap-2">
                   <button
-                    onClick={() => setEditingImage(image)}
+                    onClick={() => handleEditClick(image)}
                     className="p-2 bg-white/90 rounded-lg hover:bg-white transition-colors"
                   >
                     <Edit2 size={16} />
@@ -534,7 +568,7 @@ export const CarouselManagement = () => {
                       <div className="pointer-events-none">
                         <Upload size={32} className="mx-auto text-gray-400 mb-2" />
                         <p className="text-sm text-gray-500">Click to upload or drag and drop</p>
-                        <p className="text-xs text-gray-400 mt-1">Select multiple images (PNG, JPG up to 5MB each)</p>
+                        <p className="text-xs text-gray-400 mt-1">Select multiple images (PNG, JPG up to 2MB each)</p>
                       </div>
                     ) : (
                       <div className="pointer-events-none">
@@ -629,7 +663,7 @@ export const CarouselManagement = () => {
               <form onSubmit={handleUpdate} className="space-y-4">
                 <div className="aspect-video rounded-lg overflow-hidden">
                   <img
-                    src={editingImage.image}
+                    src={editingImage.image_base64 || editingImage.thumbnail || '/placeholder-image.png'}
                     alt={editingImage.title}
                     className="w-full h-full object-cover"
                   />
