@@ -142,10 +142,12 @@ function App() {
     }
   }, [dispatch, restaurant?.subdomain])
   
-  // Fetch menu from API
+  // Fetch menu from API — pass restaurant subdomain for isolation
   useEffect(() => {
-    dispatch(fetchMenu())
-  }, [dispatch])
+    const urlParams = new URLSearchParams(window.location.search)
+    const restaurantSubdomain = urlParams.get('restaurant') || restaurant?.subdomain || null
+    dispatch(fetchMenu(restaurantSubdomain))
+  }, [dispatch, restaurant?.subdomain])
 
   // When categories load, select first one
   useEffect(() => {
@@ -161,7 +163,8 @@ function App() {
     const loadSubcategories = async () => {
       try {
         const { menuAPI } = await import('./services/api')
-        const res = await menuAPI.getSubcategories(selectedCategory)
+        const restaurantSubdomain = new URLSearchParams(window.location.search).get('restaurant') || restaurant?.subdomain
+        const res = await menuAPI.getSubcategories(selectedCategory, restaurantSubdomain)
         if (res.data.success) {
           const subs = res.data.data || []
           setDynamicSubcategories(subs)
@@ -174,7 +177,7 @@ function App() {
       }
     }
     loadSubcategories()
-  }, [selectedCategory])
+  }, [selectedCategory, restaurant?.subdomain])
 
   // When subcategory changes, load products
   useEffect(() => {
@@ -183,7 +186,8 @@ function App() {
       setMenuLoading(true)
       try {
         const { menuAPI } = await import('./services/api')
-        const res = await menuAPI.getProducts(selectedSubcategory)
+        const restaurantSubdomain = new URLSearchParams(window.location.search).get('restaurant') || restaurant?.subdomain
+        const res = await menuAPI.getProducts(selectedSubcategory, { restaurant: restaurantSubdomain })
         if (res.data.success) {
           setDynamicProducts(res.data.data || [])
         }
@@ -194,7 +198,7 @@ function App() {
       }
     }
     loadProducts()
-  }, [selectedSubcategory])
+  }, [selectedSubcategory, restaurant?.subdomain])
   const handleAddToCart = (product, qty = 1) => {
     dispatch(addItem({ product, quantity: qty }))
     dispatch(closeProductModal())

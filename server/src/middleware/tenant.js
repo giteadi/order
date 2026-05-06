@@ -21,21 +21,47 @@ export const tenantMiddleware = (req, res, next) => {
 
     console.log('[tenantMiddleware] Parsed subdomain:', { subdomain, parts });
 
-    // Skip tenant check for IP addresses, super admin routes, or if no subdomain
+    // Check for IP address access
     const isIP = /^\d+\.\d+\.\d+\.\d+/.test(host);
-    if (isIP || !subdomain || req.path.startsWith('/admin/super')) {
-      console.log('[tenantMiddleware] Skipping tenant check:', { isIP, subdomain, path: req.path });
+    
+    // For IP access or missing subdomain, try to get restaurant from query params or headers
+    let effectiveSubdomain = subdomain;
+    if ((isIP || !subdomain) && !req.path.startsWith('/admin/super')) {
+      // Check query param: ?restaurant=adarsh
+      effectiveSubdomain = req.query.restaurant || req.headers['x-restaurant-subdomain'] || null;
+      console.log('[tenantMiddleware] IP/no-subdomain access, checking for restaurant context:', { 
+        isIP, 
+        subdomain, 
+        queryRestaurant: req.query.restaurant,
+        headerRestaurant: req.headers['x-restaurant-subdomain'],
+        effectiveSubdomain 
+      });
+    }
+    
+    // Skip tenant check only for super admin routes or if no context available
+    if (req.path.startsWith('/admin/super')) {
+      console.log('[tenantMiddleware] Super admin route, skipping tenant check:', { path: req.path });
       req.tenant = { restaurantId: null, isSuperAdmin: true };
       return next();
     }
+    
+    // If still no subdomain context, skip tenant identification but don't set isSuperAdmin
+    if (!effectiveSubdomain) {
+      console.log('[tenantMiddleware] No restaurant context found:', { isIP, subdomain, path: req.path });
+      req.tenant = { restaurantId: null, isSuperAdmin: false, subdomain: null };
+      return next();
+    }
+    
+    // Use the effective subdomain for lookup
+    const lookupSubdomain = effectiveSubdomain;
 
-    // Look up restaurant by subdomain
-    console.log('[tenantMiddleware] Looking up restaurant for subdomain:', subdomain);
-    const restaurant = db.prepare('SELECT id, uuid, name, subdomain FROM restaurants WHERE subdomain = ? AND is_active = 1').get(subdomain);
+    // Look up restaurant by effective subdomain
+    console.log('[tenantMiddleware] Looking up restaurant for subdomain:', lookupSubdomain);
+    const restaurant = db.prepare('SELECT id, uuid, name, subdomain FROM restaurants WHERE subdomain = ? AND is_active = 1').get(lookupSubdomain);
 
     if (!restaurant) {
-      logger.warn('Restaurant not found for subdomain', { subdomain, host });
-      console.error('[tenantMiddleware] Restaurant not found:', { subdomain, host });
+      logger.warn('Restaurant not found for subdomain', { subdomain: lookupSubdomain, host });
+      console.error('[tenantMiddleware] Restaurant not found:', { subdomain: lookupSubdomain, host });
       return res.status(404).json({
         success: false,
         error: 'Restaurant not found',
@@ -55,7 +81,7 @@ export const tenantMiddleware = (req, res, next) => {
     };
 
     logger.debug('Tenant identified', { 
-      subdomain, 
+      subdomain: lookupSubdomain, 
       restaurantId: restaurant.id,
       restaurantName: restaurant.name 
     });

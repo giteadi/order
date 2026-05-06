@@ -132,7 +132,9 @@ export const MenuManagement = () => {
         setProducts(allProducts)
       }
       if (categoriesRes.data.success) {
-        setCategories(categoriesRes.data.data || [])
+        // Ensure only actual categories (not subcategories) are shown in dropdown
+        const categoryData = (categoriesRes.data.data || []).filter(cat => !cat.category_id)
+        setCategories(categoryData)
       }
     } catch (error) {
       console.error('[MenuManagement] Failed to fetch menu data:', error)

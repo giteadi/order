@@ -227,7 +227,7 @@ const getRestaurantParam = () => {
 
 // Menu API
 export const menuAPI = {
-  getMenu: () => apiClient.get('/menu', { params: { restaurant: getRestaurantParam() } }),
+  getMenu: (extraParams = {}) => apiClient.get('/menu', { params: { restaurant: getRestaurantParam(), ...extraParams } }),
   getCategories: () => apiClient.get('/menu/categories', { params: { restaurant: getRestaurantParam() } }),
   getSubcategories: (categoryId) => apiClient.get(`/menu/categories/${categoryId}/subcategories`, {
     params: { restaurant: getRestaurantParam() }

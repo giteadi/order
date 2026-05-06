@@ -224,12 +224,23 @@ export class ProductController {
       delete data.categoryId;
       delete data.category_id;
 
-      // Determine and require restaurant_id
-      let restaurantId = req.user?.restaurant_id || req.tenant?.restaurantId || null
-      if (!restaurantId && req.query.restaurant) {
-        const r = Product.db.prepare('SELECT id FROM restaurants WHERE subdomain = ?').get(req.query.restaurant)
-        if (r) restaurantId = r.id
+      // Determine restaurant_id — prioritize tenant (subdomain) context over user's default restaurant
+      // This fixes the issue where products were being created in wrong restaurant
+      let restaurantId = null
+      if (req.user?.role !== 'super_admin') {
+        // Regular admin: use tenant context first, then fall back to user's restaurant_id
+        restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || null
+      } else {
+        // Super admin: can specify via query param or body
+        restaurantId = ProductController._getRestaurantId(req)
       }
+      logger.info('[ProductController.create] Restaurant ID resolution', {
+        fromUser: req.user?.restaurant_id,
+        fromTenant: req.tenant?.restaurantId,
+        userId: req.user?.id,
+        userRole: req.user?.role,
+        resolvedRestaurantId: restaurantId,
+      })
       if (!restaurantId) {
         return error(res, 'Unable to determine restaurant. Product must belong to a restaurant.', HTTP_STATUS.BAD_REQUEST)
       }
@@ -338,18 +349,58 @@ export class ProductController {
   static delete(req, res) {
     try {
       const { id } = req.params;
-      const restaurantId = req.user?.restaurant_id || req.tenant?.restaurantId || null;
+      
+      // Priority: tenant subdomain > user's restaurant_id
+      // This ensures products are managed in the context of the current subdomain
+      let restaurantId = req.tenant?.restaurantId || req.user?.restaurant_id || null;
       const userRole = req.user?.role;
-      logger.info('[ProductController] Delete request received', { productId: id, user: req.user?.id, tenant: req.tenant });
+      const userId = req.user?.id;
+      
+      logger.info('[ProductController] Delete request received', { 
+        productId: id, 
+        userId: userId,
+        userRestaurantId: req.user?.restaurant_id,
+        tenantRestaurantId: req.tenant?.restaurantId,
+        resolvedRestaurantId: restaurantId,
+        userRole: userRole,
+        subdomain: req.tenant?.subdomain
+      });
 
       // Check ownership before transaction
       const productCheck = Product.findById(id);
+      logger.info('[ProductController] Product lookup result', { 
+        productId: id, 
+        found: !!productCheck,
+        productRestaurantId: productCheck?.restaurant_id,
+        productName: productCheck?.name
+      });
+      
       if (!productCheck) {
+        logger.warn('[ProductController] Product not found', { productId: id });
         return notFound(res, 'Product');
       }
+      
+      // Ownership check: 
+      // - Super admin can delete any product
+      // - Regular admin can only delete products from their CURRENT subdomain context
       if (userRole !== 'super_admin' && restaurantId && productCheck.restaurant_id !== restaurantId) {
+        logger.warn('[ProductController] Ownership mismatch - user trying to delete product from different restaurant', { 
+          productId: id,
+          productRestaurantId: productCheck.restaurant_id,
+          userRestaurantId: req.user?.restaurant_id,
+          tenantRestaurantId: req.tenant?.restaurantId,
+          resolvedRestaurantId: restaurantId,
+          userRole: userRole,
+          subdomain: req.tenant?.subdomain
+        });
         return notFound(res, 'Product');
       }
+      
+      logger.info('[ProductController] Ownership check passed', { 
+        productId: id,
+        productRestaurantId: productCheck.restaurant_id,
+        resolvedRestaurantId: restaurantId
+      });
 
       // Use transaction to handle foreign key constraints
       transaction((db) => {

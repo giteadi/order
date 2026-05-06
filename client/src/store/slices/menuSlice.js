@@ -4,10 +4,11 @@ import { menuAPI } from '../../services/api'
 // Async Thunks
 export const fetchMenu = createAsyncThunk(
   'menu/fetchMenu',
-  async (_, { rejectWithValue }) => {
+  async (restaurant = null, { rejectWithValue }) => {
     try {
       console.log('[menuSlice] fetchMenu starting...')
-      const response = await menuAPI.getMenu()
+      const params = restaurant ? { restaurant } : {}
+      const response = await menuAPI.getMenu(params)
       console.log('[menuSlice] fetchMenu response:', response.data)
       return response.data.data
     } catch (error) {
