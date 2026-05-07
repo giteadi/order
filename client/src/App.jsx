@@ -151,54 +151,40 @@ function App() {
 
   // When categories load, select first one
   useEffect(() => {
-    if (apiCategories?.length > 0 && !selectedCategory) {
-      const firstCat = apiCategories[0]
-      setSelectedCategory(firstCat.id)
+    if (apiCategories?.length > 0) {
+      setSelectedCategory(apiCategories[0].id)
     }
   }, [apiCategories])
 
-  // When category changes, load subcategories
+  // When fullMenu or selectedCategory changes, update subcategories
   useEffect(() => {
-    if (!selectedCategory) return
-    const loadSubcategories = async () => {
-      try {
-        const { menuAPI } = await import('./services/api')
-        const restaurantSubdomain = new URLSearchParams(window.location.search).get('restaurant') || restaurant?.subdomain
-        const res = await menuAPI.getSubcategories(selectedCategory, restaurantSubdomain)
-        if (res.data.success) {
-          const subs = res.data.data || []
-          setDynamicSubcategories(subs)
-          if (subs.length > 0) {
-            setSelectedSubcategory(subs[0].id)
-          }
-        }
-      } catch (e) {
-        console.error('Failed to load subcategories', e)
-      }
+    if (!fullMenu || !selectedCategory) return
+    const cat = fullMenu.find(c => c.id === selectedCategory)
+    if (cat?.subcategories?.length > 0) {
+      setDynamicSubcategories(cat.subcategories)
+      setSelectedSubcategory(cat.subcategories[0].id)
+    } else {
+      setDynamicSubcategories([])
+      setSelectedSubcategory(null)
+      setDynamicProducts([])
     }
-    loadSubcategories()
-  }, [selectedCategory, restaurant?.subdomain])
+  }, [selectedCategory, fullMenu])
 
-  // When subcategory changes, load products
+  // When fullMenu or selectedSubcategory changes, extract products
   useEffect(() => {
-    if (!selectedSubcategory) return
-    const loadProducts = async () => {
-      setMenuLoading(true)
-      try {
-        const { menuAPI } = await import('./services/api')
-        const restaurantSubdomain = new URLSearchParams(window.location.search).get('restaurant') || restaurant?.subdomain
-        const res = await menuAPI.getProducts(selectedSubcategory, { restaurant: restaurantSubdomain })
-        if (res.data.success) {
-          setDynamicProducts(res.data.data || [])
-        }
-      } catch (e) {
-        console.error('Failed to load products', e)
-      } finally {
-        setMenuLoading(false)
+    if (!fullMenu || !selectedSubcategory) return
+    setMenuLoading(true)
+    let found = []
+    for (const cat of fullMenu) {
+      const sub = cat.subcategories?.find(s => s.id === selectedSubcategory)
+      if (sub) {
+        found = sub.products || []
+        break
       }
     }
-    loadProducts()
-  }, [selectedSubcategory, restaurant?.subdomain])
+    setDynamicProducts(found)
+    setMenuLoading(false)
+  }, [selectedSubcategory, fullMenu])
   const handleAddToCart = (product, qty = 1) => {
     dispatch(addItem({ product, quantity: qty }))
     dispatch(closeProductModal())

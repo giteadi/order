@@ -43,26 +43,14 @@ export const FeaturedItemsSection = ({ onProductClick, onAddToCart, onCursorHove
   }, [])
 
   const handleItemClick = (item) => {
-    onProductClick({
-      id: item.id,
-      name: item.name,
-      price: item.price,
-      image: item.image,
-      description: item.description,
-      productId: item.id,
-    })
+    // Pass full product object so modal gets has_half_portion etc.
+    onProductClick(item)
   }
 
   const handleAddToCart = (e, item) => {
     e.stopPropagation()
-    onAddToCart({
-      id: item.id,
-      productId: item.id,
-      name: item.name,
-      price: item.price,
-      image: item.image,
-      description: item.description,
-    })
+    // Pass full product object
+    onAddToCart(item)
   }
 
   const renderImage = (item) => {

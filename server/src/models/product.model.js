@@ -43,7 +43,10 @@ export class ProductModel extends BaseModel {
         p.calories,
         p.allergens,
         p.customization_options,
-        p.preparation_time
+        p.preparation_time,
+        p.has_half_portion,
+        p.half_portion_price,
+        p.full_portion_price
       FROM categories c
       LEFT JOIN subcategories sc ON sc.category_id = c.id ${subFilter}
       LEFT JOIN products p ON p.subcategory_id = sc.id AND p.is_available = 1 ${prodFilter}
@@ -82,6 +85,7 @@ export class ProductModel extends BaseModel {
           description: row.description,
           price: row.price,
           imageUrl: row.image_url && !row.image_url.startsWith('data:') ? row.image_url : null,
+          image_url: row.image_url,
           emojiIcon: row.emoji_icon,
           isVegetarian: !!row.is_vegetarian,
           isSpicy: !!row.is_spicy,
@@ -89,6 +93,9 @@ export class ProductModel extends BaseModel {
           allergens: JSON.parse(row.allergens || '[]'),
           customizationOptions: JSON.parse(row.customization_options || '[]'),
           preparationTime: row.preparation_time,
+          has_half_portion: !!row.has_half_portion,
+          half_portion_price: row.half_portion_price,
+          full_portion_price: row.full_portion_price,
         });
       }
     }

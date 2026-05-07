@@ -1,7 +1,43 @@
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Plus, Minus } from 'lucide-react'
 
 export const ProductModal = ({ isOpen, onClose, product, quantity, onQuantityChange, onAddToCart }) => {
+  // SQLite stores booleans as 0/1 — use strict check
+  const hasHalfPortion = product?.has_half_portion === 1 || product?.has_half_portion === true ||
+                         product?.hasHalfPortion === 1 || product?.hasHalfPortion === true
+  const halfPrice = product?.half_portion_price || product?.halfPortionPrice
+  const fullPrice = product?.full_portion_price || product?.fullPortionPrice || product?.price
+
+  const [selectedPortion, setSelectedPortion] = useState('full')
+
+  // Reset portion when product changes
+  useEffect(() => {
+    setSelectedPortion('full')
+    // Debug — remove after fix confirmed
+    if (product) {
+      console.log('[ProductModal] product data:', {
+        name: product.name,
+        has_half_portion: product.has_half_portion,
+        hasHalfPortion: product.hasHalfPortion,
+        half_portion_price: product.half_portion_price,
+        full_portion_price: product.full_portion_price,
+        hasHalfPortionResolved: product?.has_half_portion === 1 || product?.has_half_portion === true
+      })
+    }
+  }, [product?.id])
+
+  const displayPrice = hasHalfPortion
+    ? (selectedPortion === 'half' ? halfPrice : fullPrice)
+    : product?.price
+
+  const handleAddToCart = () => {
+    const productToAdd = hasHalfPortion
+      ? { ...product, price: displayPrice, portion: selectedPortion }
+      : product
+    onAddToCart(productToAdd, quantity)
+  }
+
   return (
     <AnimatePresence>
       {isOpen && product && (
@@ -23,8 +59,17 @@ export const ProductModal = ({ isOpen, onClose, product, quantity, onQuantityCha
               className="glass-card rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto pointer-events-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 grid place-items-center text-6xl sm:text-8xl">
-                {product.image}
+              <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 grid place-items-center overflow-hidden rounded-t-2xl sm:rounded-t-3xl">
+                {(product.imageUrl || product.image_url || (product.image && product.image.startsWith('http'))) ? (
+                  <img
+                    src={product.imageUrl || product.image_url || product.image}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { e.target.style.display = 'none' }}
+                  />
+                ) : (
+                  <span className="text-6xl sm:text-8xl">{product.emojiIcon || product.emoji_icon || product.image || '🍽️'}</span>
+                )}
               </div>
               <div className="p-4 sm:p-6">
                 <div className="grid grid-cols-[1fr_auto] items-start gap-2 mb-4">
@@ -41,6 +86,35 @@ export const ProductModal = ({ isOpen, onClose, product, quantity, onQuantityCha
                     <X size={20} className="sm:w-6 sm:h-6 text-gray-900" />
                   </motion.button>
                 </div>
+
+                {/* Half / Full Portion Selector */}
+                {hasHalfPortion && (
+                  <div className="mb-5">
+                    <label className="text-xs sm:text-sm text-gray-500 mb-2 block">Portion Size</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setSelectedPortion('half')}
+                        className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
+                          selectedPortion === 'half'
+                            ? 'border-gray-900 bg-gray-900 text-white'
+                            : 'border-gray-200 text-gray-700 hover:border-gray-400'
+                        }`}
+                      >
+                        Half — ₹{halfPrice}
+                      </button>
+                      <button
+                        onClick={() => setSelectedPortion('full')}
+                        className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
+                          selectedPortion === 'full'
+                            ? 'border-gray-900 bg-gray-900 text-white'
+                            : 'border-gray-200 text-gray-700 hover:border-gray-400'
+                        }`}
+                      >
+                        Full — ₹{fullPrice}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mb-6">
                   <label className="text-xs sm:text-sm text-gray-500 mb-2 block">Quantity</label>
@@ -65,13 +139,13 @@ export const ProductModal = ({ isOpen, onClose, product, quantity, onQuantityCha
 
                 <div className="grid grid-cols-[1fr_auto] items-center mb-4">
                   <span className="text-xs sm:text-sm text-gray-500">Total</span>
-                  <span className="text-2xl sm:text-3xl font-bold text-gray-900">₹{product.price * quantity}</span>
+                  <span className="text-2xl sm:text-3xl font-bold text-gray-900">₹{displayPrice * quantity}</span>
                 </div>
 
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => onAddToCart(product, quantity)}
+                  onClick={handleAddToCart}
                   className="w-full py-3 sm:py-4 bg-gradient-to-r from-gray-900 to-gray-700 text-white rounded-xl sm:rounded-2xl font-semibold text-sm sm:text-base"
                 >
                   Add to Cart

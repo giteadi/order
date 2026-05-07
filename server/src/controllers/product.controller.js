@@ -336,8 +336,27 @@ export class ProductController {
       delete data.categoryId;
       delete data.category_id;
 
+      // Allowlist — only known DB columns
+      const ALLOWED = new Set([
+        'name', 'description', 'price', 'image_url', 'emoji_icon',
+        'subcategory_id', 'is_available', 'is_vegetarian', 'is_spicy',
+        'allergens', 'customization_options', 'sort_order', 'preparation_time',
+        'calories', 'has_half_portion', 'half_portion_price', 'full_portion_price',
+      ])
+      for (const key of Object.keys(data)) {
+        if (!ALLOWED.has(key)) delete data[key]
+      }
+
+      // Normalize booleans
+      if (data.is_available !== undefined) data.is_available = data.is_available ? 1 : 0
+      if (data.is_vegetarian !== undefined) data.is_vegetarian = data.is_vegetarian ? 1 : 0
+      if (data.is_spicy !== undefined) data.is_spicy = data.is_spicy ? 1 : 0
+      if (data.has_half_portion !== undefined) data.has_half_portion = data.has_half_portion ? 1 : 0
+
+      // Ensure allergens is JSON string
+      if (Array.isArray(data.allergens)) data.allergens = JSON.stringify(data.allergens)
+
       // Parse JSON fields
-      if (data.allergens) data.allergens = JSON.stringify(data.allergens);
       if (data.customizationOptions) data.customization_options = JSON.stringify(data.customizationOptions);
       delete data.customizationOptions;
 
