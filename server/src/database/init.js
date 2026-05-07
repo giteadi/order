@@ -362,6 +362,10 @@ export async function initializeDatabase() {
       { table: TABLES.ORDERS, column: 'restaurant_id', type: 'INTEGER' },
       { table: TABLES.TABLES, column: 'restaurant_id', type: 'INTEGER' },
       { table: TABLES.CAROUSEL_IMAGES, column: 'carousel_type', type: 'TEXT' },
+      // Portion pricing
+      { table: TABLES.PRODUCTS, column: 'has_half_portion', type: 'INTEGER DEFAULT 0' },
+      { table: TABLES.PRODUCTS, column: 'half_portion_price', type: 'REAL' },
+      { table: TABLES.PRODUCTS, column: 'full_portion_price', type: 'REAL' },
     ];
 
     for (const migration of migrations) {

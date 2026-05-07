@@ -2,7 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
-import rateLimit from 'express-rate-limit';
+// Rate limiting disabled — using nginx for rate limiting
+// app.use(limiter);
 import cron from 'node-cron';
 
 import { CONFIG } from './config/index.js';
@@ -22,7 +23,7 @@ import { expireSubscriptions, getSubscriptionStats } from './cron/expireSubscrip
 const logger = Logger.getInstance();
 const app = express();
 
-// Trust proxy when behind nginx (required for express-rate-limit to work correctly)
+// Trust proxy when behind nginx
 app.set('trust proxy', 1);
 
 /**
@@ -34,33 +35,6 @@ app.use(helmet({
 }));
 
 app.use(cors(CONFIG.CORS));
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: CONFIG.RATE_LIMIT.WINDOW_MS,
-  max: CONFIG.RATE_LIMIT.MAX_REQUESTS,
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: { xForwardedForHeader: false }, // Disable validation for proxy
-  handler: (req, res) => {
-    res.status(429).json({
-      success: false,
-      message: 'Too many requests, please try again later',
-      retryAfter: Math.ceil(CONFIG.RATE_LIMIT.WINDOW_MS / 1000),
-    });
-  },
-});
-app.use(limiter);
-
-// Stricter limit for auth endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts
-  skipSuccessfulRequests: true,
-  validate: { xForwardedForHeader: false },
-});
-app.use('/api/v1/auth/login', authLimiter);
-app.use('/api/v1/auth/register', authLimiter);
 
 /**
  * Body Parsing

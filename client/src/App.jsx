@@ -294,9 +294,27 @@ function App() {
     }
   }
 
-  const filteredProducts = dynamicProducts.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || []
+  const filteredProducts = dynamicProducts.filter(p => {
+    // Search filter
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    if (!matchesSearch) return false
+
+    // Category filter - simplified (drinks vs food)
+    if (selectedCategory === 'all') return true
+    if (selectedCategory === 'drinks') {
+      // Check if product is in a drink category (by name or category_id)
+      const drinkKeywords = ['drink', 'beverage', 'coffee', 'tea', 'juice', 'soda', 'shake', 'lassi', 'water', 'beer', 'wine']
+      const categoryName = categories.find(c => c.id === p.category_id)?.name?.toLowerCase() || ''
+      return drinkKeywords.some(kw => categoryName.includes(kw) || p.name.toLowerCase().includes(kw))
+    }
+    if (selectedCategory === 'food') {
+      // Everything that's not a drink is food
+      const drinkKeywords = ['drink', 'beverage', 'coffee', 'tea', 'juice', 'soda', 'shake', 'lassi', 'water', 'beer', 'wine']
+      const categoryName = categories.find(c => c.id === p.category_id)?.name?.toLowerCase() || ''
+      return !drinkKeywords.some(kw => categoryName.includes(kw) || p.name.toLowerCase().includes(kw))
+    }
+    return true
+  }) || []
 
   const handlePlaceOrder = async () => {
     try {

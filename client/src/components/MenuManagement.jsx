@@ -61,6 +61,10 @@ export const MenuManagement = () => {
     is_vegetarian: false,
     is_spicy: false,
     allergens: '',
+    // Portion pricing
+    has_half_portion: false,
+    half_portion_price: '',
+    full_portion_price: '',
   })
 
   // Subcategories for selected category in form
@@ -161,6 +165,14 @@ export const MenuManagement = () => {
         is_available: formData.is_available,
         is_vegetarian: formData.is_vegetarian,
         is_spicy: formData.is_spicy,
+        // Portion pricing
+        has_half_portion: formData.has_half_portion,
+        half_portion_price: formData.has_half_portion && formData.half_portion_price 
+          ? parseFloat(formData.half_portion_price) 
+          : undefined,
+        full_portion_price: formData.has_half_portion && formData.full_portion_price 
+          ? parseFloat(formData.full_portion_price) 
+          : undefined,
       }
       console.log('[MenuManagement] Submitting data:', data)
 
@@ -223,6 +235,10 @@ export const MenuManagement = () => {
       is_vegetarian: product.is_vegetarian ?? product.isVegetarian ?? false,
       is_spicy: product.is_spicy ?? product.isSpicy ?? false,
       allergens: (product.allergens || []).join(', '),
+      // Portion pricing
+      has_half_portion: product.has_half_portion ?? false,
+      half_portion_price: product.half_portion_price?.toString() || '',
+      full_portion_price: product.full_portion_price?.toString() || '',
     })
     setShowAddModal(true)
   }
@@ -239,6 +255,9 @@ export const MenuManagement = () => {
       is_vegetarian: false,
       is_spicy: false,
       allergens: '',
+      has_half_portion: false,
+      half_portion_price: '',
+      full_portion_price: '',
     })
     setFormSubcategories([])
   }
@@ -748,21 +767,7 @@ export const MenuManagement = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Price (₹) *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-900 focus:outline-none"
-                  />
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Category *
@@ -1007,6 +1012,76 @@ export const MenuManagement = () => {
                   />
                   <span className="text-sm text-gray-700">Spicy</span>
                 </label>
+              </div>
+
+              {/* Pricing Section — Single or Half/Full */}
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                  <p className="text-sm font-semibold text-gray-700">Pricing</p>
+                </div>
+                <div className="p-4 space-y-3">
+                  {/* Toggle */}
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <div
+                      onClick={() => setFormData({ ...formData, has_half_portion: !formData.has_half_portion })}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${formData.has_half_portion ? 'bg-gray-900' : 'bg-gray-300'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${formData.has_half_portion ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Half / Full Portion</p>
+                      <p className="text-xs text-gray-400">Noodles, Manchurian, Paneer Sabji, etc.</p>
+                    </div>
+                  </label>
+
+                  {!formData.has_half_portion ? (
+                    /* Single price */
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Price (₹) *</label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        step="0.01"
+                        value={formData.price}
+                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-gray-900 focus:outline-none"
+                        placeholder="e.g. 150"
+                      />
+                    </div>
+                  ) : (
+                    /* Half + Full prices */
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Half Portion (₹) *</label>
+                        <input
+                          type="number"
+                          required={formData.has_half_portion}
+                          min="0"
+                          step="0.01"
+                          value={formData.half_portion_price}
+                          onChange={(e) => setFormData({ ...formData, half_portion_price: e.target.value, price: e.target.value })}
+                          className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:border-gray-900 focus:outline-none text-sm"
+                          placeholder="e.g. 80"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Full Portion (₹) *</label>
+                        <input
+                          type="number"
+                          required={formData.has_half_portion}
+                          min="0"
+                          step="0.01"
+                          value={formData.full_portion_price}
+                          onChange={(e) => setFormData({ ...formData, full_portion_price: e.target.value })}
+                          className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:border-gray-900 focus:outline-none text-sm"
+                          placeholder="e.g. 150"
+                        />
+                      </div>
+                      <p className="col-span-2 text-xs text-gray-400">Half price is used as the base price in cart</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
             </form>

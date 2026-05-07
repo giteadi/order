@@ -1,6 +1,16 @@
 import { motion } from 'framer-motion'
 
+// Simplified filters - only Drinks and Food
+const SIMPLE_CATEGORIES = [
+  { id: 'all', name: 'All Items', icon: '🍽️' },
+  { id: 'drinks', name: 'Drinks', icon: '🥤' },
+  { id: 'food', name: 'Food', icon: '🍛' },
+]
+
 export const CategoryTabs = ({ categories, selectedCategory, onSelectCategory }) => {
+  // Use simplified categories instead of all categories
+  const displayCategories = SIMPLE_CATEGORIES
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -10,7 +20,7 @@ export const CategoryTabs = ({ categories, selectedCategory, onSelectCategory })
     >
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 sm:py-3">
         <div className="flex gap-2">
-          {categories.map((cat) => (
+          {displayCategories.map((cat) => (
             <motion.button
               key={cat.id}
               whileTap={{ scale: 0.95 }}
@@ -23,7 +33,7 @@ export const CategoryTabs = ({ categories, selectedCategory, onSelectCategory })
             >
               <span className="mr-1.5">{cat.icon}</span>
               <span className="hidden sm:inline">{cat.name}</span>
-              <span className="sm:hidden">{cat.name.split(' ')[0]}</span>
+              <span className="sm:hidden">{cat.name}</span>
             </motion.button>
           ))}
         </div>

@@ -7,6 +7,8 @@ import settingsRoutes from './settings.routes.js';
 import carouselRoutes from './carousel.routes.js';
 import subscriptionRoutes from './subscription.routes.js';
 import razorpayRoutes from './razorpay.routes.js';
+// email routes — on hold, not deployed yet
+// import emailRoutes from './email.routes.js';
 
 const router = Router();
 
@@ -19,6 +21,7 @@ router.use('/admin/settings', settingsRoutes);
 router.use('/carousel', carouselRoutes);
 router.use('/subscription', subscriptionRoutes);
 router.use('/razorpay', razorpayRoutes);
+// router.use('/admin/email', emailRoutes); // on hold
 
 // Health check
 router.get('/health', (req, res) => {

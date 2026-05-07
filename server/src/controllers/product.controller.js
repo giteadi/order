@@ -224,6 +224,18 @@ export class ProductController {
       delete data.categoryId;
       delete data.category_id;
 
+      // Allowlist — only known DB columns pass through to INSERT
+      const ALLOWED = new Set([
+        'name', 'description', 'price', 'image_url', 'emoji_icon',
+        'subcategory_id', 'is_available', 'is_vegetarian', 'is_spicy',
+        'allergens', 'customization_options', 'sort_order', 'preparation_time',
+        'calories', 'restaurant_id',
+        'has_half_portion', 'half_portion_price', 'full_portion_price',
+      ])
+      for (const key of Object.keys(data)) {
+        if (!ALLOWED.has(key)) delete data[key]
+      }
+
       // Determine restaurant_id — prioritize tenant (subdomain) context over user's default restaurant
       // This fixes the issue where products were being created in wrong restaurant
       let restaurantId = null
@@ -250,9 +262,18 @@ export class ProductController {
       if (data.is_available !== undefined) data.is_available = data.is_available ? 1 : 0;
       if (data.is_vegetarian !== undefined) data.is_vegetarian = data.is_vegetarian ? 1 : 0;
       if (data.is_spicy !== undefined) data.is_spicy = data.is_spicy ? 1 : 0;
+      if (data.has_half_portion !== undefined) data.has_half_portion = data.has_half_portion ? 1 : 0;
+
+      // Ensure allergens is always a JSON string (never an array)
+      if (Array.isArray(data.allergens)) {
+        data.allergens = JSON.stringify(data.allergens);
+      } else if (data.allergens && typeof data.allergens === 'string') {
+        // already string — keep as is
+      } else {
+        data.allergens = '[]';
+      }
 
       // Parse JSON fields
-      if (data.allergens) data.allergens = JSON.stringify(data.allergens);
       if (data.customizationOptions) data.customization_options = JSON.stringify(data.customizationOptions);
       delete data.customizationOptions;
 
@@ -280,8 +301,8 @@ export class ProductController {
       return created(res, product, 'Product created successfully');
 
     } catch (err) {
-      logger.error('Create product failed', { error: err.message });
-      return error(res, 'Failed to create product');
+      logger.error('Create product failed', { error: err.message, stack: err.stack, code: err.code });
+      return error(res, 'Failed to create product: ' + err.message);
     }
   }
 
