@@ -15,6 +15,14 @@ router.get('/product/:id', asyncHandler(ProductController.getProduct));
 router.get('/search', asyncHandler(ProductController.search));
 router.get('/', asyncHandler(ProductController.getMenu));
 
+// Admin menu — includes hidden products
+router.get('/admin-all',
+  authenticate,
+  authorize('admin', 'super_admin'),
+  checkSubscriptionWithBypass,
+  asyncHandler(ProductController.getAdminMenu)
+);
+
 // Admin only routes
 router.post('/',
   authenticate,

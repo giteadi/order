@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion'
 
-// Simplified filters - only Drinks and Food
+// Simplified filters — All, Drinks, Food, Combos
 const SIMPLE_CATEGORIES = [
   { id: 'all', name: 'All Items', icon: '🍽️' },
   { id: 'drinks', name: 'Drinks', icon: '🥤' },
   { id: 'food', name: 'Food', icon: '🍛' },
+  { id: 'combos', name: 'Combos', icon: '🍱' },
 ]
 
 export const CategoryTabs = ({ categories, selectedCategory, onSelectCategory }) => {

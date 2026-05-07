@@ -263,6 +263,8 @@ export const menuAPI = {
   deleteProduct: (id) => apiClient.delete(`/menu/${id}`),
   toggleAvailability: (id, isAvailable) =>
     apiClient.patch(`/menu/${id}/availability`, { isAvailable }),
+  // Admin-only: returns ALL products including hidden ones
+  getAdminMenu: () => apiClient.get('/menu/admin-all', { params: { restaurant: getRestaurantParam() } }),
 
   // Category management
   createCategory: (data) => apiClient.post('/menu/categories', data),

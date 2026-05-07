@@ -15,6 +15,7 @@ export const MenuManagement = () => {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
+  const [showHiddenProducts, setShowHiddenProducts] = useState(true) // Show hidden by default
 
   // Tabs: products | categories | subcategories
   const [activeTab, setActiveTab] = useState('products')
@@ -31,6 +32,14 @@ export const MenuManagement = () => {
   const [showSubcategoryModal, setShowSubcategoryModal] = useState(false)
   const [editingSubcategory, setEditingSubcategory] = useState(null)
   const [subcategoryForm, setSubcategoryForm] = useState({ name: '', icon: '', sort_order: 0, category_id: '' })
+
+  // Combo state
+  const [combos, setCombos] = useState([])
+  const [showComboModal, setShowComboModal] = useState(false)
+  const [editingCombo, setEditingCombo] = useState(null)
+  const [comboForm, setComboForm] = useState({
+    name: '', description: '', price: '', image_url: '', items: []
+  })
 
   // Inline quick-add states for product modal
   const [showInlineCategoryForm, setShowInlineCategoryForm] = useState(false)
@@ -99,23 +108,21 @@ export const MenuManagement = () => {
     if (activeTab === 'subcategories') {
       loadAllSubcategories()
     }
+    if (activeTab === 'combos') {
+      fetchCombos()
+    }
   }, [activeTab, categories])
 
 
   const fetchData = async () => {
     try {
       setLoading(true)
-      console.log('[MenuManagement] Fetching menu data...')
       const [productsRes, categoriesRes] = await Promise.all([
-        menuAPI.getMenu(),
+        menuAPI.getAdminMenu(),   // ← admin endpoint: returns ALL products including hidden
         menuAPI.getCategories(),
       ])
 
-      console.log('[MenuManagement] Products response:', productsRes.data)
-      console.log('[MenuManagement] Categories response:', categoriesRes.data)
-
       if (productsRes.data.success) {
-        // Flatten hierarchical menu data to extract all products
         const menuData = productsRes.data.data || []
         const allProducts = []
         menuData.forEach(category => {
@@ -126,7 +133,9 @@ export const MenuManagement = () => {
                   allProducts.push({
                     ...product,
                     category_id: category.id,
-                    subcategory_id: subcategory.id
+                    subcategory_id: subcategory.id,
+                    // Normalize is_available: SQLite returns 0/1
+                    is_available: product.is_available === 1 || product.is_available === true,
                   })
                 })
               }
@@ -136,7 +145,6 @@ export const MenuManagement = () => {
         setProducts(allProducts)
       }
       if (categoriesRes.data.success) {
-        // Ensure only actual categories (not subcategories) are shown in dropdown
         const categoryData = (categoriesRes.data.data || []).filter(cat => !cat.category_id)
         setCategories(categoryData)
       }
@@ -262,6 +270,79 @@ export const MenuManagement = () => {
     setFormSubcategories([])
   }
 
+  // ===== COMBO FUNCTIONS =====
+  const fetchCombos = async () => {
+    try {
+      const res = await apiClient.get('/combos/admin-all', { params: { restaurant: new URLSearchParams(window.location.search).get('restaurant') } })
+      if (res.data.success) setCombos(res.data.data || [])
+    } catch (e) {
+      console.error('Failed to fetch combos', e)
+    }
+  }
+
+  const handleComboToggleAvailability = async (combo) => {
+    try {
+      await apiClient.patch(`/combos/${combo.id}`, { is_available: !combo.is_available })
+      fetchCombos()
+    } catch (e) {
+      alert('Failed to update combo visibility')
+    }
+  }
+
+  const handleComboSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      const payload = {
+        ...comboForm,
+        price: parseFloat(comboForm.price),
+      }
+      if (editingCombo) {
+        await apiClient.patch(`/combos/${editingCombo.id}`, payload)
+      } else {
+        await apiClient.post('/combos', payload)
+      }
+      setShowComboModal(false)
+      setEditingCombo(null)
+      setComboForm({ name: '', description: '', price: '', image_url: '', items: [] })
+      fetchCombos()
+    } catch (e) {
+      alert('Failed to save combo: ' + (e.response?.data?.message || e.message))
+    }
+  }
+
+  const handleToggleAvailability = async (product) => {
+    try {
+      const newVal = !product.is_available
+      await menuAPI.updateProduct(product.id, { is_available: newVal })
+      clearCache()
+      fetchData()
+    } catch (e) {
+      alert('Failed to update availability')
+    }
+  }
+
+  const handleComboDelete = async (id) => {
+    if (!confirm('Delete this combo?')) return
+    try {
+      await apiClient.delete(`/combos/${id}`)
+      fetchCombos()
+    } catch (e) {
+      alert('Failed to delete combo')
+    }
+  }
+
+  const openComboEdit = (combo) => {
+    setEditingCombo(combo)
+    setComboForm({
+      name: combo.name,
+      description: combo.description || '',
+      price: combo.price.toString(),
+      image_url: combo.image_url || '',
+      items: combo.items || [],
+    })
+    setShowComboModal(true)
+  }
+
   // Inline handlers for quick-add inside product modal
   const handleInlineCategoryAdd = async () => {
     if (!inlineCategoryName.trim()) return
@@ -310,7 +391,12 @@ export const MenuManagement = () => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.description?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = selectedCategory === 'all' || product.category_id?.toString() === selectedCategory
-    return matchesSearch && matchesCategory
+    
+    // Filter by visibility
+    const isAvailable = product.is_available ?? product.isAvailable ?? true
+    const matchesVisibility = showHiddenProducts || isAvailable
+    
+    return matchesSearch && matchesCategory && matchesVisibility
   })
 
   // Category handlers
@@ -489,7 +575,7 @@ export const MenuManagement = () => {
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex gap-6">
-            {['products', 'categories', 'subcategories'].map(tab => (
+            {['products', 'categories', 'subcategories', 'combos'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -532,23 +618,63 @@ export const MenuManagement = () => {
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
               </select>
+              {/* Hidden products toggle */}
+              <button
+                onClick={() => setShowHiddenProducts(v => !v)}
+                className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 font-medium text-sm transition-all whitespace-nowrap ${
+                  showHiddenProducts
+                    ? 'border-orange-400 bg-orange-50 text-orange-700'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-400'
+                }`}
+              >
+                <span className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+                  showHiddenProducts ? 'bg-orange-400' : 'bg-gray-300'
+                }`}>
+                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${
+                    showHiddenProducts ? 'translate-x-3.5' : 'translate-x-0.5'
+                  }`} />
+                </span>
+                {showHiddenProducts ? 'Showing Hidden' : 'Show Hidden'}
+              </button>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
               <div className="bg-white rounded-xl p-6 shadow-sm">
                 <p className="text-sm text-gray-500">Total Products</p>
                 <p className="text-2xl font-bold text-gray-900">{products.length}</p>
               </div>
               <div className="bg-white rounded-xl p-6 shadow-sm">
-                <p className="text-sm text-gray-500">Available</p>
+                <p className="text-sm text-gray-500">Visible</p>
                 <p className="text-2xl font-bold text-green-600">
                   {products.filter(p => p.is_available ?? p.isAvailable).length}
                 </p>
               </div>
+              <div
+                className="bg-white rounded-xl p-6 shadow-sm cursor-pointer hover:bg-orange-50 transition-colors border-2 border-transparent hover:border-orange-200"
+                onClick={() => setShowHiddenProducts(true)}
+                title="Click to show hidden products"
+              >
+                <p className="text-sm text-gray-500">Hidden</p>
+                <p className="text-2xl font-bold text-orange-500">
+                  {products.filter(p => !(p.is_available ?? p.isAvailable ?? true)).length}
+                </p>
+                <p className="text-xs text-orange-400 mt-1">Click to view</p>
+              </div>
               <div className="bg-white rounded-xl p-6 shadow-sm">
                 <p className="text-sm text-gray-500">Categories</p>
                 <p className="text-2xl font-bold text-gray-900">{categories.length}</p>
+              </div>
+            </div>
+
+            {/* Info banner for hide/show feature */}
+            <div className="mb-6 flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+              <span className="text-lg mt-0.5">💡</span>
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Product Visibility</p>
+                <p className="text-xs text-blue-600 mt-0.5">
+                  Use the <strong>toggle switch</strong> on each product card to instantly show or hide it from the customer menu. Hidden products won't appear for customers but are not deleted.
+                </p>
               </div>
             </div>
 
@@ -579,6 +705,12 @@ export const MenuManagement = () => {
                       <ImageIcon size={40} className="text-gray-300" />
                     </div>
                   )}
+                  {/* Unavailable overlay */}
+                  {!(product.is_available ?? product.isAvailable) && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">HIDDEN</span>
+                    </div>
+                  )}
                   <div className="absolute top-2 right-2 flex gap-1">
                     {product.is_vegetarian && (
                       <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
@@ -600,17 +732,39 @@ export const MenuManagement = () => {
                   <p className="text-sm text-gray-500 mb-3 line-clamp-2">
                     {product.description || 'No description'}
                   </p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex gap-2">
+                  {/* Hide/Show Toggle — prominent switch */}
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      onClick={() => handleToggleAvailability(product)}
+                      title={(product.is_available ?? product.isAvailable) ? 'Click to hide from menu' : 'Click to show on menu'}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all border-2 ${
+                        (product.is_available ?? product.isAvailable)
+                          ? 'bg-green-50 text-green-700 border-green-200 hover:bg-red-50 hover:text-red-700 hover:border-red-200'
+                          : 'bg-red-50 text-red-700 border-red-200 hover:bg-green-50 hover:text-green-700 hover:border-green-200'
+                      }`}
+                    >
+                      {/* Toggle pill */}
+                      <span className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+                        (product.is_available ?? product.isAvailable) ? 'bg-green-500' : 'bg-red-400'
+                      }`}>
+                        <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${
+                          (product.is_available ?? product.isAvailable) ? 'translate-x-3.5' : 'translate-x-0.5'
+                        }`} />
+                      </span>
+                      {(product.is_available ?? product.isAvailable) ? 'Visible on Menu' : 'Hidden from Menu'}
+                    </button>
+                    <div className="flex gap-1">
                       <button
                         onClick={() => handleEdit(product)}
                         className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Edit product"
                       >
                         <Edit2 size={16} className="text-gray-600" />
                       </button>
                       <button
                         onClick={() => handleDelete(product.id)}
                         className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete product"
                       >
                         <Trash2 size={16} className="text-red-500" />
                       </button>
@@ -725,9 +879,200 @@ export const MenuManagement = () => {
             </table>
           </div>
         )}
+
+        {/* COMBOS TAB */}
+        {activeTab === 'combos' && (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Combos & Special Offers</h2>
+                <p className="text-sm text-gray-500">Create combo meals and special packages</p>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingCombo(null)
+                  setComboForm({ name: '', description: '', price: '', image_url: '', items: [] })
+                  setShowComboModal(true)
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                <Plus size={18} />
+                Add Combo
+              </button>
+            </div>
+
+            {combos.length === 0 ? (
+              <div className="bg-white rounded-xl p-12 text-center shadow-sm">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-orange-100 flex items-center justify-center">
+                  <span className="text-3xl">🍱</span>
+                </div>
+                <p className="text-lg font-medium text-gray-900">No combos yet</p>
+                <p className="text-sm text-gray-500 mt-1">Create your first combo meal or special offer</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {combos.map(combo => (
+                  <div key={combo.id} className={`bg-white rounded-xl shadow-sm overflow-hidden ${!combo.is_available ? 'opacity-70' : ''}`}>
+                    <div className="relative">
+                      {combo.image_url && (
+                        <div className="aspect-video bg-gray-100">
+                          <img src={combo.image_url} alt={combo.name} className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      {!combo.is_available && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                          <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">HIDDEN</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-semibold text-gray-900">{combo.name}</h3>
+                        <span className="font-bold text-gray-900">₹{combo.price}</span>
+                      </div>
+                      {combo.description && (
+                        <p className="text-sm text-gray-500 mb-3 line-clamp-2">{combo.description}</p>
+                      )}
+                      <div className="flex items-center justify-between mt-3">
+                        {/* Visibility toggle */}
+                        <button
+                          onClick={() => handleComboToggleAvailability(combo)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-xs font-semibold transition-all ${
+                            combo.is_available
+                              ? 'border-green-200 bg-green-50 text-green-700 hover:bg-red-50 hover:text-red-700 hover:border-red-200'
+                              : 'border-red-200 bg-red-50 text-red-700 hover:bg-green-50 hover:text-green-700 hover:border-green-200'
+                          }`}
+                        >
+                          <span className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${combo.is_available ? 'bg-green-500' : 'bg-red-400'}`}>
+                            <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${combo.is_available ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                          </span>
+                          {combo.is_available ? 'Visible' : 'Hidden'}
+                        </button>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => openComboEdit(combo)}
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          >
+                            <Edit2 size={16} className="text-gray-600" />
+                          </button>
+                          <button
+                            onClick={() => handleComboDelete(combo.id)}
+                            className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={16} className="text-red-500" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Add/Edit Modal */}
+      {/* Combo Modal */}
+      {showComboModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl w-full max-w-md max-h-[85vh] overflow-y-auto"
+          >
+            <div className="p-6 border-b border-gray-100">
+              <h2 className="text-xl font-bold text-gray-900">
+                {editingCombo ? 'Edit Combo' : 'Add Combo'}
+              </h2>
+            </div>
+            <form onSubmit={handleComboSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={comboForm.name}
+                  onChange={(e) => setComboForm({ ...comboForm, name: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-900 focus:outline-none"
+                  placeholder="e.g. Family Combo, Lunch Special"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  rows={3}
+                  value={comboForm.description}
+                  onChange={(e) => setComboForm({ ...comboForm, description: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-900 focus:outline-none resize-none"
+                  placeholder="What's included in this combo..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹) *</label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step="0.01"
+                  value={comboForm.price}
+                  onChange={(e) => setComboForm({ ...comboForm, price: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-900 focus:outline-none"
+                  placeholder="e.g. 299"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
+                <div className="space-y-2">
+                  <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-gray-900 transition-colors bg-gray-50">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files[0]
+                        if (!file) return
+                        const reader = new FileReader()
+                        reader.onload = (ev) => setComboForm({ ...comboForm, image_url: ev.target.result })
+                        reader.readAsDataURL(file)
+                      }}
+                    />
+                    {comboForm.image_url ? (
+                      <img src={comboForm.image_url} alt="Preview" className="h-full w-full object-cover rounded-xl" />
+                    ) : (
+                      <div className="text-center">
+                        <ImageIcon size={24} className="mx-auto text-gray-400 mb-1" />
+                        <p className="text-xs text-gray-500">Click to upload</p>
+                      </div>
+                    )}
+                  </label>
+                  <input
+                    type="url"
+                    value={comboForm.image_url?.startsWith('data:') ? '' : comboForm.image_url}
+                    onChange={(e) => setComboForm({ ...comboForm, image_url: e.target.value })}
+                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-gray-900 focus:outline-none text-sm"
+                    placeholder="Or paste image URL"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowComboModal(false)}
+                  className="flex-1 px-4 py-3 border border-gray-200 rounded-xl font-medium hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800"
+                >
+                  {editingCombo ? 'Save Changes' : 'Add Combo'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <motion.div

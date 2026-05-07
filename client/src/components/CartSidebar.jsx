@@ -78,8 +78,17 @@ export const CartSidebar = ({
                       className="bg-gray-50 rounded-xl p-3"
                     >
                       <div className="flex items-start gap-3">
-                        <div className="w-14 h-14 rounded-lg bg-gray-200 flex items-center justify-center text-lg">
-                          {item.image}
+                        <div className="w-14 h-14 rounded-lg bg-gray-200 flex items-center justify-center text-lg overflow-hidden flex-shrink-0">
+                          {(item.imageUrl || item.image_url || (item.image && item.image.startsWith('http'))) ? (
+                            <img
+                              src={item.imageUrl || item.image_url || item.image}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => { e.target.style.display = 'none' }}
+                            />
+                          ) : (
+                            <span className="text-2xl">{item.emojiIcon || item.emoji_icon || (!item.image?.startsWith('http') ? item.image : null) || '🍽️'}</span>
+                          )}
                         </div>
 
                         <div className="flex-1">

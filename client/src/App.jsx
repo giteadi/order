@@ -101,6 +101,7 @@ function App() {
   const [dynamicSubcategories, setDynamicSubcategories] = useState([])
   const [dynamicProducts, setDynamicProducts] = useState([])
   const [menuLoading, setMenuLoading] = useState(false)
+  const [combos, setCombos] = useState([])
 
   // Dynamic menu from Redux
   const apiCategories = useSelector(selectCategories)
@@ -149,42 +150,34 @@ function App() {
     dispatch(fetchMenu(restaurantSubdomain))
   }, [dispatch, restaurant?.subdomain])
 
-  // When categories load, select first one
+  // Extract ALL products from fullMenu into a flat list
   useEffect(() => {
-    if (apiCategories?.length > 0) {
-      setSelectedCategory(apiCategories[0].id)
-    }
-  }, [apiCategories])
-
-  // When fullMenu or selectedCategory changes, update subcategories
-  useEffect(() => {
-    if (!fullMenu || !selectedCategory) return
-    const cat = fullMenu.find(c => c.id === selectedCategory)
-    if (cat?.subcategories?.length > 0) {
-      setDynamicSubcategories(cat.subcategories)
-      setSelectedSubcategory(cat.subcategories[0].id)
-    } else {
-      setDynamicSubcategories([])
-      setSelectedSubcategory(null)
-      setDynamicProducts([])
-    }
-  }, [selectedCategory, fullMenu])
-
-  // When fullMenu or selectedSubcategory changes, extract products
-  useEffect(() => {
-    if (!fullMenu || !selectedSubcategory) return
-    setMenuLoading(true)
-    let found = []
+    if (!fullMenu) return
+    const all = []
     for (const cat of fullMenu) {
-      const sub = cat.subcategories?.find(s => s.id === selectedSubcategory)
-      if (sub) {
-        found = sub.products || []
-        break
+      for (const sub of (cat.subcategories || [])) {
+        for (const p of (sub.products || [])) {
+          all.push({ ...p, _categoryName: cat.name, _subcategoryName: sub.name })
+        }
       }
     }
-    setDynamicProducts(found)
-    setMenuLoading(false)
-  }, [selectedSubcategory, fullMenu])
+    setDynamicProducts(all)
+    if (apiCategories?.length > 0 && !selectedCategory) {
+      setSelectedCategory('all')
+    }
+  }, [fullMenu])
+
+  // Fetch combos when restaurant changes
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const restaurantSubdomain = urlParams.get('restaurant') || restaurant?.subdomain || null
+    if (!restaurantSubdomain) return
+    import('./services/api').then(({ default: apiClient }) => {
+      apiClient.get(`/combos?restaurant=${restaurantSubdomain}`)
+        .then(res => { if (res.data.success) setCombos(res.data.data || []) })
+        .catch(() => {})
+    })
+  }, [restaurant?.subdomain])
   const handleAddToCart = (product, qty = 1) => {
     dispatch(addItem({ product, quantity: qty }))
     dispatch(closeProductModal())
@@ -280,25 +273,19 @@ function App() {
     }
   }
 
+  const drinkKeywords = ['drink', 'beverage', 'coffee', 'tea', 'juice', 'soda', 'shake', 'lassi', 'water', 'beer', 'wine', 'cold', 'hot', 'brew', 'espresso', 'latte', 'cappuccino', 'frappe', 'smoothie']
+
   const filteredProducts = dynamicProducts.filter(p => {
-    // Search filter
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase())
     if (!matchesSearch) return false
 
-    // Category filter - simplified (drinks vs food)
-    if (selectedCategory === 'all') return true
-    if (selectedCategory === 'drinks') {
-      // Check if product is in a drink category (by name or category_id)
-      const drinkKeywords = ['drink', 'beverage', 'coffee', 'tea', 'juice', 'soda', 'shake', 'lassi', 'water', 'beer', 'wine']
-      const categoryName = categories.find(c => c.id === p.category_id)?.name?.toLowerCase() || ''
-      return drinkKeywords.some(kw => categoryName.includes(kw) || p.name.toLowerCase().includes(kw))
-    }
-    if (selectedCategory === 'food') {
-      // Everything that's not a drink is food
-      const drinkKeywords = ['drink', 'beverage', 'coffee', 'tea', 'juice', 'soda', 'shake', 'lassi', 'water', 'beer', 'wine']
-      const categoryName = categories.find(c => c.id === p.category_id)?.name?.toLowerCase() || ''
-      return !drinkKeywords.some(kw => categoryName.includes(kw) || p.name.toLowerCase().includes(kw))
-    }
+    if (selectedCategory === 'all' || !selectedCategory) return true
+
+    const catName = (p._categoryName || '').toLowerCase()
+    const isDrink = drinkKeywords.some(kw => catName.includes(kw))
+
+    if (selectedCategory === 'drinks') return isDrink
+    if (selectedCategory === 'food') return !isDrink
     return true
   }) || []
 
@@ -491,52 +478,89 @@ function App() {
               user={user}
             />
             <CategoryTabs 
-              categories={apiCategories}
+              categories={[]}
               selectedCategory={selectedCategory}
               onSelectCategory={setSelectedCategory}
             />
             <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6">
-              <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] xl:grid-cols-[280px_1fr] gap-4 lg:gap-6">
-                <SubcategorySidebar 
-                  subcategories={dynamicSubcategories}
-                  selectedSubcategory={selectedSubcategory}
-                  onSelectSubcategory={setSelectedSubcategory}
-                />
-                <div className="flex-1 min-w-0">
-                  {/* Mobile: Compact Subcategory Dropdown */}
-                  <div className="lg:hidden mb-4">
-                    <select
-                      value={selectedSubcategory}
-                      onChange={(e) => setSelectedSubcategory(e.target.value)}
-                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-900 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
-                    >
-                      {dynamicSubcategories.map((sub) => (
-                        <option key={sub.id} value={sub.id}>
-                          {sub.name}
-                        </option>
-                      ))}
-                    </select>
+              {selectedCategory === 'combos' ? (
+                /* Combos Section */
+                combos.length === 0 ? (
+                  <div className="text-center py-20 text-gray-500">
+                    <span className="text-5xl block mb-4">🍱</span>
+                    <p className="text-lg font-medium">No combos available</p>
                   </div>
-
-                  {/* Desktop: Show heading */}
-                  <h2 className="hidden lg:block text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">
-                    {dynamicSubcategories.find(s => s.id === selectedSubcategory)?.name}
-                  </h2>
-                  {menuLoading ? (
-                    <div className="flex items-center justify-center py-20">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                    </div>
-                  ) : (
-                    <ProductGrid 
-                      products={filteredProducts}
-                      onAddToCart={handleAddToCart}
-                      onProductClick={handleProductClick}
-                      onCursorHover={setHovering}
-                    />
-                  )}
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {combos.map(combo => (
+                      <div
+                        key={combo.id}
+                        className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => dispatch(openProductModal({
+                          id: `combo_${combo.id}`,
+                          name: combo.name,
+                          price: combo.price,
+                          description: combo.description,
+                          imageUrl: combo.image_url,
+                          image_url: combo.image_url,
+                        }))}
+                      >
+                        {combo.image_url && (
+                          <div className="aspect-video bg-gray-100 overflow-hidden">
+                            <img src={combo.image_url} alt={combo.name} className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        {!combo.image_url && (
+                          <div className="aspect-video bg-gradient-to-br from-orange-50 to-amber-50 grid place-items-center text-5xl">
+                            🍱
+                          </div>
+                        )}
+                        <div className="p-4">
+                          <div className="flex items-start justify-between mb-1">
+                            <h3 className="font-semibold text-gray-900">{combo.name}</h3>
+                            <span className="font-bold text-gray-900 ml-2">₹{combo.price}</span>
+                          </div>
+                          {combo.description && (
+                            <p className="text-sm text-gray-500 line-clamp-2 mb-3">{combo.description}</p>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleAddToCart({
+                                id: `combo_${combo.id}`,
+                                productId: combo.id,
+                                name: combo.name,
+                                price: combo.price,
+                                description: combo.description,
+                                imageUrl: combo.image_url,
+                              })
+                            }}
+                            className="w-full py-2 bg-gray-900 text-white rounded-xl text-sm font-semibold hover:bg-gray-800 transition-colors"
+                          >
+                            Add to Cart — ₹{combo.price}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : menuLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
                 </div>
-              </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="text-center py-20 text-gray-500">
+                  <p className="text-lg font-medium">No items found</p>
+                  <p className="text-sm mt-1">Try a different filter or search</p>
+                </div>
+              ) : (
+                <ProductGrid 
+                  products={filteredProducts}
+                  onAddToCart={handleAddToCart}
+                  onProductClick={handleProductClick}
+                  onCursorHover={setHovering}
+                />
+              )}
             </div>
           </>
         } />

@@ -13,14 +13,10 @@ export class ProductModel extends BaseModel {
    */
   getFullMenu(restaurantId = null) {
     const params = []
-    let catFilter = ''
-    let subFilter = ''
     let prodFilter = ''
     if (restaurantId) {
-      catFilter = 'AND (c.restaurant_id = ? OR c.restaurant_id IS NULL)'
-      subFilter = 'AND (sc.restaurant_id = ? OR sc.restaurant_id IS NULL)'
-      prodFilter = 'AND (p.restaurant_id = ? OR p.restaurant_id IS NULL)'
-      params.push(restaurantId, restaurantId, restaurantId)
+      prodFilter = 'AND p.restaurant_id = ?'
+      params.push(restaurantId)
     }
 
     const sql = `
@@ -48,17 +44,67 @@ export class ProductModel extends BaseModel {
         p.half_portion_price,
         p.full_portion_price
       FROM categories c
-      LEFT JOIN subcategories sc ON sc.category_id = c.id ${subFilter}
+      LEFT JOIN subcategories sc ON sc.category_id = c.id
       LEFT JOIN products p ON p.subcategory_id = sc.id AND p.is_available = 1 ${prodFilter}
-      WHERE c.is_active = 1 ${catFilter}
+      WHERE c.is_active = 1
       ORDER BY c.sort_order, sc.sort_order, p.sort_order
     `
 
     const rows = this.query(sql, params)
-    
-    // Transform to nested structure
+    return this._buildMenuTree(rows)
+  }
+
+  /**
+   * Get full menu hierarchy for admin — includes hidden (is_available=0) products
+   */
+  getFullMenuAdmin(restaurantId = null) {
+    const params = []
+    let prodFilter = ''
+    if (restaurantId) {
+      prodFilter = 'AND p.restaurant_id = ?'
+      params.push(restaurantId)
+    }
+
+    const sql = `
+      SELECT 
+        c.id as category_id,
+        c.name as category_name,
+        c.icon as category_icon,
+        sc.id as subcategory_id,
+        sc.name as subcategory_name,
+        sc.icon as subcategory_icon,
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.image_url,
+        p.emoji_icon,
+        p.is_vegetarian,
+        p.is_spicy,
+        p.is_available,
+        p.calories,
+        p.allergens,
+        p.customization_options,
+        p.preparation_time,
+        p.has_half_portion,
+        p.half_portion_price,
+        p.full_portion_price
+      FROM categories c
+      LEFT JOIN subcategories sc ON sc.category_id = c.id
+      LEFT JOIN products p ON p.subcategory_id = sc.id ${prodFilter}
+      WHERE c.is_active = 1
+      ORDER BY c.sort_order, sc.sort_order, p.sort_order
+    `
+
+    const rows = this.query(sql, params)
+    return this._buildMenuTree(rows)
+  }
+
+  /**
+   * Shared helper: transform flat rows into nested menu tree
+   */
+  _buildMenuTree(rows) {
     const menu = {};
-    
     for (const row of rows) {
       if (!menu[row.category_id]) {
         menu[row.category_id] = {
@@ -96,6 +142,7 @@ export class ProductModel extends BaseModel {
           has_half_portion: !!row.has_half_portion,
           half_portion_price: row.half_portion_price,
           full_portion_price: row.full_portion_price,
+          is_available: row.is_available,
         });
       }
     }

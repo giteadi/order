@@ -56,7 +56,7 @@ export class ProductController {
   }
 
   /**
-   * Get full menu hierarchy
+   * Get full menu hierarchy (public — only available products)
    */
   static getMenu(req, res) {
     try {
@@ -72,6 +72,20 @@ export class ProductController {
     } catch (err) {
       logger.error('Get menu failed', { error: err.message })
       return error(res, 'Failed to load menu')
+    }
+  }
+
+  /**
+   * Get full menu hierarchy for admin — includes hidden products
+   */
+  static getAdminMenu(req, res) {
+    try {
+      const restaurantId = ProductController._getRestaurantId(req)
+      const menu = Product.getFullMenuAdmin(restaurantId)
+      return success(res, menu)
+    } catch (err) {
+      logger.error('Get admin menu failed', { error: err.message })
+      return error(res, 'Failed to load admin menu')
     }
   }
 
