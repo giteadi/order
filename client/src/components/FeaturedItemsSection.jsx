@@ -1,7 +1,8 @@
 import { useRef, useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
-import apiClient, { menuAPI } from '../services/api'
+import { menuAPI } from '../services/api'
+import { ProductCard } from './ProductCard'
 
 export const FeaturedItemsSection = ({ onProductClick, onAddToCart, onCursorHover }) => {
   const navigate = useNavigateWithParams()
@@ -12,7 +13,6 @@ export const FeaturedItemsSection = ({ onProductClick, onAddToCart, onCursorHove
   useEffect(() => {
     const fetchFeatured = async () => {
       try {
-        // Fetch full menu and pick first 8 available products
         const res = await menuAPI.getMenu()
         if (res.data.success) {
           const menuData = res.data.data || []
@@ -41,30 +41,6 @@ export const FeaturedItemsSection = ({ onProductClick, onAddToCart, onCursorHove
     }
     fetchFeatured()
   }, [])
-
-  const handleItemClick = (item) => {
-    // Pass full product object so modal gets has_half_portion etc.
-    onProductClick(item)
-  }
-
-  const handleAddToCart = (e, item) => {
-    e.stopPropagation()
-    // Pass full product object
-    onAddToCart(item)
-  }
-
-  const renderImage = (item) => {
-    const src = item.imageUrl || item.image_url
-    if (src && !src.startsWith('data:') && src.startsWith('http')) {
-      return <img src={src} alt={item.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
-    }
-    if (src && src.startsWith('data:')) {
-      return <img src={src} alt={item.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
-    }
-    // emoji or fallback
-    const emoji = item.emojiIcon || item.emoji_icon || item.image || '🍽️'
-    return <span className="text-5xl">{emoji}</span>
-  }
 
   if (loading) {
     return (
@@ -99,75 +75,16 @@ export const FeaturedItemsSection = ({ onProductClick, onAddToCart, onCursorHove
           </p>
         </motion.div>
 
-        {/* Desktop: Grid View */}
-        <div className="hidden sm:grid sm:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
-          {featuredItems.map((item, index) => (
-            <motion.div
+        {/* Same ProductCard as menu page — handles half/full inline popup automatically */}
+        <div className="flex flex-col sm:grid sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+          {featuredItems.map((item) => (
+            <ProductCard
               key={item.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
-              transition={{ duration: 0.4, delay: index * 0.05 }}
-              whileHover={{ scale: 1.02, y: -4 }}
-              onMouseEnter={() => onCursorHover(true)}
-              onMouseLeave={() => onCursorHover(false)}
-              onClick={() => handleItemClick(item)}
-              className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg border border-gray-100 cursor-pointer transition-shadow"
-            >
-              <div className="aspect-square bg-gradient-to-br from-amber-50 to-orange-50 grid place-items-center overflow-hidden">
-                {renderImage(item)}
-              </div>
-              <div className="p-4">
-                <h3 className="font-semibold text-base text-gray-900 mb-1 truncate">{item.name}</h3>
-                <p className="text-xs text-gray-500 mb-2 line-clamp-1">{item.description}</p>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-lg font-bold text-gray-900">₹{item.price}</span>
-                  <button
-                    onClick={(e) => handleAddToCart(e, item)}
-                    className="w-9 h-9 rounded-full bg-gray-900 text-white grid place-items-center hover:bg-gray-800 transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Mobile: Compact List View */}
-        <div className="sm:hidden flex flex-col gap-3">
-          {featuredItems.map((item, index) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: "-30px" }}
-              transition={{ duration: 0.3, delay: index * 0.03 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleItemClick(item)}
-              className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 cursor-pointer active:bg-gray-50"
-            >
-              <div className="flex items-center gap-3 p-3">
-                <div className="w-16 h-16 flex-shrink-0 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl grid place-items-center overflow-hidden">
-                  {renderImage(item)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-sm text-gray-900 truncate">{item.name}</h3>
-                  <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">{item.description}</p>
-                  <span className="text-base font-bold text-gray-900 mt-1 block">₹{item.price}</span>
-                </div>
-                <button
-                  onClick={(e) => handleAddToCart(e, item)}
-                  className="w-10 h-10 rounded-full bg-gray-900 text-white grid place-items-center flex-shrink-0 active:scale-90 transition-transform"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                </button>
-              </div>
-            </motion.div>
+              product={item}
+              onAddToCart={onAddToCart}
+              onClick={() => onProductClick(item)}
+              onCursorHover={onCursorHover}
+            />
           ))}
         </div>
 
