@@ -1655,4 +1655,80 @@ export class AdminController {
       return error(res, 'Failed to get expiring subscriptions', HTTP_STATUS.INTERNAL_ERROR);
     }
   }
+
+  /**
+   * Update restaurant admin user credentials (super admin only)
+   * PATCH /admin/restaurants/:restaurantId/admin-credentials
+   * Body: { userId, name, email, password }
+   */
+  static async updateRestaurantAdminCredentials(req, res) {
+    try {
+      const db = getDB();
+      const userRole = req.user?.role;
+      const { restaurantId } = req.params;
+      const { userId, name, email, password } = req.body;
+
+      if (userRole !== 'super_admin') {
+        return error(res, 'Unauthorized - Super admin only', HTTP_STATUS.FORBIDDEN);
+      }
+
+      if (!userId) {
+        return error(res, 'userId is required', HTTP_STATUS.BAD_REQUEST);
+      }
+
+      // Verify user belongs to this restaurant
+      const targetUser = db.prepare(
+        'SELECT id, role, restaurant_id FROM users WHERE id = ? AND restaurant_id = ?'
+      ).get(userId, restaurantId);
+
+      if (!targetUser) {
+        return error(res, 'User not found in this restaurant', HTTP_STATUS.NOT_FOUND);
+      }
+
+      // Build update fields
+      const updates = [];
+      const params = [];
+
+      if (name && name.trim()) {
+        updates.push('name = ?');
+        params.push(name.trim());
+      }
+
+      if (email && email.trim()) {
+        // Check email not taken by another user
+        const existing = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(email.trim(), userId);
+        if (existing) {
+          return error(res, 'Email already in use by another account', HTTP_STATUS.BAD_REQUEST);
+        }
+        updates.push('email = ?');
+        params.push(email.trim().toLowerCase());
+      }
+
+      if (password && password.length >= 6) {
+        // Hash password using bcrypt (same as auth flow)
+        const bcrypt = await import('bcryptjs');
+        const hashed = await bcrypt.default.hash(password, 12);
+        updates.push('password_hash = ?');
+        params.push(hashed);
+      }
+
+      if (updates.length === 0) {
+        return error(res, 'No valid fields to update', HTTP_STATUS.BAD_REQUEST);
+      }
+
+      updates.push('updated_at = ?');
+      params.push(new Date().toISOString());
+      params.push(userId);
+
+      db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+
+      const updated = db.prepare('SELECT id, name, email, role, restaurant_id FROM users WHERE id = ?').get(userId);
+
+      logger.info('Restaurant admin credentials updated', { userId, restaurantId, by: req.user?.id });
+      return success(res, updated, 'Credentials updated successfully');
+    } catch (err) {
+      logger.error('Update admin credentials error', { error: err.message });
+      return error(res, 'Failed to update credentials', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
 }

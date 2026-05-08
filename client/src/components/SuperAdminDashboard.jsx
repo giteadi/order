@@ -1,12 +1,12 @@
 import { useSelector } from 'react-redux'
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users, ShoppingCart, Store, Settings, BarChart3, Home,
   Plus, Building2, TrendingUp, DollarSign, UserCheck,
   ChevronRight, Activity, Globe, MoreVertical, Search,
   Filter, ArrowUpRight, ArrowDownRight, Crown, ArrowLeft, QrCode,
-  CreditCard
+  CreditCard, KeyRound, Eye, EyeOff, X, Check, Loader
 } from 'lucide-react'
 import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 import apiClient from '../services/api'
@@ -47,6 +47,16 @@ export const SuperAdminDashboard = () => {
   const [screenData, setScreenData] = useState([])
   const [selectedRestaurant, setSelectedRestaurant] = useState(null)
   const [editMode, setEditMode] = useState(false)
+
+  // Credentials modal state
+  const [credModal, setCredModal] = useState(null) // { restaurant }
+  const [credUsers, setCredUsers] = useState([])
+  const [credLoading, setCredLoading] = useState(false)
+  const [credSaving, setCredSaving] = useState(false)
+  const [credForm, setCredForm] = useState({ userId: '', name: '', email: '', password: '' })
+  const [showCredPassword, setShowCredPassword] = useState(false)
+  const [credSuccess, setCredSuccess] = useState('')
+  const [credError, setCredError] = useState('')
 
   // Fetch dashboard data
   useEffect(() => {
@@ -164,6 +174,69 @@ export const SuperAdminDashboard = () => {
     setScreenFilter('all')
     setScreenSearch('')
     fetchScreenData(screen)
+  }
+
+  // Open credentials modal for a restaurant
+  const openCredModal = async (restaurant, e) => {
+    e?.stopPropagation()
+    setCredModal({ restaurant })
+    setCredForm({ userId: '', name: '', email: '', password: '' })
+    setCredSuccess('')
+    setCredError('')
+    setShowCredPassword(false)
+    setCredLoading(true)
+    try {
+      const res = await apiClient.get(`/admin/restaurants/${restaurant.id}/users?role=admin`)
+      if (res.data.success) {
+        const admins = res.data.data || []
+        setCredUsers(admins)
+        if (admins.length > 0) {
+          setCredForm({ userId: admins[0].id, name: admins[0].name || '', email: admins[0].email || '', password: '' })
+        }
+      }
+    } catch (e) {
+      setCredError('Failed to load users')
+    } finally {
+      setCredLoading(false)
+    }
+  }
+
+  const handleCredUserChange = (userId) => {
+    const user = credUsers.find(u => u.id === parseInt(userId) || u.id === userId)
+    if (user) {
+      setCredForm({ userId: user.id, name: user.name || '', email: user.email || '', password: '' })
+    }
+    setCredSuccess('')
+    setCredError('')
+  }
+
+  const handleCredSave = async () => {
+    if (!credForm.userId) { setCredError('Select a user first'); return }
+    if (!credForm.name && !credForm.email && !credForm.password) { setCredError('Enter at least one field to update'); return }
+    if (credForm.password && credForm.password.length < 6) { setCredError('Password must be at least 6 characters'); return }
+
+    setCredSaving(true)
+    setCredError('')
+    setCredSuccess('')
+    try {
+      const res = await apiClient.patch(`/admin/restaurants/${credModal.restaurant.id}/admin-credentials`, {
+        userId: credForm.userId,
+        name: credForm.name || undefined,
+        email: credForm.email || undefined,
+        password: credForm.password || undefined,
+      })
+      if (res.data.success) {
+        setCredSuccess('Credentials updated successfully!')
+        setCredForm(f => ({ ...f, password: '' }))
+        // Refresh user list
+        const usersRes = await apiClient.get(`/admin/restaurants/${credModal.restaurant.id}/users?role=admin`)
+        if (usersRes.data.success) setCredUsers(usersRes.data.data || [])
+      }
+    } catch (e) {
+      setCredError(e.response?.data?.message || 'Failed to update credentials')
+    } finally {
+      setCredSaving(false)
+    }
   }
 
   // Redirect if not super admin
@@ -407,6 +480,17 @@ export const SuperAdminDashboard = () => {
                         {restaurant.address && (
                           <p className="text-xs text-gray-400 mt-2">{restaurant.address}</p>
                         )}
+
+                        {/* Credentials button */}
+                        <div className="mt-3">
+                          <button
+                            onClick={(e) => openCredModal(restaurant, e)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-xs font-semibold hover:bg-purple-100 transition-colors"
+                          >
+                            <KeyRound size={13} />
+                            Manage Credentials
+                          </button>
+                        </div>
                       </div>
                       <button 
                         className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -564,6 +648,163 @@ export const SuperAdminDashboard = () => {
           </div>
         </motion.div>
       </div>
+
+      {/* ===== Credentials Modal ===== */}
+      <AnimatePresence>
+        {credModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70]"
+              onClick={() => setCredModal(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none"
+            >
+              <div
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-md pointer-events-auto"
+                onClick={e => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+                      <KeyRound size={20} className="text-purple-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-900">Manage Credentials</h2>
+                      <p className="text-xs text-gray-500">{credModal.restaurant.name}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setCredModal(null)}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <X size={18} className="text-gray-500" />
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  {credLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader size={24} className="animate-spin text-gray-400" />
+                    </div>
+                  ) : credUsers.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <p className="text-sm">No admin users found for this restaurant.</p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* User selector (if multiple admins) */}
+                      {credUsers.length > 1 && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Select Admin User</label>
+                          <select
+                            value={credForm.userId}
+                            onChange={e => handleCredUserChange(e.target.value)}
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400"
+                          >
+                            {credUsers.map(u => (
+                              <option key={u.id} value={u.id}>{u.name || u.email} ({u.role})</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {credUsers.length === 1 && (
+                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                          <div className="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold text-sm">
+                            {(credUsers[0].name || credUsers[0].email || '?')[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{credUsers[0].name}</p>
+                            <p className="text-xs text-gray-500">{credUsers[0].email} · {credUsers[0].role}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Name */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                        <input
+                          type="text"
+                          value={credForm.name}
+                          onChange={e => setCredForm(f => ({ ...f, name: e.target.value }))}
+                          placeholder="Admin name"
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400"
+                        />
+                      </div>
+
+                      {/* Email */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email / Login ID</label>
+                        <input
+                          type="email"
+                          value={credForm.email}
+                          onChange={e => setCredForm(f => ({ ...f, email: e.target.value }))}
+                          placeholder="admin@example.com"
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400"
+                        />
+                      </div>
+
+                      {/* Password with eye icon */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                        <div className="relative">
+                          <input
+                            type={showCredPassword ? 'text' : 'password'}
+                            value={credForm.password}
+                            onChange={e => setCredForm(f => ({ ...f, password: e.target.value }))}
+                            placeholder="Leave blank to keep current"
+                            className="w-full px-3 py-2.5 pr-11 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCredPassword(v => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            {showCredPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">Minimum 6 characters</p>
+                      </div>
+
+                      {/* Feedback */}
+                      {credError && (
+                        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                          <X size={15} />
+                          {credError}
+                        </div>
+                      )}
+                      {credSuccess && (
+                        <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
+                          <Check size={15} />
+                          {credSuccess}
+                        </div>
+                      )}
+
+                      {/* Save button */}
+                      <button
+                        onClick={handleCredSave}
+                        disabled={credSaving}
+                        className="w-full py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        {credSaving ? <Loader size={18} className="animate-spin" /> : <Check size={18} />}
+                        {credSaving ? 'Saving...' : 'Update Credentials'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Detail Screen - Full Page */}
       {activeScreen && (

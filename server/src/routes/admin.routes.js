@@ -47,6 +47,7 @@ router.get('/menu/stats', asyncHandler(AdminController.getMenuStats));
 router.get('/restaurants', asyncHandler(AdminController.getAllRestaurants));
 router.post('/restaurants', asyncHandler(AdminController.createRestaurant));
 router.get('/restaurants/:restaurantId/users', asyncHandler(AdminController.getUsersByRestaurant));
+router.patch('/restaurants/:restaurantId/admin-credentials', asyncHandler(AdminController.updateRestaurantAdminCredentials));
 router.get('/super-admin/stats', asyncHandler(AdminController.getSuperAdminStats));
 
 // Super admin data endpoints (all restaurants)
