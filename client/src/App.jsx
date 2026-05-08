@@ -314,8 +314,9 @@ function App() {
       const orderData = {
         tableNumber: parseInt(tableNumber),
         items: cart.map(item => ({
-          productId: item.productId, // Use productId, not id
+          productId: item.productId,
           quantity: item.quantity,
+          price: item.price,           // ← portion price (half/full) send karo
           customizations: item.customizations || []
         })),
         specialInstructions: '',

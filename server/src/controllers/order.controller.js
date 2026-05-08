@@ -337,6 +337,33 @@ export class OrderController {
 
       Order.updateStatus(id, status, updateData);
 
+      // Free table when order is served/completed/cancelled
+      if (['served', 'completed', 'cancelled'].includes(status)) {
+        try {
+          const db = Order.db
+          const orderRow = db.prepare('SELECT session_id, table_id FROM orders WHERE id = ?').get(id)
+          if (orderRow?.session_id) {
+            // Only free table if no other active orders exist for this session
+            const activeCount = db.prepare(`
+              SELECT COUNT(*) as count FROM orders 
+              WHERE session_id = ? AND id != ? 
+              AND status NOT IN ('served', 'completed', 'cancelled')
+            `).get(orderRow.session_id, id)
+
+            if (activeCount.count === 0 && orderRow.table_id) {
+              db.prepare(`
+                UPDATE restaurant_tables 
+                SET status = 'available', current_session_id = NULL 
+                WHERE id = ?
+              `).run(orderRow.table_id)
+              logger.info('Table freed', { tableId: orderRow.table_id, orderId: id })
+            }
+          }
+        } catch (tableErr) {
+          logger.warn('Table free failed', { error: tableErr.message })
+        }
+      }
+
       // Broadcast real-time status update to the customer via SSE
       try {
         const db = Order.db

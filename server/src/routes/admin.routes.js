@@ -23,6 +23,7 @@ router.get('/stats', asyncHandler(AdminController.getStats));
 router.get('/orders', asyncHandler(AdminController.getAllOrders));
 router.get('/orders/today', asyncHandler(AdminController.getTodayOrders));
 router.get('/orders/active', asyncHandler(AdminController.getActiveOrders));
+router.get('/orders/table/:tableNumber', asyncHandler(AdminController.getTableBill));
 router.patch('/orders/:id/status', asyncHandler(AdminController.updateOrderStatus));
 
 // Users management

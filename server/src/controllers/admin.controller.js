@@ -121,6 +121,91 @@ export class AdminController {
   }
 
   /**
+   * Get table bill — all orders for a table in current session
+   * GET /admin/orders/table/:tableNumber
+   */
+  static async getTableBill(req, res) {
+    try {
+      const db = getDB();
+      const { tableNumber } = req.params;
+      const tenantId = req.tenant?.restaurantId;
+      const userId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userId;
+
+      // Get today's date for filtering
+      const today = new Date().toISOString().split('T')[0];
+
+      // Get all non-cancelled orders for this table today
+      let query = `
+        SELECT 
+          o.id, o.uuid, o.status, o.total_amount, o.created_at,
+          o.table_number, o.session_id, o.special_instructions,
+          o.user_id, o.table_id,
+          u.name as user_name, u.email as user_email
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        WHERE o.table_number = ?
+          AND DATE(o.created_at) = ?
+          AND o.status != 'cancelled'
+      `;
+      let params = [tableNumber, today];
+
+      if (restaurantId) {
+        query += ' AND o.restaurant_id = ?';
+        params.push(restaurantId);
+      }
+
+      query += ' ORDER BY o.created_at ASC';
+
+      const orders = db.prepare(query).all(...params);
+
+      // Get items for each order
+      for (const order of orders) {
+        order.items = db.prepare(`
+          SELECT oi.id, oi.product_name, oi.product_price, oi.quantity,
+                 oi.subtotal, oi.status,
+                 p.image_url, p.emoji_icon
+          FROM order_items oi
+          LEFT JOIN products p ON oi.product_id = p.id
+          WHERE oi.order_id = ?
+        `).all(order.id);
+      }
+
+      // Calculate bill summary
+      const allItems = [];
+      let grandTotal = 0;
+
+      for (const order of orders) {
+        grandTotal += order.total_amount || 0;
+        for (const item of order.items) {
+          // Merge same items
+          const existing = allItems.find(i => i.product_name === item.product_name && i.product_price === item.product_price);
+          if (existing) {
+            existing.quantity += item.quantity;
+            existing.subtotal += item.subtotal || (item.product_price * item.quantity);
+          } else {
+            allItems.push({ ...item });
+          }
+        }
+      }
+
+      return success(res, {
+        tableNumber,
+        orders,
+        summary: {
+          allItems,
+          grandTotal,
+          orderCount: orders.length,
+          activeOrders: orders.filter(o => !['served', 'completed'].includes(o.status)).length,
+        }
+      }, 'Table bill retrieved');
+    } catch (err) {
+      logger.error('Get table bill error', { error: err.message });
+      return error(res, 'Failed to get table bill', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
    * Get all orders with user details
    */
   static async getAllOrders(req, res) {
@@ -191,7 +276,7 @@ export class AdminController {
         SELECT 
           o.id, o.uuid, o.status, o.order_type, o.payment_status,
           o.total_amount, o.table_number, o.special_instructions,
-          o.created_at,
+          o.created_at, o.user_id, o.session_id, o.table_id,
           u.name as user_name, u.email as user_email
         FROM orders o
         LEFT JOIN users u ON o.user_id = u.id
@@ -242,7 +327,7 @@ export class AdminController {
         SELECT 
           o.id, o.uuid, o.restaurant_id, o.status, o.order_type, o.payment_status,
           o.total_amount, o.table_number, o.special_instructions,
-          o.estimated_ready_at, o.created_at,
+          o.estimated_ready_at, o.created_at, o.user_id, o.session_id, o.table_id,
           u.name as user_name, u.email as user_email, u.phone as user_phone
         FROM orders o
         LEFT JOIN users u ON o.user_id = u.id
@@ -326,13 +411,33 @@ export class AdminController {
 
       // Broadcast real-time status update to customer via SSE
       try {
-        const orderRow = db.prepare('SELECT session_id, table_number FROM orders WHERE id = ?').get(id)
+        const orderRow = db.prepare('SELECT session_id, table_number, table_id FROM orders WHERE id = ?').get(id)
         if (orderRow?.session_id) {
           broadcastOrderStatus(orderRow.session_id, {
             orderId: id,
             status,
             tableNumber: orderRow.table_number,
           })
+        }
+
+        // Free table when order is served/completed/cancelled
+        if (['served', 'completed', 'cancelled'].includes(status)) {
+          if (orderRow?.session_id) {
+            const activeCount = db.prepare(`
+              SELECT COUNT(*) as count FROM orders 
+              WHERE session_id = ? AND id != ? 
+              AND status NOT IN ('served', 'completed', 'cancelled')
+            `).get(orderRow.session_id, id)
+
+            if (activeCount.count === 0 && orderRow.table_id) {
+              db.prepare(`
+                UPDATE restaurant_tables 
+                SET status = 'available', current_session_id = NULL 
+                WHERE id = ?
+              `).run(orderRow.table_id)
+              logger.info('Table freed (admin)', { tableId: orderRow.table_id, orderId: id })
+            }
+          }
         }
       } catch (broadcastErr) {
         logger.warn('SSE broadcast failed (admin)', { error: broadcastErr.message })
