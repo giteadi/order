@@ -6,7 +6,8 @@ import {
   Plus, Building2, TrendingUp, DollarSign, UserCheck,
   ChevronRight, Activity, Globe, MoreVertical, Search,
   Filter, ArrowUpRight, ArrowDownRight, Crown, ArrowLeft, QrCode,
-  CreditCard, KeyRound, Eye, EyeOff, X, Check, Loader
+  CreditCard, KeyRound, Eye, EyeOff, X, Check, Loader,
+  Ban, CheckCircle, AlertTriangle, Calendar, Shield
 } from 'lucide-react'
 import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 import apiClient from '../services/api'
@@ -57,6 +58,11 @@ export const SuperAdminDashboard = () => {
   const [showCredPassword, setShowCredPassword] = useState(false)
   const [credSuccess, setCredSuccess] = useState('')
   const [credError, setCredError] = useState('')
+
+  // Subscription block modal state
+  const [blockModal, setBlockModal] = useState(null) // { restaurant, subscription }
+  const [blockReason, setBlockReason] = useState('')
+  const [blockSaving, setBlockSaving] = useState(false)
 
   // Fetch dashboard data
   useEffect(() => {
@@ -236,6 +242,41 @@ export const SuperAdminDashboard = () => {
       setCredError(e.response?.data?.message || 'Failed to update credentials')
     } finally {
       setCredSaving(false)
+    }
+  }
+
+  // Block / Unblock subscription
+  const handleBlockSubscription = async () => {
+    if (!blockModal) return
+    const { subscription } = blockModal
+    const isCurrentlyBlocked = subscription.is_manually_blocked === 1 || subscription.is_manually_blocked === true
+    setBlockSaving(true)
+    try {
+      await apiClient.patch(`/admin/super-admin/subscriptions/${subscription.id}/block`, {
+        isBlocked: !isCurrentlyBlocked,
+        reason: !isCurrentlyBlocked ? blockReason : '',
+      })
+      // Refresh restaurants list
+      const restaurantsRes = await apiClient.get('/admin/restaurants')
+      if (restaurantsRes.data.success) {
+        const tablesRes = await apiClient.get('/admin/super-admin/tables')
+        if (tablesRes.data.success) {
+          const tables = tablesRes.data.data || []
+          const updated = (restaurantsRes.data.data || []).map(r => ({
+            ...r,
+            stats: { ...r.stats, tables: tables.filter(t => t.restaurant_name === r.name).length }
+          }))
+          setRestaurants(updated)
+        } else {
+          setRestaurants(restaurantsRes.data.data || [])
+        }
+      }
+      setBlockModal(null)
+      setBlockReason('')
+    } catch (e) {
+      alert(e.response?.data?.message || 'Failed to update subscription')
+    } finally {
+      setBlockSaving(false)
     }
   }
 
@@ -481,8 +522,70 @@ export const SuperAdminDashboard = () => {
                           <p className="text-xs text-gray-400 mt-2">{restaurant.address}</p>
                         )}
 
+                        {/* Subscription info + block */}
+                        <div className="mt-3 p-3 rounded-xl border bg-gray-50 border-gray-200">
+                          {restaurant.subscription ? (
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <CreditCard size={12} className="text-gray-500 flex-shrink-0" />
+                                  <span className="text-xs font-semibold text-gray-700 truncate">
+                                    {restaurant.subscription.plan_name}
+                                  </span>
+                                  {restaurant.subscription.is_manually_blocked ? (
+                                    <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-xs rounded-full font-medium">Blocked</span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">Active</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Calendar size={11} className="text-gray-400" />
+                                  <span className="text-xs text-gray-500">
+                                    Expires {new Date(restaurant.subscription.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  {restaurant.subscription.days_remaining <= 7 ? (
+                                    <AlertTriangle size={11} className="text-amber-500" />
+                                  ) : (
+                                    <Shield size={11} className="text-green-500" />
+                                  )}
+                                  <span className={`text-xs font-medium ${
+                                    restaurant.subscription.days_remaining <= 7 ? 'text-amber-600' : 'text-green-600'
+                                  }`}>
+                                    {restaurant.subscription.days_remaining} days remaining
+                                  </span>
+                                </div>
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setBlockModal({ restaurant, subscription: restaurant.subscription })
+                                  setBlockReason('')
+                                }}
+                                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors flex-shrink-0 ${
+                                  restaurant.subscription.is_manually_blocked
+                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                    : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                }`}
+                              >
+                                {restaurant.subscription.is_manually_blocked ? (
+                                  <><CheckCircle size={12} /> Unblock</>
+                                ) : (
+                                  <><Ban size={12} /> Block</>
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle size={13} className="text-amber-500 flex-shrink-0" />
+                              <span className="text-xs text-amber-700 font-medium">No active subscription</span>
+                            </div>
+                          )}
+                        </div>
+
                         {/* Credentials button */}
-                        <div className="mt-3">
+                        <div className="mt-2">
                           <button
                             onClick={(e) => openCredModal(restaurant, e)}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-xs font-semibold hover:bg-purple-100 transition-colors"
@@ -648,6 +751,115 @@ export const SuperAdminDashboard = () => {
           </div>
         </motion.div>
       </div>
+
+      {/* ===== Subscription Block Modal ===== */}
+      <AnimatePresence>
+        {blockModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70]"
+              onClick={() => setBlockModal(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none"
+            >
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md pointer-events-auto" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      blockModal.subscription.is_manually_blocked ? 'bg-green-100' : 'bg-red-100'
+                    }`}>
+                      {blockModal.subscription.is_manually_blocked
+                        ? <CheckCircle size={20} className="text-green-600" />
+                        : <Ban size={20} className="text-red-600" />
+                      }
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-900">
+                        {blockModal.subscription.is_manually_blocked ? 'Unblock Subscription' : 'Block Subscription'}
+                      </h2>
+                      <p className="text-xs text-gray-500">{blockModal.restaurant.name}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setBlockModal(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                    <X size={18} className="text-gray-500" />
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  {/* Subscription details */}
+                  <div className="p-4 bg-gray-50 rounded-xl space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Plan</span>
+                      <span className="font-semibold text-gray-900">{blockModal.subscription.plan_name}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Expires</span>
+                      <span className="font-semibold text-gray-900">
+                        {new Date(blockModal.subscription.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Days Remaining</span>
+                      <span className={`font-semibold ${blockModal.subscription.days_remaining <= 7 ? 'text-amber-600' : 'text-green-600'}`}>
+                        {blockModal.subscription.days_remaining} days
+                      </span>
+                    </div>
+                  </div>
+
+                  {!blockModal.subscription.is_manually_blocked && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Reason (optional)</label>
+                      <textarea
+                        value={blockReason}
+                        onChange={e => setBlockReason(e.target.value)}
+                        placeholder="Enter reason for blocking..."
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-gray-400 resize-none"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Admin will be immediately blocked from accessing the system.</p>
+                    </div>
+                  )}
+
+                  {blockModal.subscription.is_manually_blocked && (
+                    <p className="text-sm text-gray-600">
+                      Unblocking will restore full access to the restaurant admin immediately.
+                      {blockModal.subscription.block_reason && (
+                        <span className="block mt-1 text-xs text-gray-400">Block reason: {blockModal.subscription.block_reason}</span>
+                      )}
+                    </p>
+                  )}
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setBlockModal(null)}
+                      className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleBlockSubscription}
+                      disabled={blockSaving}
+                      className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 ${
+                        blockModal.subscription.is_manually_blocked
+                          ? 'bg-green-500 hover:bg-green-600'
+                          : 'bg-red-500 hover:bg-red-600'
+                      } disabled:opacity-60`}
+                    >
+                      {blockSaving ? <Loader size={16} className="animate-spin" /> : null}
+                      {blockModal.subscription.is_manually_blocked ? 'Unblock' : 'Block'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* ===== Credentials Modal ===== */}
       <AnimatePresence>

@@ -978,8 +978,27 @@ export class AdminController {
           WHERE restaurant_id = ?
         `).get(restaurant.id);
 
+        // Get active subscription for this restaurant's admin user
+        const subscription = db.prepare(`
+          SELECT 
+            us.id, us.status, us.end_date, us.start_date,
+            us.is_manually_blocked, us.block_reason,
+            sp.name as plan_name, sp.price as plan_price, sp.duration_months,
+            CAST((julianday(us.end_date) - julianday('now')) AS INTEGER) as days_remaining
+          FROM user_subscriptions us
+          JOIN subscription_plans sp ON us.plan_id = sp.id
+          JOIN users u ON us.user_id = u.id
+          WHERE u.restaurant_id = ?
+            AND u.role = 'admin'
+            AND us.status = 'active'
+            AND us.end_date > datetime('now')
+          ORDER BY us.end_date DESC
+          LIMIT 1
+        `).get(restaurant.id);
+
         return {
           ...restaurant,
+          subscription: subscription || null,
           stats: {
             customers: userCounts.customers || 0,
             staff: userCounts.staff || 0,
