@@ -30,11 +30,13 @@ export class OrderModel extends BaseModel {
       
       const enrichedItems = items.map(item => {
         const product = productMap.get(item.productId);
+        const price = item.price_at_time || item.price || product?.price || 0
         return {
           ...item,
+          price,                          // ← calculateOrderTotals uses item.price
           productName: product?.name || 'Unknown',
-          productPrice: product?.price || 0,
-          subtotal: product?.price * item.quantity || 0,
+          productPrice: price,
+          subtotal: price * item.quantity,
         };
       });
 
@@ -88,7 +90,7 @@ export class OrderModel extends BaseModel {
           orderId,
           item.productId,
           item.productName,
-          item.productPrice,
+          item.price,           // price_at_time — now correctly set
           item.quantity,
           JSON.stringify(item.customizations || []),
           item.subtotal,
