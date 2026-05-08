@@ -7,6 +7,7 @@ import {
 import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 import apiClient from '../services/api'
 import toast from 'react-hot-toast'
+import printJS from 'print-js'
 
 export const OrderManagement = () => {
   const navigate = useNavigateWithParams()
@@ -76,9 +77,44 @@ export const OrderManagement = () => {
 
   const closeBill = () => { setBillModal(null); setBillOrders([]) }
 
-  // Print bill
+  // Print bill using print-js raw-html — no hidden div needed
   const printBill = () => {
-    window.print()
+    const itemsHTML = billAllItems.map(item => `
+      <tr>
+        <td style="padding:6px 0;border-bottom:1px solid #f0f0f0">${item.product_name}</td>
+        <td style="padding:6px 0;border-bottom:1px solid #f0f0f0;text-align:center;color:#555">${item.quantity}</td>
+        <td style="padding:6px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600">₹${(item.subtotal || (item.product_price || item.price_at_time || 0) * item.quantity).toFixed(0)}</td>
+      </tr>
+    `).join('')
+
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:320px;margin:0 auto;padding:16px">
+        <h2 style="margin:0 0 4px;font-size:22px">Table ${billModal.table_number}</h2>
+        <p style="color:#555;font-size:13px;margin:0 0 4px">
+          ${billModal.user_name || 'Guest'} &bull;
+          ${new Date(billModal.created_at).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'})}
+        </p>
+        <p style="color:#aaa;font-size:11px;margin:0 0 16px">${billOrders.length} order${billOrders.length > 1 ? 's' : ''}</p>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
+          <thead>
+            <tr style="border-bottom:1px solid #ddd">
+              <th style="text-align:left;padding:4px 0;font-size:11px;color:#888;text-transform:uppercase">Item</th>
+              <th style="text-align:center;padding:4px 0;font-size:11px;color:#888;text-transform:uppercase">Qty</th>
+              <th style="text-align:right;padding:4px 0;font-size:11px;color:#888;text-transform:uppercase">Amount</th>
+            </tr>
+          </thead>
+          <tbody>${itemsHTML}</tbody>
+        </table>
+        <hr style="border:none;border-top:2px solid #111;margin:8px 0"/>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px">
+          <span style="font-size:16px;font-weight:bold">Grand Total</span>
+          <span style="font-size:22px;font-weight:bold">₹${billTotal.toFixed(0)}</span>
+        </div>
+        <p style="text-align:center;font-size:11px;color:#aaa;margin-top:12px">Thank you for dining with us!</p>
+      </div>
+    `
+
+    printJS({ printable: html, type: 'raw-html' })
   }
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
@@ -377,8 +413,8 @@ export const OrderManagement = () => {
                 id="bill-print-area"
               >
                 {/* Bill Header */}
-                <div className="bg-gray-900 text-white p-5 print:bg-white print:text-black">
-                  <div className="flex items-center justify-between print:hidden">
+                <div className="bg-gray-900 text-white p-5">
+                  <div className="flex items-center justify-between">
                     <h2 className="text-lg font-bold">Customer Bill</h2>
                     <div className="flex items-center gap-2">
                       <button
@@ -393,9 +429,9 @@ export const OrderManagement = () => {
                       </button>
                     </div>
                   </div>
-                  <div className="mt-3 print:mt-0">
+                  <div className="mt-3">
                     <p className="text-2xl font-bold">Table {billModal.table_number}</p>
-                    <p className="text-gray-300 text-sm mt-0.5">
+                    <p className="text-gray-300 text-sm mt-0.5 bill-meta">
                       {billModal.user_name || 'Guest'} •{' '}
                       {new Date(billModal.created_at).toLocaleDateString('en-IN', {
                         day: 'numeric', month: 'short', year: 'numeric'
@@ -407,7 +443,7 @@ export const OrderManagement = () => {
                   </div>
                 </div>
 
-                {/* Items */}
+                {/* Items — visible in modal */}
                 <div className="p-5 max-h-96 overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead>

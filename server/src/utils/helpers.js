@@ -104,7 +104,7 @@ export function buildPaginationMeta(total, page, limit) {
 /**
  * Calculate order totals with tax
  */
-export function calculateOrderTotals(items, taxRate = 0.05, discount = 0) {
+export function calculateOrderTotals(items, taxRate = 0, discount = 0) {
   const subtotal = items.reduce((sum, item) => {
     return sum + (item.price * item.quantity);
   }, 0);
