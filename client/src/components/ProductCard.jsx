@@ -2,9 +2,17 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Minus, X } from 'lucide-react'
 
+/* ─── Image renderer ─────────────────────────────────────────── */
 const ProductImage = ({ product, className = '' }) => {
-  const src = product.imageUrl || product.image_url || (product.image?.startsWith('http') ? product.image : null)
-  const emoji = product.emojiIcon || product.emoji_icon || (!product.image?.startsWith('http') ? product.image : null) || '🍽️'
+  const src =
+    product.imageUrl ||
+    product.image_url ||
+    (product.image?.startsWith('http') ? product.image : null)
+  const emoji =
+    product.emojiIcon ||
+    product.emoji_icon ||
+    (!product.image?.startsWith('http') ? product.image : null) ||
+    '🍽️'
 
   if (src) {
     return (
@@ -19,17 +27,10 @@ const ProductImage = ({ product, className = '' }) => {
   return <span className="text-5xl md:text-6xl">{emoji}</span>
 }
 
-/**
- * Inline quick-add popup for half/full products.
- * Shows portion selector + quantity stepper without opening the full modal.
- */
-const QuickAddPopup = ({ product, onClose, onAddToCart }) => {
-  const halfPrice = product.half_portion_price || product.halfPortionPrice
-  const fullPrice = product.full_portion_price || product.fullPortionPrice || product.price
-
+/* ─── Shared portion+qty body (used in both desktop popup & mobile sheet) ── */
+const PortionBody = ({ product, halfPrice, fullPrice, onClose, onAddToCart }) => {
   const [portion, setPortion] = useState('full')
   const [qty, setQty] = useState(1)
-
   const price = portion === 'half' ? halfPrice : fullPrice
 
   const handleAdd = (e) => {
@@ -39,110 +40,173 @@ const QuickAddPopup = ({ product, onClose, onAddToCart }) => {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.92, y: 8 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.92, y: 8 }}
-      transition={{ duration: 0.18 }}
-      className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-50"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* Close */}
-      <button
-        onClick={onClose}
-        className="absolute top-2 right-2 p-1 rounded-full hover:bg-gray-100 text-gray-400"
-      >
-        <X size={14} />
-      </button>
-
+    <>
       {/* Portion selector */}
       <p className="text-xs text-gray-500 mb-2 font-medium">Choose portion</p>
-      <div className="grid grid-cols-2 gap-2 mb-3">
+      <div className="grid grid-cols-2 gap-2 mb-4">
         <button
-          onClick={() => setPortion('half')}
-          className={`py-2 rounded-xl text-xs font-semibold border-2 transition-all ${
+          onClick={(e) => { e.stopPropagation(); setPortion('half') }}
+          className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
             portion === 'half'
               ? 'border-gray-900 bg-gray-900 text-white'
-              : 'border-gray-200 text-gray-700 hover:border-gray-400'
+              : 'border-gray-200 text-gray-700'
           }`}
         >
           Half — ₹{halfPrice}
         </button>
         <button
-          onClick={() => setPortion('full')}
-          className={`py-2 rounded-xl text-xs font-semibold border-2 transition-all ${
+          onClick={(e) => { e.stopPropagation(); setPortion('full') }}
+          className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
             portion === 'full'
               ? 'border-gray-900 bg-gray-900 text-white'
-              : 'border-gray-200 text-gray-700 hover:border-gray-400'
+              : 'border-gray-200 text-gray-700'
           }`}
         >
           Full — ₹{fullPrice}
         </button>
       </div>
 
-      {/* Quantity stepper */}
+      {/* Quantity */}
       <p className="text-xs text-gray-500 mb-2 font-medium">Quantity</p>
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-4">
           <button
-            onClick={() => setQty(q => Math.max(1, q - 1))}
-            className="w-8 h-8 rounded-full bg-gray-100 grid place-items-center hover:bg-gray-200 transition-colors"
+            onClick={(e) => { e.stopPropagation(); setQty(q => Math.max(1, q - 1)) }}
+            className="w-9 h-9 rounded-full bg-gray-100 grid place-items-center active:scale-90 transition-transform"
           >
-            <Minus size={14} />
+            <Minus size={15} />
           </button>
-          <span className="text-base font-bold text-gray-900 w-4 text-center">{qty}</span>
+          <span className="text-lg font-bold text-gray-900 min-w-[1.5rem] text-center">{qty}</span>
           <button
-            onClick={() => setQty(q => q + 1)}
-            className="w-8 h-8 rounded-full bg-gray-100 grid place-items-center hover:bg-gray-200 transition-colors"
+            onClick={(e) => { e.stopPropagation(); setQty(q => q + 1) }}
+            className="w-9 h-9 rounded-full bg-gray-100 grid place-items-center active:scale-90 transition-transform"
           >
-            <Plus size={14} />
+            <Plus size={15} />
           </button>
         </div>
-        <span className="text-sm font-bold text-gray-900">₹{price * qty}</span>
+        <span className="text-base font-bold text-gray-900">₹{price * qty}</span>
       </div>
 
       {/* Add button */}
       <button
         onClick={handleAdd}
-        className="w-full py-2.5 bg-gray-900 text-white rounded-xl text-sm font-semibold hover:bg-gray-700 transition-colors"
+        className="w-full py-3 bg-gray-900 text-white rounded-xl text-sm font-semibold active:scale-95 transition-transform"
       >
-        Add to Cart
+        Add to Cart — ₹{price * qty}
       </button>
-    </motion.div>
+    </>
   )
 }
 
+/* ─── Desktop inline popup (floats above card bottom) ─────────── */
+const DesktopPopup = ({ product, halfPrice, fullPrice, onClose, onAddToCart }) => (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.93, y: 6 }}
+    animate={{ opacity: 1, scale: 1, y: 0 }}
+    exit={{ opacity: 0, scale: 0.93, y: 6 }}
+    transition={{ duration: 0.15 }}
+    className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-[60]"
+    onClick={(e) => e.stopPropagation()}
+  >
+    <button
+      onClick={onClose}
+      className="absolute top-2 right-2 p-1 rounded-full hover:bg-gray-100 text-gray-400"
+    >
+      <X size={14} />
+    </button>
+    <PortionBody
+      product={product}
+      halfPrice={halfPrice}
+      fullPrice={fullPrice}
+      onClose={onClose}
+      onAddToCart={onAddToCart}
+    />
+  </motion.div>
+)
+
+/* ─── Mobile bottom sheet (portal-style fixed overlay) ────────── */
+const MobileSheet = ({ product, halfPrice, fullPrice, onClose, onAddToCart }) => (
+  <>
+    {/* Backdrop */}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/40 z-[80]"
+      onClick={onClose}
+    />
+    {/* Sheet */}
+    <motion.div
+      initial={{ y: '100%' }}
+      animate={{ y: 0 }}
+      exit={{ y: '100%' }}
+      transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+      className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[90] p-5 pb-8 shadow-2xl"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Handle bar */}
+      <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+
+      {/* Product name */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-bold text-gray-900 flex-1 pr-4">{product.name}</h3>
+        <button
+          onClick={onClose}
+          className="w-8 h-8 rounded-full bg-gray-100 grid place-items-center flex-shrink-0"
+        >
+          <X size={16} className="text-gray-500" />
+        </button>
+      </div>
+
+      <PortionBody
+        product={product}
+        halfPrice={halfPrice}
+        fullPrice={fullPrice}
+        onClose={onClose}
+        onAddToCart={onAddToCart}
+      />
+    </motion.div>
+  </>
+)
+
+/* ─── Main ProductCard ─────────────────────────────────────────── */
 export const ProductCard = ({ product, onAddToCart, onClick, onCursorHover }) => {
-  const hasHalf = product.has_half_portion === 1 || product.has_half_portion === true ||
-                  product.hasHalfPortion === 1 || product.hasHalfPortion === true
+  const hasHalf =
+    product.has_half_portion === 1 || product.has_half_portion === true ||
+    product.hasHalfPortion === 1 || product.hasHalfPortion === true
+
   const halfPrice = product.half_portion_price || product.halfPortionPrice
   const fullPrice = product.full_portion_price || product.fullPortionPrice || product.price
 
   const [showQuickAdd, setShowQuickAdd] = useState(false)
 
   const openQuickAdd = (e) => {
+    e.preventDefault()
     e.stopPropagation()
     setShowQuickAdd(true)
   }
 
   const closeQuickAdd = (e) => {
+    e?.preventDefault()
     e?.stopPropagation()
     setShowQuickAdd(false)
   }
 
+  const safeHover = onCursorHover || (() => {})
+
   return (
     <>
-      {/* Desktop: Card View */}
+      {/* ── DESKTOP card (sm and above) ── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         whileHover={{ scale: 1.02, y: -5 }}
-        className="hidden sm:block glass-card rounded-2xl md:rounded-3xl overflow-hidden cursor-pointer group relative"
+        className="hidden sm:block glass-card rounded-2xl md:rounded-3xl overflow-visible cursor-pointer group relative"
         onClick={onClick}
-        onMouseEnter={() => onCursorHover(true)}
-        onMouseLeave={() => onCursorHover(false)}
+        onMouseEnter={() => safeHover(true)}
+        onMouseLeave={() => safeHover(false)}
       >
-        <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 grid place-items-center overflow-hidden">
+        <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 grid place-items-center overflow-hidden rounded-t-2xl md:rounded-t-3xl">
           <ProductImage product={product} className="rounded-t-2xl" />
         </div>
         <div className="p-4 md:p-6 relative">
@@ -167,8 +231,10 @@ export const ProductCard = ({ product, onAddToCart, onClick, onCursorHover }) =>
               </div>
               <AnimatePresence>
                 {showQuickAdd && (
-                  <QuickAddPopup
+                  <DesktopPopup
                     product={product}
+                    halfPrice={halfPrice}
+                    fullPrice={fullPrice}
                     onClose={closeQuickAdd}
                     onAddToCart={onAddToCart}
                   />
@@ -190,75 +256,44 @@ export const ProductCard = ({ product, onAddToCart, onClick, onCursorHover }) =>
           )}
         </div>
 
-        {/* Backdrop to close popup when clicking outside */}
+        {/* Desktop backdrop */}
         {showQuickAdd && (
-          <div
-            className="fixed inset-0 z-40"
-            onClick={closeQuickAdd}
-          />
+          <div className="fixed inset-0 z-[55]" onClick={closeQuickAdd} />
         )}
       </motion.div>
 
-      {/* Mobile: Compact List View */}
-      <motion.div
-        initial={{ opacity: 0, x: -15 }}
-        animate={{ opacity: 1, x: 0 }}
-        whileTap={{ scale: 0.98 }}
-        className="sm:hidden bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 cursor-pointer active:bg-gray-50 relative"
-        onClick={onClick}
-      >
-        <div className="flex items-center gap-3 p-3">
-          <div className="w-14 h-14 flex-shrink-0 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl grid place-items-center overflow-hidden">
+      {/* ── MOBILE card (below sm) ── */}
+      <div className="sm:hidden bg-white rounded-xl shadow-sm border border-gray-100">
+        <div
+          className="flex items-center gap-3 p-3 cursor-pointer active:bg-gray-50 transition-colors"
+          onClick={onClick}
+        >
+          {/* Thumbnail */}
+          <div className="w-16 h-16 flex-shrink-0 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl grid place-items-center overflow-hidden">
             <ProductImage product={product} />
           </div>
+
+          {/* Info */}
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-sm text-gray-900 truncate">{product.name}</h3>
             <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">{product.description}</p>
             {hasHalf ? (
-              <p className="text-xs text-gray-500 mt-0.5">Half ₹{halfPrice} · Full ₹{fullPrice}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Half ₹{halfPrice} · Full ₹{fullPrice}
+              </p>
             ) : (
-              <span className="text-base font-bold text-gray-900 mt-1 block">₹{product.price}</span>
+              <span className="text-sm font-bold text-gray-900 mt-1 block">₹{product.price}</span>
             )}
           </div>
-          {hasHalf ? (
-            <div className="relative flex-shrink-0">
-              <button
-                onClick={openQuickAdd}
-                className="w-10 h-10 rounded-full bg-gray-900 text-white grid place-items-center active:scale-90 transition-transform"
-              >
-                <Plus size={20} />
-              </button>
-              <AnimatePresence>
-                {showQuickAdd && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.92, y: 8 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.92, y: 8 }}
-                    transition={{ duration: 0.18 }}
-                    className="fixed left-4 right-4 bottom-24 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-50"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={closeQuickAdd}
-                      className="absolute top-2 right-2 p-1 rounded-full hover:bg-gray-100 text-gray-400"
-                    >
-                      <X size={14} />
-                    </button>
-                    <p className="text-sm font-semibold text-gray-900 mb-3">{product.name}</p>
 
-                    {/* Portion selector */}
-                    <p className="text-xs text-gray-500 mb-2 font-medium">Choose portion</p>
-                    <MobileQuickAdd
-                      product={product}
-                      halfPrice={halfPrice}
-                      fullPrice={fullPrice}
-                      onClose={closeQuickAdd}
-                      onAddToCart={onAddToCart}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+          {/* Action button — stopPropagation so card click doesn't fire */}
+          {hasHalf ? (
+            <button
+              onClick={openQuickAdd}
+              className="w-10 h-10 rounded-full bg-gray-900 text-white grid place-items-center flex-shrink-0 active:scale-90 transition-transform"
+            >
+              <Plus size={20} />
+            </button>
           ) : (
             <button
               onClick={(e) => { e.stopPropagation(); onAddToCart(product) }}
@@ -268,82 +303,20 @@ export const ProductCard = ({ product, onAddToCart, onClick, onCursorHover }) =>
             </button>
           )}
         </div>
+      </div>
 
-        {/* Backdrop for mobile popup */}
+      {/* Mobile bottom sheet — rendered outside card so no overflow/z-index issues */}
+      <AnimatePresence>
         {showQuickAdd && (
-          <div
-            className="fixed inset-0 bg-black/30 z-40"
-            onClick={closeQuickAdd}
+          <MobileSheet
+            product={product}
+            halfPrice={halfPrice}
+            fullPrice={fullPrice}
+            onClose={closeQuickAdd}
+            onAddToCart={onAddToCart}
           />
         )}
-      </motion.div>
-    </>
-  )
-}
-
-/** Separate stateful component for mobile quick-add body (avoids hook-in-render issues) */
-const MobileQuickAdd = ({ product, halfPrice, fullPrice, onClose, onAddToCart }) => {
-  const [portion, setPortion] = useState('full')
-  const [qty, setQty] = useState(1)
-  const price = portion === 'half' ? halfPrice : fullPrice
-
-  const handleAdd = (e) => {
-    e.stopPropagation()
-    onAddToCart({ ...product, price, portion }, qty)
-    onClose(e)
-  }
-
-  return (
-    <>
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        <button
-          onClick={() => setPortion('half')}
-          className={`py-2 rounded-xl text-xs font-semibold border-2 transition-all ${
-            portion === 'half'
-              ? 'border-gray-900 bg-gray-900 text-white'
-              : 'border-gray-200 text-gray-700'
-          }`}
-        >
-          Half — ₹{halfPrice}
-        </button>
-        <button
-          onClick={() => setPortion('full')}
-          className={`py-2 rounded-xl text-xs font-semibold border-2 transition-all ${
-            portion === 'full'
-              ? 'border-gray-900 bg-gray-900 text-white'
-              : 'border-gray-200 text-gray-700'
-          }`}
-        >
-          Full — ₹{fullPrice}
-        </button>
-      </div>
-
-      <p className="text-xs text-gray-500 mb-2 font-medium">Quantity</p>
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setQty(q => Math.max(1, q - 1))}
-            className="w-8 h-8 rounded-full bg-gray-100 grid place-items-center"
-          >
-            <Minus size={14} />
-          </button>
-          <span className="text-base font-bold text-gray-900 w-4 text-center">{qty}</span>
-          <button
-            onClick={() => setQty(q => q + 1)}
-            className="w-8 h-8 rounded-full bg-gray-100 grid place-items-center"
-          >
-            <Plus size={14} />
-          </button>
-        </div>
-        <span className="text-sm font-bold text-gray-900">₹{price * qty}</span>
-      </div>
-
-      <button
-        onClick={handleAdd}
-        className="w-full py-2.5 bg-gray-900 text-white rounded-xl text-sm font-semibold"
-      >
-        Add to Cart
-      </button>
+      </AnimatePresence>
     </>
   )
 }
