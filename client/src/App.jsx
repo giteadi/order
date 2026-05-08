@@ -79,6 +79,7 @@ import { TermsAndConditions } from './components/TermsAndConditions'
 import { RefundPolicy } from './components/RefundPolicy'
 import { useTableNumber } from './hooks/useTableNumber'
 import { useCursor } from './hooks/useCursor'
+import { useOrderNotifications } from './hooks/useOrderNotifications'
 
 
 function App() {
@@ -119,6 +120,9 @@ function App() {
   const tableNumber = useTableNumber()
   const { cursorPosition, isCursorHovering, setHovering } = useCursor()
   const restaurant = useSelector(selectCurrentRestaurant)
+
+  // Real-time order status notifications via SSE
+  useOrderNotifications()
 
   const activeTab = location.pathname.replace('/', '') || 'home'
 

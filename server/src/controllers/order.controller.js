@@ -3,6 +3,7 @@ import { Order, Cart } from '../models/order.model.js';
 import { success, created, error, notFound, badRequest } from '../utils/response.js';
 import { HTTP_STATUS, ORDER_STATUS } from '../config/index.js';
 import { Logger } from '../utils/logger.js';
+import { broadcastOrderStatus } from '../services/sseService.js';
 
 const logger = Logger.getInstance();
 
@@ -335,6 +336,22 @@ export class OrderController {
       if (estimatedReadyAt) updateData.estimated_ready_at = estimatedReadyAt;
 
       Order.updateStatus(id, status, updateData);
+
+      // Broadcast real-time status update to the customer via SSE
+      try {
+        const db = Order.db
+        const orderRow = db.prepare('SELECT session_id, table_number FROM orders WHERE id = ?').get(id)
+        if (orderRow?.session_id) {
+          broadcastOrderStatus(orderRow.session_id, {
+            orderId: id,
+            status,
+            tableNumber: orderRow.table_number,
+          })
+        }
+      } catch (broadcastErr) {
+        // Non-fatal — log and continue
+        logger.warn('SSE broadcast failed', { error: broadcastErr.message })
+      }
 
       logger.info('Order status updated', { orderId: id, status, by: req.user.id });
 

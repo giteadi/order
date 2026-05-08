@@ -2,6 +2,7 @@ import { getDB } from '../database/connection.js';
 import { Logger } from '../utils/logger.js';
 import { success, error } from '../utils/response.js';
 import { HTTP_STATUS } from '../config/index.js';
+import { broadcastOrderStatus } from '../services/sseService.js';
 
 const logger = Logger.getInstance();
 
@@ -323,6 +324,20 @@ export class AdminController {
         WHERE id = ?
       `).run(status, updateData.estimated_ready_at || null, updateData.completed_at || null, updateData.updated_at, id);
 
+      // Broadcast real-time status update to customer via SSE
+      try {
+        const orderRow = db.prepare('SELECT session_id, table_number FROM orders WHERE id = ?').get(id)
+        if (orderRow?.session_id) {
+          broadcastOrderStatus(orderRow.session_id, {
+            orderId: id,
+            status,
+            tableNumber: orderRow.table_number,
+          })
+        }
+      } catch (broadcastErr) {
+        logger.warn('SSE broadcast failed (admin)', { error: broadcastErr.message })
+      }
+
       logger.info('Order status updated', { orderId: id, status, by: req.user?.id });
       return success(res, { id, status }, 'Order status updated');
     } catch (err) {
@@ -394,24 +409,49 @@ export class AdminController {
       const restaurantId = tenantId || userId;
       const userRole = req.user?.role;
 
-      let query = `
-        SELECT id, uuid, email, phone, name, avatar_url, 
-               is_active, last_login_at, created_at
-        FROM users
-        WHERE role = 'customer'
-      `;
-      let params = [];
+      let query, params;
 
-      // Cafe admin: filter by restaurant only
-      if (restaurantId && userRole !== 'super_admin') {
-        query += ' AND restaurant_id = ?';
-        params.push(restaurantId);
-      } else if (!restaurantId && userRole !== 'super_admin') {
-        query += ' AND restaurant_id IS NULL';
+      if (userRole === 'super_admin' || !restaurantId) {
+        // Super admin: all customers with total stats
+        query = `
+          SELECT 
+            u.id, u.uuid, u.email, u.phone, u.name, u.avatar_url,
+            u.is_active, u.last_login_at, u.created_at,
+            COUNT(o.id) as total_orders,
+            MAX(o.created_at) as last_order_at,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON o.user_id = u.id
+          WHERE u.role = 'customer'
+          GROUP BY u.id
+          ORDER BY last_order_at DESC, u.created_at DESC
+        `;
+        params = [];
+      } else {
+        // Cafe admin: customers who have placed at least one order at THIS restaurant
+        // OR registered directly at this restaurant
+        query = `
+          SELECT 
+            u.id, u.uuid, u.email, u.phone, u.name, u.avatar_url,
+            u.is_active, u.last_login_at, u.created_at,
+            COUNT(o.id) as total_orders,
+            MAX(o.created_at) as last_order_at,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+          FROM users u
+          LEFT JOIN orders o ON o.user_id = u.id AND o.restaurant_id = ?
+          WHERE u.role = 'customer'
+            AND (
+              u.restaurant_id = ?
+              OR EXISTS (
+                SELECT 1 FROM orders o2 
+                WHERE o2.user_id = u.id AND o2.restaurant_id = ?
+              )
+            )
+          GROUP BY u.id
+          ORDER BY last_order_at DESC, u.created_at DESC
+        `;
+        params = [restaurantId, restaurantId, restaurantId];
       }
-      // Super admin sees all customers
-
-      query += ' ORDER BY created_at DESC';
 
       const customers = db.prepare(query).all(...params);
       return success(res, customers, 'Customers retrieved');

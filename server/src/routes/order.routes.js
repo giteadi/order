@@ -4,8 +4,44 @@ import { authenticate, authorize, optionalAuth } from '../middleware/auth.js';
 import { checkSubscriptionWithBypass } from '../middleware/subscription.js';
 import { validators } from '../middleware/validator.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { addClient, removeClient } from '../services/sseService.js';
 
 const router = Router();
+
+// ── SSE: real-time order status updates for customers ──────────────
+// Client connects with ?sessionId=xxx  (no auth required — session-based)
+router.get('/events', (req, res) => {
+  const sessionId = req.query.sessionId
+  if (!sessionId) {
+    return res.status(400).json({ error: 'sessionId required' })
+  }
+
+  // SSE headers
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+  res.setHeader('X-Accel-Buffering', 'no') // disable nginx buffering
+  res.flushHeaders()
+
+  // Send initial heartbeat so client knows connection is live
+  res.write(`event: connected\ndata: {"sessionId":"${sessionId}"}\n\n`)
+
+  addClient(sessionId, res)
+
+  // Heartbeat every 25s to keep connection alive through proxies
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(': heartbeat\n\n')
+    } catch {
+      clearInterval(heartbeat)
+    }
+  }, 25000)
+
+  req.on('close', () => {
+    clearInterval(heartbeat)
+    removeClient(sessionId, res)
+  })
+})
 
 // Cart routes (optional auth - works with session)
 router.get('/cart', optionalAuth, asyncHandler(CartController.getCart));

@@ -33,33 +33,40 @@ export const addToCartAPI = createAsyncThunk(
   }
 )
 
+// Generate a stable session ID stored in localStorage
+// MUST be defined before initialState
+function getSessionId() {
+  try {
+    let id = localStorage.getItem('_sess_id')
+    if (!id) {
+      id = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      localStorage.setItem('_sess_id', id)
+    }
+    return id
+  } catch {
+    // SSR / localStorage unavailable fallback
+    return `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  }
+}
+
 // Initial State
 const initialState = {
   items: [],
   total: 0,
   itemCount: 0,
-  sessionId: null,
+  sessionId: getSessionId(),
   isSyncing: false,
   lastSynced: null,
-}
-
-// Generate session ID if not exists
-const getSessionId = () => {
-  if (!initialState.sessionId) {
-    initialState.sessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  }
-  return initialState.sessionId
 }
 
 const cartSlice = createSlice({
   name: 'cart',
   initialState,
   reducers: {
-    // Local cart operations (immediate UI update)
     addItem: (state, action) => {
       const { product, quantity = 1, customizations = [] } = action.payload
       const existingIndex = state.items.findIndex(
-        item => item.productId === product.id && 
+        item => item.productId === product.id &&
         JSON.stringify(item.customizations) === JSON.stringify(customizations)
       )
 
@@ -67,7 +74,7 @@ const cartSlice = createSlice({
         state.items[existingIndex].quantity += quantity
       } else {
         state.items.push({
-          id: Date.now(), // Temporary ID
+          id: Date.now(),
           productId: product.id,
           name: product.name,
           price: product.price,
@@ -92,7 +99,7 @@ const cartSlice = createSlice({
     updateQuantity: (state, action) => {
       const { itemId, quantity } = action.payload
       const item = state.items.find(item => item.id === itemId)
-      
+
       if (item) {
         if (quantity <= 0) {
           state.items = state.items.filter(i => i.id !== itemId)
@@ -115,11 +122,9 @@ const cartSlice = createSlice({
       state.sessionId = action.payload
     },
 
-    // Merge server cart with local
     mergeCart: (state, action) => {
       const serverCart = action.payload
       if (serverCart && serverCart.items) {
-        // Merge logic: server cart takes precedence
         state.items = serverCart.items
         state.total = serverCart.total
         state.itemCount = serverCart.itemCount
@@ -142,7 +147,6 @@ const cartSlice = createSlice({
         state.isSyncing = false
       })
       .addCase(addToCartAPI.fulfilled, (state, action) => {
-        // Update with server response
         state.items = action.payload.items || state.items
         state.total = action.payload.total || state.total
         state.itemCount = action.payload.itemCount || state.itemCount
@@ -150,13 +154,13 @@ const cartSlice = createSlice({
   },
 })
 
-export const { 
-  addItem, 
-  removeItem, 
-  updateQuantity, 
-  clearCart, 
+export const {
+  addItem,
+  removeItem,
+  updateQuantity,
+  clearCart,
   setSessionId,
-  mergeCart 
+  mergeCart
 } = cartSlice.actions
 
 // Selectors

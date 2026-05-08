@@ -1,7 +1,7 @@
 import { useSelector } from 'react-redux'
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Users, ShoppingCart, Menu as MenuIcon, Settings, BarChart3, Home, Table, Clock, CheckCircle, ChefHat, Package, XCircle, Crown, Building2, Image as ImageIcon, ChevronDown, ChevronUp, Check, Truck } from 'lucide-react'
+import { Users, ShoppingCart, Menu as MenuIcon, Settings, BarChart3, Home, Table, Clock, CheckCircle, ChefHat, Package, XCircle, Crown, Building2, Image as ImageIcon, ChevronDown, ChevronUp, Check, Truck, Phone, Mail, Star } from 'lucide-react'
 import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
 import apiClient from '../services/api'
 import toast from 'react-hot-toast'
@@ -22,10 +22,11 @@ export const AdminDashboard = () => {
     menuItems: 0,
   })
   const [orders, setOrders] = useState([])
-  const [tables, setTables] = useState([])
+  const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedOrder, setExpandedOrder] = useState(null)
   const [updatingOrder, setUpdatingOrder] = useState(null)
+  const [customerSearch, setCustomerSearch] = useState('')
   const rateLimitUntilRef = useRef(0)
 
   // Fetch dashboard data
@@ -75,18 +76,10 @@ export const AdminDashboard = () => {
         })
       }
 
-      // Fetch occupied tables
-      const tablesRes = await apiClient.get('/admin/tables/occupied')
-      if (tablesRes.data.success) {
-        // Filter tables by restaurant_id
-        const filteredTables = tablesRes.data.data.filter(table => 
-          table.restaurant_id === user?.restaurantId
-        )
-        setTables(prev => {
-          const prevIds = prev.map(t => t.id).join(',')
-          const nextIds = filteredTables.map(t => t.id).join(',')
-          return prevIds === nextIds ? prev : filteredTables
-        })
+      // Fetch customers for this restaurant
+      const customersRes = await apiClient.get('/admin/users/customers')
+      if (customersRes.data.success) {
+        setCustomers(customersRes.data.data || [])
       }
     } catch (error) {
       if (error?.response?.status === 429) {
@@ -422,7 +415,7 @@ export const AdminDashboard = () => {
             </div>
           </motion.div>
 
-          {/* Occupied Tables */}
+          {/* Customers Panel */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -430,53 +423,93 @@ export const AdminDashboard = () => {
             className="bg-white rounded-xl shadow-sm overflow-hidden"
           >
             <div className="p-6 border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">Occupied Tables</h2>
-                <button 
-                  onClick={() => navigate('/admin/tables')}
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Customers</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">{customers.length} registered</p>
+                </div>
+                <button
+                  onClick={() => navigate('/admin/users')}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap"
                 >
                   View All
                 </button>
+              </div>
+              {/* Search */}
+              <div className="relative mt-3">
+                <input
+                  type="text"
+                  placeholder="Search name, email, phone..."
+                  value={customerSearch}
+                  onChange={e => setCustomerSearch(e.target.value)}
+                  className="w-full pl-3 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400"
+                />
               </div>
             </div>
             <div className="divide-y divide-gray-100 h-80 max-h-96 overflow-y-auto">
               {loading ? (
                 <div className="p-12 text-center text-gray-500">Loading...</div>
-              ) : tables.length === 0 ? (
+              ) : customers.length === 0 ? (
                 <div className="p-12 text-center text-gray-500">
                   <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-                    <Table size={24} className="text-gray-400" />
+                    <Users size={24} className="text-gray-400" />
                   </div>
-                  <p className="text-lg font-medium">No occupied tables</p>
-                  <p className="text-sm text-gray-400 mt-1">Occupied tables will appear here</p>
+                  <p className="text-lg font-medium">No customers yet</p>
+                  <p className="text-sm text-gray-400 mt-1">Customers who register will appear here</p>
                 </div>
               ) : (
-                tables.map((table) => (
-                  <div key={table.id} className="p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-gray-900">Table {table.table_number}</span>
-                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
-                            Occupied
-                          </span>
+                customers
+                  .filter(c => {
+                    if (!customerSearch) return true
+                    const q = customerSearch.toLowerCase()
+                    return (
+                      c.name?.toLowerCase().includes(q) ||
+                      c.email?.toLowerCase().includes(q) ||
+                      c.phone?.includes(q)
+                    )
+                  })
+                  .map((customer) => (
+                    <div key={customer.id} className="p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start gap-3">
+                        {/* Avatar */}
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                          {(customer.name || customer.email || '?')[0].toUpperCase()}
                         </div>
-                        <p className="text-sm text-gray-600">
-                          {table.user_name || 'Guest'} {table.user_phone && `• ${table.user_phone}`}
-                        </p>
-                        {table.order_id && (
-                          <p className="text-sm text-gray-500 mt-1">
-                            Order #{table.order_uuid?.slice(-6)} • {table.order_status}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm text-gray-900 truncate">
+                            {customer.name || 'No name'}
                           </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                          {customer.email && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <Mail size={11} className="text-gray-400 flex-shrink-0" />
+                              <p className="text-xs text-gray-500 truncate">{customer.email}</p>
+                            </div>
+                          )}
+                          {customer.phone && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <Phone size={11} className="text-gray-400 flex-shrink-0" />
+                              <p className="text-xs text-gray-500">{customer.phone}</p>
+                            </div>
+                          )}
+                        </div>
+                        {/* Stats */}
+                        <div className="text-right flex-shrink-0">
+                          <div className="flex items-center gap-1 justify-end">
+                            <Star size={11} className="text-amber-400" />
+                            <span className="text-xs font-semibold text-gray-700">{customer.total_orders || 0} orders</span>
+                          </div>
+                          {customer.total_spent > 0 && (
+                            <p className="text-xs text-gray-400 mt-0.5">₹{customer.total_spent}</p>
+                          )}
+                          {customer.last_order_at && (
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {new Date(customer.last_order_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  ))
               )}
             </div>
           </motion.div>
