@@ -121,6 +121,42 @@ export class AdminController {
   }
 
   /**
+   * Mark orders as billed (after payment received)
+   * PATCH /admin/orders/mark-billed
+   * Body: { orderIds: [1,2,3] }
+   */
+  static async markOrdersBilled(req, res) {
+    try {
+      const db = getDB();
+      const { orderIds } = req.body;
+      const tenantId = req.tenant?.restaurantId;
+      const userRestaurantId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userRestaurantId;
+
+      if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+        return error(res, 'orderIds array required', HTTP_STATUS.BAD_REQUEST);
+      }
+
+      const placeholders = orderIds.map(() => '?').join(',');
+      let query = `UPDATE orders SET is_billed = 1, updated_at = ? WHERE id IN (${placeholders})`;
+      let params = [new Date().toISOString(), ...orderIds];
+
+      if (restaurantId) {
+        query += ' AND restaurant_id = ?';
+        params.push(restaurantId);
+      }
+
+      db.prepare(query).run(...params);
+
+      logger.info('Orders marked as billed', { orderIds, by: req.user?.id });
+      return success(res, { billed: orderIds.length }, 'Orders marked as billed');
+    } catch (err) {
+      logger.error('Mark billed error', { error: err.message });
+      return error(res, 'Failed to mark orders as billed', HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
    * Get table bill — all orders for a table in current session
    * GET /admin/orders/table/:tableNumber
    */
@@ -128,33 +164,38 @@ export class AdminController {
     try {
       const db = getDB();
       const { tableNumber } = req.params;
+      const { userId } = req.query;
       const tenantId = req.tenant?.restaurantId;
-      const userId = req.user?.restaurant_id;
-      const restaurantId = tenantId || userId;
+      const userRestaurantId = req.user?.restaurant_id;
+      const restaurantId = tenantId || userRestaurantId;
 
-      // Get today's date for filtering
+      // Fetch unbilled orders for this table today
       const today = new Date().toISOString().split('T')[0];
-
-      // Get all non-cancelled orders for this table today
       let query = `
         SELECT 
           o.id, o.uuid, o.status, o.total_amount, o.created_at,
           o.table_number, o.session_id, o.special_instructions,
-          o.user_id, o.table_id,
+          o.user_id, o.table_id, o.is_billed,
           u.name as user_name, u.email as user_email
         FROM orders o
         LEFT JOIN users u ON o.user_id = u.id
         WHERE o.table_number = ?
           AND DATE(o.created_at) = ?
           AND o.status != 'cancelled'
+          AND (o.is_billed IS NULL OR o.is_billed = 0)
       `;
       let params = [tableNumber, today];
+
+      // Filter by userId if provided (for per-customer bill)
+      if (userId) {
+        query += ' AND o.user_id = ?';
+        params.push(userId);
+      }
 
       if (restaurantId) {
         query += ' AND o.restaurant_id = ?';
         params.push(restaurantId);
       }
-
       query += ' ORDER BY o.created_at ASC';
 
       const orders = db.prepare(query).all(...params);
@@ -163,26 +204,24 @@ export class AdminController {
       for (const order of orders) {
         order.items = db.prepare(`
           SELECT oi.id, oi.product_name, oi.product_price, oi.quantity,
-                 oi.subtotal, oi.status,
-                 p.image_url, p.emoji_icon
+                 oi.subtotal, oi.status
           FROM order_items oi
-          LEFT JOIN products p ON oi.product_id = p.id
           WHERE oi.order_id = ?
         `).all(order.id);
       }
 
-      // Calculate bill summary
+      // Calculate summary
       const allItems = [];
       let grandTotal = 0;
-
       for (const order of orders) {
         grandTotal += order.total_amount || 0;
         for (const item of order.items) {
-          // Merge same items
-          const existing = allItems.find(i => i.product_name === item.product_name && i.product_price === item.product_price);
+          const existing = allItems.find(i =>
+            i.product_name === item.product_name && i.product_price === item.product_price
+          );
           if (existing) {
             existing.quantity += item.quantity;
-            existing.subtotal += item.subtotal || (item.product_price * item.quantity);
+            existing.subtotal = (existing.subtotal || 0) + (item.subtotal || item.product_price * item.quantity);
           } else {
             allItems.push({ ...item });
           }
@@ -192,12 +231,7 @@ export class AdminController {
       return success(res, {
         tableNumber,
         orders,
-        summary: {
-          allItems,
-          grandTotal,
-          orderCount: orders.length,
-          activeOrders: orders.filter(o => !['served', 'completed'].includes(o.status)).length,
-        }
+        summary: { allItems, grandTotal, orderCount: orders.length }
       }, 'Table bill retrieved');
     } catch (err) {
       logger.error('Get table bill error', { error: err.message });

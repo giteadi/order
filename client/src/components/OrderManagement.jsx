@@ -5,12 +5,14 @@ import {
   Check, Truck, ChevronDown, ChevronUp, Receipt, Printer, X
 } from 'lucide-react'
 import { useNavigateWithParams } from '../hooks/useNavigateWithParams'
+import { useSelector } from 'react-redux'
 import apiClient from '../services/api'
 import toast from 'react-hot-toast'
-import printJS from 'print-js'
 
 export const OrderManagement = () => {
   const navigate = useNavigateWithParams()
+  const restaurant = useSelector(state => state.restaurant?.currentRestaurant)
+  const restaurantName = restaurant?.name || 'Restaurant'
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedOrder, setExpandedOrder] = useState(null)
@@ -48,27 +50,20 @@ export const OrderManagement = () => {
     }
   }
 
-  // Open bill — fetch all orders for this customer's session at this table
+  // Open bill — fetch orders for this specific user at this table today
   const openBill = async (order) => {
     setBillModal(order)
-    setBillOrders([]) // reset
+    setBillOrders([])
     try {
-      const res = await apiClient.get(`/admin/orders/table/${order.table_number}`)
+      const params = new URLSearchParams()
+      if (order.user_id) params.set('userId', order.user_id)
+      else if (order.session_id) params.set('sessionId', order.session_id)
+
+      const res = await apiClient.get(`/admin/orders/table/${order.table_number}?${params.toString()}`)
       if (res.data.success) {
         const allOrders = res.data.data?.orders || []
-        // Show orders from same user at this table today (non-cancelled)
-        const filtered = allOrders.filter(o =>
-          o.status !== 'cancelled' &&
-          (
-            // same user
-            (order.user_id && o.user_id === order.user_id) ||
-            // or same session
-            (order.session_id && o.session_id && o.session_id === order.session_id) ||
-            // fallback: same user_name if no user_id
-            (!order.user_id && o.user_name === order.user_name)
-          )
-        )
-        setBillOrders(filtered.length > 0 ? filtered : [order])
+        // No fallback — empty means all orders already billed
+        setBillOrders(allOrders)
       }
     } catch (e) {
       setBillOrders([order])
@@ -77,44 +72,94 @@ export const OrderManagement = () => {
 
   const closeBill = () => { setBillModal(null); setBillOrders([]) }
 
-  // Print bill using print-js raw-html — no hidden div needed
+  // Mark all bill orders as paid/billed
+  const markAsPaid = async () => {
+    const orderIds = billOrders.map(o => o.id)
+    try {
+      await apiClient.patch('/admin/orders/mark-billed', { orderIds })
+      toast.success('Bill marked as paid ✅')
+      closeBill()
+      fetchOrders()
+    } catch (e) {
+      toast.error('Failed to mark as paid')
+    }
+  }
+
+  // Print bill — thermal receipt style using window.open()
   const printBill = () => {
     const itemsHTML = billAllItems.map(item => `
       <tr>
-        <td style="padding:6px 0;border-bottom:1px solid #f0f0f0">${item.product_name}</td>
-        <td style="padding:6px 0;border-bottom:1px solid #f0f0f0;text-align:center;color:#555">${item.quantity}</td>
-        <td style="padding:6px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600">₹${(item.subtotal || (item.product_price || item.price_at_time || 0) * item.quantity).toFixed(0)}</td>
+        <td style="padding:5px 0;border-bottom:1px solid #eee;font-size:12px">${item.product_name}</td>
+        <td style="padding:5px 0;border-bottom:1px solid #eee;text-align:center;color:#555;font-size:12px">${item.quantity}</td>
+        <td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right;font-weight:600;font-size:12px">&#8377;${(item.subtotal || (item.product_price || item.price_at_time || 0) * item.quantity).toFixed(0)}</td>
       </tr>
     `).join('')
 
-    const html = `
-      <div style="font-family:Arial,sans-serif;max-width:320px;margin:0 auto;padding:16px">
-        <h2 style="margin:0 0 4px;font-size:22px">Table ${billModal.table_number}</h2>
-        <p style="color:#555;font-size:13px;margin:0 0 4px">
-          ${billModal.user_name || 'Guest'} &bull;
-          ${new Date(billModal.created_at).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'})}
-        </p>
-        <p style="color:#aaa;font-size:11px;margin:0 0 16px">${billOrders.length} order${billOrders.length > 1 ? 's' : ''}</p>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
-          <thead>
-            <tr style="border-bottom:1px solid #ddd">
-              <th style="text-align:left;padding:4px 0;font-size:11px;color:#888;text-transform:uppercase">Item</th>
-              <th style="text-align:center;padding:4px 0;font-size:11px;color:#888;text-transform:uppercase">Qty</th>
-              <th style="text-align:right;padding:4px 0;font-size:11px;color:#888;text-transform:uppercase">Amount</th>
-            </tr>
-          </thead>
-          <tbody>${itemsHTML}</tbody>
-        </table>
-        <hr style="border:none;border-top:2px solid #111;margin:8px 0"/>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px">
-          <span style="font-size:16px;font-weight:bold">Grand Total</span>
-          <span style="font-size:22px;font-weight:bold">₹${billTotal.toFixed(0)}</span>
-        </div>
-        <p style="text-align:center;font-size:11px;color:#aaa;margin-top:12px">Thank you for dining with us!</p>
-      </div>
-    `
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Bill - Table ${billModal.table_number}</title>
+  <style>
+    @page { size: 80mm auto; margin: 0; }
+    html, body { width: 80mm; height: auto; margin: 0; padding: 0; overflow: hidden; }
+    body { font-family: 'Courier New', monospace; width: 72mm; padding: 4mm; font-size: 12px; }
+    * { box-sizing: border-box; }
+    .restaurant-name { text-align: center; font-size: 15px; font-weight: bold; letter-spacing: 1px; margin-bottom: 2px; }
+    .divider { border: none; border-top: 1px dashed #999; margin: 5px 0; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 10px; color: #888; text-transform: uppercase; padding-bottom: 3px; border-bottom: 1px solid #ccc; }
+    th:nth-child(2) { text-align: center; }
+    th:nth-child(3) { text-align: right; }
+    td { padding: 4px 0; border-bottom: 1px solid #eee; font-size: 12px; }
+    td:nth-child(2) { text-align: center; color: #555; }
+    td:nth-child(3) { text-align: right; font-weight: 600; }
+    .total-row { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-top: 5px; border-top: 2px solid #111; }
+    .total-label { font-size: 13px; font-weight: bold; }
+    .total-amount { font-size: 17px; font-weight: bold; }
+    .footer { text-align: center; font-size: 10px; color: #aaa; margin-top: 8px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="restaurant-name">&#127374; ${restaurantName}</div>
+  <hr class="divider"/>
+  <div style="margin-bottom:5px">
+    <div style="font-size:13px;font-weight:bold">Table ${billModal.table_number}</div>
+    <div style="font-size:10px;color:#555;margin-top:2px">
+      ${billModal.user_name || 'Guest'} &bull;
+      ${new Date(billModal.created_at).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'})} &bull;
+      ${new Date(billModal.created_at).toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit'})}
+    </div>
+    <div style="font-size:10px;color:#aaa;margin-top:1px">${billOrders.length} order${billOrders.length > 1 ? 's' : ''}</div>
+  </div>
+  <hr class="divider"/>
+  <table>
+    <thead><tr><th>Item</th><th>Qty</th><th>Amt</th></tr></thead>
+    <tbody>${itemsHTML}</tbody>
+  </table>
+  <div class="total-row">
+    <span class="total-label">Grand Total</span>
+    <span class="total-amount">&#8377;${billTotal.toFixed(0)}</span>
+  </div>
+  <div class="footer">
+    - - - - - - - - - - - - - - -<br/>
+    Thank you for dining with us!<br/>
+    Please visit again &#128591;
+  </div>
+</body>
+</html>`
 
-    printJS({ printable: html, type: 'raw-html' })
+    const printWindow = window.open('', '_blank', 'width=350,height=500')
+    if (!printWindow) {
+      toast.error('Popup blocked. Please allow popups for this site.')
+      return
+    }
+    printWindow.document.write(html)
+    printWindow.document.close()
+    printWindow.focus()
+    setTimeout(() => {
+      printWindow.print()
+      printWindow.close()
+    }, 500)
   }
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
@@ -467,13 +512,44 @@ export const OrderManagement = () => {
                   </table>
                 </div>
 
-                {/* Total */}
+                {/* Total + Actions */}
                 <div className="px-5 pb-5 border-t-2 border-gray-900">
-                  <div className="flex justify-between items-center pt-4">
+                  <div className="flex justify-between items-center pt-4 mb-4">
                     <span className="text-lg font-bold text-gray-900">Grand Total</span>
                     <span className="text-2xl font-bold text-gray-900">₹{billTotal.toFixed(0)}</span>
                   </div>
-                  <p className="text-xs text-gray-400 mt-1 text-center">Thank you for dining with us!</p>
+                  <div className="flex gap-3">
+                    {billOrders.length > 0 ? (
+                      <>
+                        <button
+                          onClick={markAsPaid}
+                          className="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+                        >
+                          ✅ Mark as Paid
+                        </button>
+                        <button
+                          onClick={printBill}
+                          className="flex-1 py-3 bg-gray-900 hover:bg-gray-700 text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Printer size={16} /> Print Bill
+                        </button>
+                      </>
+                    ) : (
+                      <div className="w-full space-y-2">
+                        <div className="py-3 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm text-center font-medium">
+                          ✅ Bill already cleared
+                        </div>
+                        <button
+                          onClick={printBill}
+                          className="w-full py-3 bg-gray-900 hover:bg-gray-700 text-white rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Printer size={16} /> Print Receipt
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2 text-center">Marking as paid will clear this bill</p>
+                  <p className="text-xs text-gray-400 mt-2 text-center">Marking as paid will clear this bill</p>
                 </div>
               </div>
             </motion.div>
